@@ -48,7 +48,8 @@
     color: var(--text-secondary);
 }
 
-.campaign-member-list {
+.campaign-member-list,
+.roll-log-list {
     display: flex;
     flex: 1 1 100%;
     flex-direction: column;
@@ -69,6 +70,43 @@
 .campaign-member-name {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.roll-log-list h3 {
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
+.roll-log-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: start;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+}
+
+.roll-log-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.roll-log-meta,
+.roll-log-tiles {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.roll-log-total {
+    font-weight: 700;
     white-space: nowrap;
 }
 

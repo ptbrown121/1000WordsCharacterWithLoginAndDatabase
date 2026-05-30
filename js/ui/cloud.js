@@ -90,6 +90,46 @@ function renderCampaignMembers() {
     });
 }
 
+function renderRollLogs() {
+    if (!els.rollLogList) return;
+    els.rollLogList.innerHTML = '';
+    if (!dataManager.isSignedIn || dataManager.rollLogs.length === 0) {
+        return;
+    }
+
+    const heading = document.createElement('h3');
+    heading.textContent = 'Recent campaign rolls';
+    els.rollLogList.appendChild(heading);
+
+    dataManager.rollLogs.forEach(log => {
+        const row = document.createElement('div');
+        row.className = 'roll-log-row';
+
+        const main = document.createElement('div');
+        main.className = 'roll-log-main';
+
+        const name = document.createElement('strong');
+        name.textContent = log.characterName || 'Unknown character';
+
+        const meta = document.createElement('span');
+        meta.className = 'roll-log-meta';
+        const when = log.rolledAt ? new Date(log.rolledAt).toLocaleString() : '';
+        meta.textContent = `${log.mode || 'roll'} · ${log.callColors?.join(', ') || 'No colors'}${log.haywire ? ' · Haywire' : ''}${when ? ` · ${when}` : ''}`;
+
+        const tiles = document.createElement('span');
+        tiles.className = 'roll-log-tiles';
+        tiles.textContent = `Called: ${(log.calledTiles || []).map(tile => tile.name).filter(Boolean).join(', ') || 'No tiles'}`;
+
+        const total = document.createElement('span');
+        total.className = 'roll-log-total';
+        total.textContent = `Total ${log.total}`;
+
+        main.append(name, meta, tiles);
+        row.append(main, total);
+        els.rollLogList.appendChild(row);
+    });
+}
+
 export function applyReadOnlyMode() {
     if (!dataManager) return;
     const readOnly = !dataManager.canEditActiveCharacter();
@@ -151,6 +191,7 @@ export function renderCloudControls() {
 
     renderCampaignOptions();
     renderCampaignMembers();
+    renderRollLogs();
     applyReadOnlyMode();
 }
 

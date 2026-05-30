@@ -430,9 +430,14 @@ export function renderResolutionDetails() {
 
     const result = uiState.lastRollResult;
     const summary = calculateResolutionSummary(result);
-    els.resultNotices.innerHTML = result.isHaywire
-        ? '<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1.</div>'
-        : '';
+    const notices = [];
+    if (result.isTestRoll) {
+        notices.push('<div class="result-notice">TEST ROLL: this roll was not saved to campaign history.</div>');
+    }
+    if (result.isHaywire) {
+        notices.push('<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1.</div>');
+    }
+    els.resultNotices.innerHTML = notices.join('');
 
     els.resultTotal.innerText = summary.headline;
     els.resultDetails.innerHTML = `

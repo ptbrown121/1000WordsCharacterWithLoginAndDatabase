@@ -113,6 +113,50 @@ function getSelectedCallColors() {
     return [...new Set((uiState.callColors || []).filter(Boolean))];
 }
 
+function isTestRoll() {
+    return Boolean(els.testRollToggle?.checked);
+}
+
+function buildRollLog(result, compiledPool, mode, callColors) {
+    const allTiles = dataManager.state.tiles || [];
+    const tileById = new Map(allTiles.map(tile => [tile.id, tile]));
+    const calledTileIds = [...new Set(compiledPool.calledTileIds || [])];
+    return {
+        isTest: isTestRoll(),
+        mode,
+        callColors,
+        calledTileIds,
+        calledTiles: calledTileIds.map(id => {
+            const tile = tileById.get(id);
+            return {
+                id,
+                name: tile?.name || 'Unknown tile',
+                type: tile?.type || '',
+                colors: tile?.colors || []
+            };
+        }),
+        burnTileIds: (uiState.burnTiles || []).map(tile => tile.id).filter(Boolean),
+        hitchTileIds: (uiState.hitchCallTiles || []).map(tile => tile.id).filter(Boolean),
+        total: result.total || 0,
+        adds: result.adds || 0,
+        flatBonus: result.flatBonus || 0,
+        haywire: Boolean(result.isHaywire)
+    };
+}
+
+function finalizeRoll(result, compiledPool, mode, callColors) {
+    const testRoll = isTestRoll();
+    result.isTestRoll = testRoll;
+    showResults(result);
+
+    if (!testRoll) {
+        dataManager.recordRollLog(buildRollLog(result, compiledPool, mode, callColors));
+    }
+
+    applyAberrationForShadowUse(compiledPool.shadowUse);
+    processBurns();
+}
+
 function syncLegacyCallColorSelects(colors) {
     els.callColor1.value = colors[0] || '';
     els.callColor2.value = colors[1] || '';
@@ -550,9 +594,7 @@ export function executeVirtualRoll() {
     result.flatBonus = res.flatBonus || 0;
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
-    showResults(result);
-    applyAberrationForShadowUse(res.shadowUse);
-    processBurns();
+    finalizeRoll(result, res, 'virtual', colors);
 }
 
 export function executeManualCalculate() {
@@ -597,9 +639,7 @@ export function executeManualCalculate() {
     result.flatBonus = res.flatBonus || 0;
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
-    showResults(result);
-    applyAberrationForShadowUse(res.shadowUse);
-    processBurns();
+    finalizeRoll(result, res, 'manual', colors);
 }
 
 export function processBurns() {

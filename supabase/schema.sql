@@ -46,9 +46,33 @@ create table if not exists public.characters (
     archived_at timestamptz
 );
 
+create table if not exists public.roll_logs (
+    id uuid primary key default gen_random_uuid(),
+    character_id uuid not null references public.characters(id) on delete cascade,
+    owner_id uuid not null references public.profiles(id) on delete cascade,
+    campaign_id uuid references public.campaigns(id) on delete set null,
+    character_name text not null default 'Hero Name',
+    roll_mode text not null check (roll_mode in ('virtual', 'manual')),
+    call_colors text[] not null default '{}',
+    called_tile_ids text[] not null default '{}',
+    called_tiles jsonb not null default '[]'::jsonb,
+    burn_tile_ids text[] not null default '{}',
+    hitch_tile_ids text[] not null default '{}',
+    total integer not null default 0,
+    adds integer not null default 0,
+    flat_bonus integer not null default 0,
+    haywire boolean not null default false,
+    is_test boolean not null default false,
+    rolled_at timestamptz not null default now(),
+    created_at timestamptz not null default now()
+);
+
 create index if not exists characters_owner_idx on public.characters(owner_id);
 create index if not exists characters_campaign_idx on public.characters(campaign_id);
 create index if not exists campaign_memberships_user_idx on public.campaign_memberships(user_id);
+create index if not exists roll_logs_character_idx on public.roll_logs(character_id);
+create index if not exists roll_logs_campaign_idx on public.roll_logs(campaign_id, rolled_at desc);
+create index if not exists roll_logs_owner_idx on public.roll_logs(owner_id, rolled_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -160,6 +184,7 @@ alter table public.campaigns enable row level security;
 alter table public.campaign_memberships enable row level security;
 alter table public.campaign_creators enable row level security;
 alter table public.characters enable row level security;
+alter table public.roll_logs enable row level security;
 
 drop policy if exists "profiles_select_self_or_campaign_peers" on public.profiles;
 create policy "profiles_select_self_or_campaign_peers"
@@ -280,6 +305,29 @@ create policy "characters_delete_owner_only"
 on public.characters for delete
 to authenticated
 using (owner_id = auth.uid());
+
+drop policy if exists "roll_logs_select_owner_or_campaign_gm" on public.roll_logs;
+create policy "roll_logs_select_owner_or_campaign_gm"
+on public.roll_logs for select
+to authenticated
+using (
+    owner_id = auth.uid()
+    or (campaign_id is not null and public.is_campaign_gm(campaign_id))
+);
+
+drop policy if exists "roll_logs_insert_owner_only" on public.roll_logs;
+create policy "roll_logs_insert_owner_only"
+on public.roll_logs for insert
+to authenticated
+with check (
+    owner_id = auth.uid()
+    and exists (
+        select 1
+        from public.characters
+        where characters.id = roll_logs.character_id
+          and characters.owner_id = auth.uid()
+    )
+);
 
 grant execute on function public.join_campaign_by_code(text) to authenticated;
 grant execute on function public.can_create_campaign() to authenticated;

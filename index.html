@@ -53,6 +53,7 @@
                 <select id="campaign-manage-select"></select>
             </label>
             <div id="campaign-member-list" class="campaign-member-list"></div>
+            <div id="roll-log-list" class="roll-log-list"></div>
         </div>
         <div id="readonly-banner" class="readonly-banner" hidden>
             Viewing a campaign character as GM. Edits are disabled in this version.
@@ -361,6 +362,9 @@
                         <label><input type="radio" name="roll-mode" value="virtual" checked> Virtual Roll</label>
                         <label><input type="radio" name="roll-mode" value="manual"> Manual Input</label>
                     </div>
+                    <label class="filter-toggle" title="Practice/testing roll: behaves normally, but does not write a campaign roll log.">
+                        <input type="checkbox" id="test-roll-toggle"> Test roll
+                    </label>
 
                     <!-- Virtual Mode -->
                     <div id="virtual-roll-section">
@@ -1274,6 +1278,7 @@
                     <li>Choose <strong>Virtual Roll</strong> to let the app roll for you, or <strong>Manual Input</strong> to enter physical dice results.</li>
                 </ol>
                 <p>The <strong>Auto-Filter</strong> checkbox (on by default) will hide tiles that don't match the called colors.</p>
+                <p>Signed-in cloud rolls are tracked for the GM as one compact database row per normal roll, including the call colors and called tile IDs/names. Turn on <strong>Test roll</strong> before rolling for practice, setup checks, or AI/browser testing. Test rolls behave like normal rolls locally, including resource spending and burns, but do not write a campaign roll log.</p>
 
                 <hr style="border-color: var(--glass-border); margin: 1rem 0;">
 

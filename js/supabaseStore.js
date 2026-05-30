@@ -231,4 +231,33 @@ export class SupabaseCharacterStore {
             .eq('campaign_id', campaignId)
             .eq('user_id', userId));
     }
+
+    async recordRollLog(log) {
+        assertNoError(await this.client
+            .from('roll_logs')
+            .insert(log));
+    }
+
+    async listRecentRollLogs(campaignId, limit = 50) {
+        if (!campaignId) return [];
+        const rows = assertNoError(await this.client
+            .from('roll_logs')
+            .select('id, character_name, roll_mode, call_colors, called_tiles, total, adds, haywire, rolled_at')
+            .eq('campaign_id', campaignId)
+            .eq('is_test', false)
+            .order('rolled_at', { ascending: false })
+            .limit(limit));
+
+        return rows.map(row => ({
+            id: row.id,
+            characterName: row.character_name,
+            mode: row.roll_mode,
+            callColors: row.call_colors || [],
+            calledTiles: row.called_tiles || [],
+            total: row.total,
+            adds: row.adds,
+            haywire: row.haywire,
+            rolledAt: row.rolled_at
+        }));
+    }
 }

@@ -382,6 +382,7 @@ export class DataManager {
         this.cloudRoster = [];
         this.campaigns = [];
         this.campaignMembers = [];
+        this.rollLogs = [];
         this.canCreateCampaign = false;
         this.cloudStatus = cloudStore ? 'signed-out' : 'local-only';
         this.cloudMessage = cloudStore ? 'Cloud save is available after sign-in.' : 'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud save.';
@@ -755,6 +756,7 @@ export class DataManager {
         this.cloudRoster = [];
         this.campaigns = [];
         this.campaignMembers = [];
+        this.rollLogs = [];
         this.canCreateCampaign = false;
         this.activeStorage = 'local';
         this.roster = this.localRoster;
@@ -812,9 +814,11 @@ export class DataManager {
     async loadCampaignMembers(campaignId) {
         if (!this.cloudStore || !campaignId) {
             this.campaignMembers = [];
+            this.rollLogs = [];
             return [];
         }
         this.campaignMembers = await this.cloudStore.listCampaignMembers(campaignId);
+        this.rollLogs = await this.cloudStore.listRecentRollLogs(campaignId);
         return this.campaignMembers;
     }
 
@@ -824,5 +828,35 @@ export class DataManager {
         await this.loadCampaignMembers(campaignId);
         await this.refreshCloudRoster({ keepActive: true });
         this.setCloudStatus('saved', 'Campaign role updated.');
+    }
+
+    async recordRollLog(log) {
+        if (!this.cloudStore || this.activeStorage !== 'cloud' || !this.canEditActiveCharacter()) return;
+        const activeEntry = this.activeRosterEntry;
+        if (!activeEntry?.id || log?.isTest) return;
+
+        try {
+            await this.cloudStore.recordRollLog({
+                character_id: activeEntry.id,
+                owner_id: this.cloudUser.id,
+                campaign_id: activeEntry.campaignId || null,
+                character_name: this.state.name || activeEntry.name || 'Hero Name',
+                roll_mode: log.mode,
+                call_colors: log.callColors || [],
+                called_tile_ids: log.calledTileIds || [],
+                called_tiles: log.calledTiles || [],
+                burn_tile_ids: log.burnTileIds || [],
+                hitch_tile_ids: log.hitchTileIds || [],
+                total: log.total || 0,
+                adds: log.adds || 0,
+                flat_bonus: log.flatBonus || 0,
+                haywire: Boolean(log.haywire),
+                is_test: false,
+                rolled_at: new Date().toISOString()
+            });
+        } catch (e) {
+            console.error('Failed to record roll log', e);
+            this.setCloudStatus('error', e.message || 'Roll tracking failed.');
+        }
     }
 }

@@ -105,6 +105,7 @@ export const els = {
     burnTilesZone: document.getElementById('burn-tiles-container'),
 
     radioModes: document.querySelectorAll('input[name="roll-mode"]'),
+    testRollToggle: document.getElementById('test-roll-toggle'),
     virtualSection: document.getElementById('virtual-roll-section'),
     manualSection: document.getElementById('manual-roll-section'),
     btnRoll: document.getElementById('btn-roll'),
@@ -167,5 +168,6 @@ export const els = {
     characterCampaignSelect: document.getElementById('character-campaign-select'),
     campaignManageSelect: document.getElementById('campaign-manage-select'),
     campaignMemberList: document.getElementById('campaign-member-list'),
+    rollLogList: document.getElementById('roll-log-list'),
     readonlyBanner: document.getElementById('readonly-banner')
 };

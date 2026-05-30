@@ -35,6 +35,8 @@ A zero-dependency, mobile-first web application designed to digitally manage cha
 - **Local-first:** Signed-out users still auto-save their roster to browser `localStorage`.
 - **Cloud saves:** Optional Supabase Auth + Postgres support lets signed-in users sync characters across devices.
 - **Campaign rooms:** Players can join campaigns; GMs can view everyone’s campaign characters in read-only mode.
+- **Roll tracking:** Non-test cloud rolls write one compact roll log row so GMs can review which tiles were called.
+- **Test rolls:** Mark practice/testing rolls so they behave normally locally but do not write campaign roll logs.
 - **Import/Export:** Export your character to a `.json` file to back them up or transfer them between devices.
 
 ## Getting Started
@@ -66,6 +68,10 @@ Cloud saves are optional. Without environment variables, the app remains a brows
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 6. Deploy with Vercel using `npm run build`.
+
+### Roll tracking and free-tier usage
+
+Each normal cloud roll creates one `roll_logs` row and appears in the GM campaign panel’s recent roll history. Test rolls still behave like normal rolls locally, including resource spending and burns, but create no database row. Around 200 normal rolls in a session means around 200 insert requests and a small amount of JSON storage. Supabase currently lists unlimited API requests on the Free plan, so this should not be a request-count problem; the practical limits to watch are database size and egress. Because each log stores only character/roll metadata and called tile IDs/names, normal table play should stay well below the 500 MB Free database limit for a long time.
 
 ## Technical Architecture
 
