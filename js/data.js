@@ -382,6 +382,7 @@ export class DataManager {
         this.cloudRoster = [];
         this.campaigns = [];
         this.campaignMembers = [];
+        this.canCreateCampaign = false;
         this.cloudStatus = cloudStore ? 'signed-out' : 'local-only';
         this.cloudMessage = cloudStore ? 'Cloud save is available after sign-in.' : 'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud save.';
         this.activeStorage = 'local';
@@ -723,9 +724,10 @@ export class DataManager {
 
     async refreshCloudRoster({ activeCharId = null, keepActive = false } = {}) {
         if (!this.cloudStore || !this.isSignedIn) return;
-        const { roster, campaigns } = await this.cloudStore.listRoster();
+        const { roster, campaigns, canCreateCampaign } = await this.cloudStore.listRoster();
         this.cloudRoster = roster;
         this.campaigns = campaigns;
+        this.canCreateCampaign = Boolean(canCreateCampaign);
 
         if (this.activeStorage !== 'cloud' && !activeCharId) return;
 
@@ -753,6 +755,7 @@ export class DataManager {
         this.cloudRoster = [];
         this.campaigns = [];
         this.campaignMembers = [];
+        this.canCreateCampaign = false;
         this.activeStorage = 'local';
         this.roster = this.localRoster;
         this.activeCharId = this.localActiveCharId;
@@ -778,6 +781,10 @@ export class DataManager {
 
     async createCampaign(name) {
         if (!this.cloudStore || !this.isSignedIn) return null;
+        if (!this.canCreateCampaign) {
+            this.setCloudStatus('error', 'Your account is not allowed to create campaigns.');
+            return null;
+        }
         const campaign = await this.cloudStore.createCampaign(name);
         await this.refreshCloudRoster({ keepActive: true });
         this.setCloudStatus('saved', `Campaign "${campaign.name}" created.`);

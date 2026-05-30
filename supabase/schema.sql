@@ -29,6 +29,12 @@ create table if not exists public.campaign_memberships (
     primary key (campaign_id, user_id)
 );
 
+create table if not exists public.campaign_creators (
+    user_id uuid primary key references public.profiles(id) on delete cascade,
+    granted_by uuid references public.profiles(id) on delete set null,
+    created_at timestamptz not null default now()
+);
+
 create table if not exists public.characters (
     id uuid primary key default gen_random_uuid(),
     owner_id uuid not null references public.profiles(id) on delete cascade,
@@ -103,6 +109,19 @@ as $$
     );
 $$;
 
+create or replace function public.can_create_campaign()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+    select exists (
+        select 1
+        from public.campaign_creators
+        where user_id = auth.uid()
+    );
+$$;
+
 create or replace function public.join_campaign_by_code(invite_code_input text)
 returns public.campaign_memberships
 language plpgsql
@@ -139,6 +158,7 @@ $$;
 alter table public.profiles enable row level security;
 alter table public.campaigns enable row level security;
 alter table public.campaign_memberships enable row level security;
+alter table public.campaign_creators enable row level security;
 alter table public.characters enable row level security;
 
 drop policy if exists "profiles_select_self_or_campaign_peers" on public.profiles;
@@ -180,7 +200,7 @@ drop policy if exists "campaigns_insert_owner" on public.campaigns;
 create policy "campaigns_insert_owner"
 on public.campaigns for insert
 to authenticated
-with check (owner_id = auth.uid());
+with check (owner_id = auth.uid() and public.can_create_campaign());
 
 drop policy if exists "campaigns_update_gms" on public.campaigns;
 create policy "campaigns_update_gms"
@@ -224,6 +244,12 @@ on public.campaign_memberships for delete
 to authenticated
 using (public.is_campaign_gm(campaign_id));
 
+drop policy if exists "campaign_creators_select_self" on public.campaign_creators;
+create policy "campaign_creators_select_self"
+on public.campaign_creators for select
+to authenticated
+using (user_id = auth.uid());
+
 drop policy if exists "characters_select_owner_or_campaign_gm" on public.characters;
 create policy "characters_select_owner_or_campaign_gm"
 on public.characters for select
@@ -256,3 +282,12 @@ to authenticated
 using (owner_id = auth.uid());
 
 grant execute on function public.join_campaign_by_code(text) to authenticated;
+grant execute on function public.can_create_campaign() to authenticated;
+
+-- To allow a specific user to create campaigns, run this manually in the
+-- Supabase SQL editor after that user has signed in at least once:
+--
+-- insert into public.campaign_creators (user_id)
+-- select id from public.profiles
+-- where email = 'your-gm@example.com'
+-- on conflict (user_id) do nothing;

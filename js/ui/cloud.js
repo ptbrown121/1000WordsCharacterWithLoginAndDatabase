@@ -146,6 +146,8 @@ export function renderCloudControls() {
     if (els.cloudActions) els.cloudActions.hidden = !dataManager.isSignedIn;
     if (els.campaignPanel) els.campaignPanel.hidden = !dataManager.isSignedIn;
     if (els.btnUploadLocal) els.btnUploadLocal.hidden = !dataManager.isSignedIn || !dataManager.hasLocalCharacters;
+    if (els.campaignNameInput) els.campaignNameInput.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;
+    if (els.btnCreateCampaign) els.btnCreateCampaign.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;
 
     renderCampaignOptions();
     renderCampaignMembers();

@@ -36,6 +36,13 @@ export class SupabaseCharacterStore {
     async listRoster() {
         await this.ensureProfile();
 
+        let canCreateCampaign = false;
+        try {
+            canCreateCampaign = Boolean(assertNoError(await this.client.rpc('can_create_campaign')));
+        } catch (error) {
+            console.warn('Could not load campaign creation permission', error);
+        }
+
         const memberships = assertNoError(await this.client
             .from('campaign_memberships')
             .select('campaign_id, role, campaigns(id, name, invite_code)')
@@ -98,7 +105,7 @@ export class SupabaseCharacterStore {
             campaignName: nameMap.get(row.campaign_id) || ''
         }));
 
-        return { roster: [...ownedRoster, ...gmRoster], campaigns };
+        return { roster: [...ownedRoster, ...gmRoster], campaigns, canCreateCampaign };
     }
 
     async loadCharacter(id) {
@@ -156,6 +163,10 @@ export class SupabaseCharacterStore {
     }
 
     async createCampaign(name) {
+        if (!await this.canCreateCampaign()) {
+            throw new Error('Your account is not allowed to create campaigns.');
+        }
+
         const cleanName = String(name || '').trim() || 'New Campaign';
         const campaign = assertNoError(await this.client
             .from('campaigns')
@@ -181,6 +192,15 @@ export class SupabaseCharacterStore {
             inviteCode: campaign.invite_code,
             role: 'gm'
         };
+    }
+
+    async canCreateCampaign() {
+        try {
+            return Boolean(assertNoError(await this.client.rpc('can_create_campaign')));
+        } catch (error) {
+            console.warn('Could not confirm campaign creation permission', error);
+            return false;
+        }
     }
 
     async joinCampaign(inviteCode) {

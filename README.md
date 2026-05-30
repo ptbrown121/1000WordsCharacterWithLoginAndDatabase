@@ -51,10 +51,21 @@ Cloud saves are optional. Without environment variables, the app remains a brows
 1. Create a Supabase project.
 2. Run `supabase/schema.sql` in the Supabase SQL editor.
 3. In Supabase Auth, enable email magic links and configure production SMTP before inviting real players.
-4. Add these environment variables locally and in Vercel:
+4. Sign in once with the account that should be allowed to create campaigns, then grant that account campaign-creator access in the Supabase SQL editor:
+
+   ```sql
+   insert into public.campaign_creators (user_id)
+   select id from public.profiles
+   where email = 'your-gm@example.com'
+   on conflict (user_id) do nothing;
+   ```
+
+   Invite-code joiners default to regular player permissions and cannot create new campaigns unless you add them to `campaign_creators`.
+
+5. Add these environment variables locally and in Vercel:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-5. Deploy with Vercel using `npm run build`.
+6. Deploy with Vercel using `npm run build`.
 
 ## Technical Architecture
 
