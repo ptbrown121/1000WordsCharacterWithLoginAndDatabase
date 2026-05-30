@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Character & dice-pool manager for the 1000 WORDS TTRPG. Zero runtime dependencies, no build — open index.html to run. devDependencies are dev-only (Node test runner + ESLint).",
+  "description": "Character & dice-pool manager for the 1000 WORDS TTRPG. Static Vite app with optional Supabase cloud saves.",
   "scripts": {
-    "dev": "npx --yes serve .",
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
     "test": "node --test \"test/**/*.test.js\"",
     "lint": "eslint \"js/**/*.js\" \"test/**/*.js\""
   },
@@ -13,6 +15,10 @@
     "@eslint/js": "^9.39.4",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "vite": "^8.0.14"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2"
   }
 }

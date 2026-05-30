@@ -24,6 +24,41 @@
         </div>
     </div>
 
+    <section id="cloud-panel" class="cloud-panel glass-panel" aria-label="Cloud save and campaign controls">
+        <div class="cloud-row">
+            <div class="cloud-status">
+                <strong id="cloud-mode-label">Browser saves</strong>
+                <span id="cloud-status-text">Set up Supabase to enable login and campaign sync.</span>
+            </div>
+            <form id="auth-form" class="auth-form">
+                <input id="auth-email" type="email" autocomplete="email" placeholder="player@example.com" aria-label="Email address">
+                <button id="btn-auth-send-link" class="btn btn-outline" type="submit">Send magic link</button>
+                <button id="btn-auth-sign-out" class="btn btn-outline" type="button" hidden>Sign out</button>
+            </form>
+        </div>
+        <div id="cloud-actions" class="cloud-actions" hidden>
+            <button id="btn-upload-local" class="btn btn-outline" type="button">Upload local characters</button>
+            <input id="campaign-name-input" type="text" placeholder="Campaign name" aria-label="Campaign name">
+            <button id="btn-create-campaign" class="btn btn-outline" type="button">Create campaign</button>
+            <input id="campaign-code-input" type="text" placeholder="Invite code" aria-label="Campaign invite code">
+            <button id="btn-join-campaign" class="btn btn-outline" type="button">Join campaign</button>
+        </div>
+        <div id="campaign-panel" class="campaign-panel" hidden>
+            <label>
+                Character campaign
+                <select id="character-campaign-select"></select>
+            </label>
+            <label>
+                Manage members
+                <select id="campaign-manage-select"></select>
+            </label>
+            <div id="campaign-member-list" class="campaign-member-list"></div>
+        </div>
+        <div id="readonly-banner" class="readonly-banner" hidden>
+            Viewing a campaign character as GM. Edits are disabled in this version.
+        </div>
+    </section>
+
     <header class="glass-panel">
         <div class="header-top">
             <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; width: 100%; justify-content: space-between;">
@@ -1259,8 +1294,6 @@
         </div>
     </div>
 
-    <script src="js/data.js" type="module"></script>
-    <script src="js/pool.js" type="module"></script>
     <script src="js/app.js" type="module"></script>
 </body>
 </html>

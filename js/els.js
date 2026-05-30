@@ -148,5 +148,24 @@ export const els = {
     storageErrorBanner: document.getElementById('storage-error-banner'),
     storageErrorBannerDetail: document.getElementById('storage-error-banner-detail'),
     btnStorageErrorDismiss: document.getElementById('btn-storage-error-dismiss'),
-    btnStorageErrorExport: document.getElementById('btn-storage-error-export')
+    btnStorageErrorExport: document.getElementById('btn-storage-error-export'),
+
+    cloudPanel: document.getElementById('cloud-panel'),
+    cloudModeLabel: document.getElementById('cloud-mode-label'),
+    cloudStatusText: document.getElementById('cloud-status-text'),
+    authForm: document.getElementById('auth-form'),
+    authEmail: document.getElementById('auth-email'),
+    btnAuthSendLink: document.getElementById('btn-auth-send-link'),
+    btnAuthSignOut: document.getElementById('btn-auth-sign-out'),
+    cloudActions: document.getElementById('cloud-actions'),
+    btnUploadLocal: document.getElementById('btn-upload-local'),
+    campaignNameInput: document.getElementById('campaign-name-input'),
+    btnCreateCampaign: document.getElementById('btn-create-campaign'),
+    campaignCodeInput: document.getElementById('campaign-code-input'),
+    btnJoinCampaign: document.getElementById('btn-join-campaign'),
+    campaignPanel: document.getElementById('campaign-panel'),
+    characterCampaignSelect: document.getElementById('character-campaign-select'),
+    campaignManageSelect: document.getElementById('campaign-manage-select'),
+    campaignMemberList: document.getElementById('campaign-member-list'),
+    readonlyBanner: document.getElementById('readonly-banner')
 };

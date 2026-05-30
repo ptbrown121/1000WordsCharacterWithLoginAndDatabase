@@ -8,6 +8,7 @@ import { renderTempBadge, updateShadowMax } from './ui/vitals.js';
 import { renderJournal } from './ui/journal.js';
 import { renderRosterSelect } from './ui/roster.js';
 import { renderRulesReview } from './ui/rulesReview.js';
+import { renderCloudControls } from './ui/cloud.js';
 
 let dataManager;
 
@@ -54,4 +55,5 @@ export function renderAll() {
     renderJournal();
     renderRosterSelect();
     renderRulesReview();
+    renderCloudControls();
 }

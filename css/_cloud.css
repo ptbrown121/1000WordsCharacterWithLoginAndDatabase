@@ -1,0 +1,103 @@
+.cloud-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.cloud-row,
+.cloud-actions,
+.campaign-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.cloud-status {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.cloud-status span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.auth-form,
+.campaign-panel label {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.cloud-panel input,
+.cloud-panel select {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    min-height: 2.4rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.cloud-panel input::placeholder {
+    color: var(--text-secondary);
+}
+
+.campaign-member-list {
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.campaign-member-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 8rem;
+    gap: 0.5rem;
+    align-items: center;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+}
+
+.campaign-member-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.readonly-banner {
+    background: rgba(255, 193, 7, 0.14);
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    border-radius: 8px;
+    color: #ffe49a;
+    padding: 0.65rem 0.8rem;
+}
+
+.readonly-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+body.readonly-character main,
+body.readonly-character header {
+    opacity: 0.82;
+}
+
+@media (max-width: 640px) {
+    .auth-form,
+    .auth-form input,
+    .auth-form button,
+    .cloud-actions input,
+    .cloud-actions button,
+    .campaign-panel label,
+    .campaign-panel select {
+        width: 100%;
+    }
+}

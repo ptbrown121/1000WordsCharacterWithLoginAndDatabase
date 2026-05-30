@@ -120,6 +120,11 @@ function colorsFromBoxes(boxes = []) {
     return boxes.map(box => box.type === 'shadow' ? box.kind : box.color);
 }
 
+function dispatchAppEvent(name, detail) {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
 function normalizeTileMetadata(tile) {
     if (!tile || typeof tile !== 'object') return;
 
@@ -185,7 +190,7 @@ function inferShowOptionalStats(state) {
     ));
 }
 
-const DEFAULT_STATE = {
+export const DEFAULT_STATE = {
     name: 'Hero Name',
     xpEarned: 75,
     xpSpentAdjustment: 0,
@@ -222,6 +227,10 @@ const DEFAULT_STATE = {
     tiles: [], // { id, name, colors: [], dice: [], tags: '', xpCost: 0 }
     journal: [] // { id, title, content }
 };
+
+export function cloneDefaultState() {
+    return JSON.parse(JSON.stringify(DEFAULT_STATE));
+}
 
 export function normalizeStateForShadowRules(state) {
     if (!state || typeof state !== 'object') return state;
@@ -280,123 +289,267 @@ export function reorderTilesByVisibleMove(allTiles = [], visibleTileIds = [], dr
     });
 }
 
+function mergeStateWithDefaults(state) {
+    const merged = state && typeof state === 'object' ? state : {};
+    const hadShowOptionalStats = merged.showOptionalStats !== undefined;
+    for (const key of Object.keys(DEFAULT_STATE)) {
+        if (merged[key] === undefined) {
+            merged[key] = JSON.parse(JSON.stringify(DEFAULT_STATE[key]));
+        }
+    }
+    if (!hadShowOptionalStats) merged.showOptionalStats = inferShowOptionalStats(merged);
+    return normalizeStateForShadowRules(merged);
+}
+
+export function normalizeImportedState(newState) {
+    if (!newState || typeof newState !== 'object' || !newState.stats || !newState.tiles) return null;
+    return mergeStateWithDefaults(newState);
+}
+
+export class LocalCharacterStore {
+    constructor(storage = globalThis.localStorage) {
+        this.storage = storage;
+    }
+
+    loadRoster() {
+        const savedRoster = this.storage.getItem('1000words_roster');
+        const active = this.storage.getItem('1000words_active_char');
+        const legacySave = this.storage.getItem('1000words_state');
+
+        if (savedRoster) {
+            let roster = JSON.parse(savedRoster);
+            if (!Array.isArray(roster)) roster = [];
+            let activeCharId = active || (roster.length > 0 ? roster[0].id : null);
+            if (!roster.find(r => r.id === activeCharId) && roster.length > 0) {
+                activeCharId = roster[0].id;
+            }
+            return { roster, activeCharId };
+        }
+
+        if (legacySave) {
+            const charId = crypto.randomUUID();
+            let name = 'Hero Name';
+            try { name = JSON.parse(legacySave).name || 'Hero Name'; } catch {
+                // Keep the default name if the legacy blob is unreadable.
+            }
+            this.storage.setItem('1000words_state_' + charId, legacySave);
+            this.storage.removeItem('1000words_state');
+            const roster = [{ id: charId, name, source: 'local', isMine: true }];
+            this.saveRoster(roster, charId);
+            return { roster, activeCharId: charId };
+        }
+
+        const charId = crypto.randomUUID();
+        const roster = [{ id: charId, name: 'Hero Name', source: 'local', isMine: true }];
+        this.saveRoster(roster, charId);
+        return { roster, activeCharId: charId };
+    }
+
+    saveRoster(roster, activeCharId) {
+        const localRoster = roster.map(({ id, name }) => ({ id, name }));
+        this.storage.setItem('1000words_roster', JSON.stringify(localRoster));
+        if (activeCharId) this.storage.setItem('1000words_active_char', activeCharId);
+    }
+
+    loadState(charId) {
+        if (!charId) return cloneDefaultState();
+        const saved = this.storage.getItem('1000words_state_' + charId);
+        if (saved) {
+            try {
+                return mergeStateWithDefaults(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse saved state", e);
+            }
+        }
+        return cloneDefaultState();
+    }
+
+    saveState(charId, state) {
+        this.storage.setItem('1000words_state_' + charId, JSON.stringify(state));
+    }
+
+    deleteState(charId) {
+        this.storage.removeItem('1000words_state_' + charId);
+    }
+}
+
 export class DataManager {
-    constructor() {
+    constructor({ localStore = new LocalCharacterStore(), cloudStore = null, saveDebounceMs = 800 } = {}) {
+        this.localStore = localStore;
+        this.cloudStore = cloudStore;
+        this.saveDebounceMs = saveDebounceMs;
+        this.cloudUser = null;
+        this.cloudRoster = [];
+        this.campaigns = [];
+        this.campaignMembers = [];
+        this.cloudStatus = cloudStore ? 'signed-out' : 'local-only';
+        this.cloudMessage = cloudStore ? 'Cloud save is available after sign-in.' : 'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud save.';
+        this.activeStorage = 'local';
+        this.pendingSaveTimer = null;
+        this.localRoster = [];
+        this.localActiveCharId = null;
+
         this.loadRoster();
         this.state = this.loadState(this.activeCharId);
     }
 
     loadRoster() {
-        const savedRoster = localStorage.getItem('1000words_roster');
-        const active = localStorage.getItem('1000words_active_char');
-        
-        // Migration of old single-character save
-        const legacySave = localStorage.getItem('1000words_state');
-        
-        if (savedRoster) {
-            this.roster = JSON.parse(savedRoster);
-            this.activeCharId = active || (this.roster.length > 0 ? this.roster[0].id : null);
-            
-            // If legacy save exists and roster somehow loaded, we should probably just leave it alone or migrate it.
-            // Assuming normal case where legacy save is migrated below.
-        } else if (legacySave) {
-            const charId = crypto.randomUUID();
-            let name = 'Hero Name';
-            try { name = JSON.parse(legacySave).name || 'Hero Name'; } catch {
-                // Legacy save is unreadable - keep the default name and continue migrating
-                // the raw blob below; the user can rename later.
+        try {
+            const { roster, activeCharId } = this.localStore.loadRoster();
+            this.localRoster = roster.map(r => ({ ...r, source: 'local', isMine: true, readOnly: false }));
+            this.localActiveCharId = activeCharId;
+            if (this.activeStorage === 'local') {
+                this.roster = this.localRoster;
+                this.activeCharId = this.localActiveCharId;
             }
-            this.roster = [{ id: charId, name }];
-            this.activeCharId = charId;
-            try {
-                localStorage.setItem('1000words_state_' + charId, legacySave);
-                localStorage.removeItem('1000words_state'); // Migrate it out
-            } catch (e) {
-                console.error('Failed to migrate legacy save to localStorage', e);
-                window.dispatchEvent(new CustomEvent('storage-error', { detail: { error: e, operation: 'loadRoster' } }));
-            }
-            this.saveRoster();
-        } else {
-            const charId = crypto.randomUUID();
-            this.roster = [{ id: charId, name: 'Hero Name' }];
-            this.activeCharId = charId;
-            this.saveRoster();
-        }
-        
-        // Ensure activeCharId is valid
-        if (!this.roster.find(r => r.id === this.activeCharId) && this.roster.length > 0) {
-            this.activeCharId = this.roster[0].id;
+        } catch (e) {
+            console.error('Failed to load roster from localStorage', e);
+            dispatchAppEvent('storage-error', { error: e, operation: 'loadRoster' });
+            this.localRoster = [];
+            this.localActiveCharId = null;
+            this.roster = [];
+            this.activeCharId = null;
         }
     }
 
     saveRoster() {
+        if (this.activeStorage !== 'local') return;
         try {
-            localStorage.setItem('1000words_roster', JSON.stringify(this.roster));
-            if (this.activeCharId) {
-                localStorage.setItem('1000words_active_char', this.activeCharId);
-            }
+            this.localRoster = this.roster.map(r => ({ id: r.id, name: r.name, source: 'local', isMine: true, readOnly: false }));
+            this.localActiveCharId = this.activeCharId;
+            this.localStore.saveRoster(this.localRoster, this.localActiveCharId);
         } catch (e) {
             console.error('Failed to save roster to localStorage', e);
-            window.dispatchEvent(new CustomEvent('storage-error', { detail: { error: e, operation: 'saveRoster' } }));
+            dispatchAppEvent('storage-error', { error: e, operation: 'saveRoster' });
         }
     }
 
     loadState(charId) {
-        if (!charId) return JSON.parse(JSON.stringify(DEFAULT_STATE));
-        const saved = localStorage.getItem('1000words_state_' + charId);
-        if (saved) {
-            try {
-                const state = JSON.parse(saved);
-                const hadShowOptionalStats = state.showOptionalStats !== undefined;
-                // Migrate missing fields from DEFAULT_STATE
-                for (const key of Object.keys(DEFAULT_STATE)) {
-                    if (state[key] === undefined) {
-                        state[key] = JSON.parse(JSON.stringify(DEFAULT_STATE[key]));
-                    }
-                }
-                if (!hadShowOptionalStats) state.showOptionalStats = inferShowOptionalStats(state);
-                return normalizeStateForShadowRules(state);
-            } catch (e) {
-                console.error("Failed to parse saved state", e);
-            }
+        if (this.activeStorage === 'cloud') {
+            return this.state || cloneDefaultState();
         }
-        return JSON.parse(JSON.stringify(DEFAULT_STATE));
+        return this.localStore.loadState(charId);
+    }
+
+    get activeRosterEntry() {
+        return (this.roster || []).find(r => r.id === this.activeCharId) || null;
+    }
+
+    get isCloudConfigured() {
+        return Boolean(this.cloudStore);
+    }
+
+    get isSignedIn() {
+        return Boolean(this.cloudUser);
+    }
+
+    get hasLocalCharacters() {
+        return this.localRoster.length > 0;
+    }
+
+    canEditActiveCharacter() {
+        const entry = this.activeRosterEntry;
+        return !entry || !entry.readOnly;
+    }
+
+    setCloudStatus(status, message = '') {
+        this.cloudStatus = status;
+        this.cloudMessage = message;
+        dispatchAppEvent('cloud-status-change', { status, message });
+    }
+
+    markReadOnlyAttempt() {
+        this.setCloudStatus('read-only', 'This campaign character is read-only for GMs in v1.');
+        dispatchAppEvent('readonly-character-change');
     }
 
     saveState() {
-        if (!this.activeCharId) return;
+        if (!this.activeCharId) return false;
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return false;
+        }
+
+        const rosterEntry = this.roster.find(r => r.id === this.activeCharId);
+        if (rosterEntry && rosterEntry.name !== this.state.name) rosterEntry.name = this.state.name;
+
+        if (this.activeStorage === 'cloud') {
+            this.scheduleCloudSave();
+            return true;
+        }
+
         try {
-            localStorage.setItem('1000words_state_' + this.activeCharId, JSON.stringify(this.state));
+            this.localStore.saveState(this.activeCharId, this.state);
+            if (rosterEntry) this.saveRoster();
+            return true;
         } catch (e) {
             console.error('Failed to save state to localStorage', e);
-            window.dispatchEvent(new CustomEvent('storage-error', { detail: { error: e, operation: 'saveState' } }));
+            dispatchAppEvent('storage-error', { error: e, operation: 'saveState' });
+            return false;
         }
-        
-        // Also update roster name if it changed
-        const rosterEntry = this.roster.find(r => r.id === this.activeCharId);
-        if (rosterEntry && rosterEntry.name !== this.state.name) {
-            rosterEntry.name = this.state.name;
-            this.saveRoster();
-        }
+    }
+
+    scheduleCloudSave() {
+        if (!this.cloudStore || this.activeStorage !== 'cloud') return;
+        clearTimeout(this.pendingSaveTimer);
+        this.setCloudStatus('saving', 'Saving to cloud...');
+        const charId = this.activeCharId;
+        const state = JSON.parse(JSON.stringify(this.state));
+        this.pendingSaveTimer = setTimeout(async () => {
+            try {
+                await this.cloudStore.saveCharacter(charId, state);
+                await this.refreshCloudRoster({ keepActive: true });
+                this.setCloudStatus('saved', 'Cloud save complete.');
+            } catch (e) {
+                console.error('Failed to save cloud character', e);
+                this.setCloudStatus('error', e.message || 'Cloud save failed.');
+            }
+        }, this.saveDebounceMs);
+    }
+
+    async flushCloudSave() {
+        if (!this.pendingSaveTimer || !this.cloudStore || this.activeStorage !== 'cloud') return;
+        clearTimeout(this.pendingSaveTimer);
+        this.pendingSaveTimer = null;
+        if (!this.canEditActiveCharacter()) return;
+        await this.cloudStore.saveCharacter(this.activeCharId, this.state);
+        await this.refreshCloudRoster({ keepActive: true });
+        this.setCloudStatus('saved', 'Cloud save complete.');
     }
 
     updateStat(statName, value) {
         if (!Object.prototype.hasOwnProperty.call(DEFAULT_STATE.stats, statName)) return;
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         this.state.stats[statName] = value;
         this.saveState();
     }
 
     updateResource(type, value) {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         this.state[type] = value;
         this.saveState();
     }
 
     updateName(name) {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         this.state.name = name;
         this.saveState();
     }
 
     addTile(tile) {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         if (!tile.id) tile.id = crypto.randomUUID();
         normalizeTileMetadata(tile);
         this.state.tiles.push(tile);
@@ -404,6 +557,10 @@ export class DataManager {
     }
 
     updateTile(updatedTile) {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         normalizeTileMetadata(updatedTile);
         const idx = this.state.tiles.findIndex(t => t.id === updatedTile.id);
         if (idx !== -1) {
@@ -413,43 +570,100 @@ export class DataManager {
     }
 
     deleteTile(id) {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         this.state.tiles = this.state.tiles.filter(t => t.id !== id);
         this.saveState();
     }
 
     reorderTilesByVisibleMove(visibleTileIds, draggedId, targetId) {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
         this.state.tiles = reorderTilesByVisibleMove(this.state.tiles, visibleTileIds, draggedId, targetId);
         this.saveState();
     }
 
-    switchCharacter(id) {
-        if (this.roster.find(r => r.id === id)) {
+    async switchCharacter(id) {
+        const cloudEntry = this.cloudRoster.find(r => r.id === id);
+        if (cloudEntry) {
+            await this.flushCloudSave();
+            this.activeStorage = 'cloud';
+            this.roster = this.cloudRoster;
             this.activeCharId = id;
-            this.saveRoster();
-            this.state = this.loadState(this.activeCharId);
+            this.state = await this.cloudStore.loadCharacter(id);
+            this.setCloudStatus(cloudEntry.readOnly ? 'read-only' : 'saved', cloudEntry.readOnly ? 'Viewing read-only campaign character.' : 'Cloud character loaded.');
+            dispatchAppEvent('readonly-character-change');
+            return;
+        }
+
+        if (this.localRoster.find(r => r.id === id)) {
+            await this.flushCloudSave();
+            this.activeStorage = 'local';
+            this.roster = this.localRoster;
+            this.activeCharId = id;
+            this.localActiveCharId = id;
+            this.localStore.saveRoster(this.localRoster, this.localActiveCharId);
+            this.state = this.localStore.loadState(this.activeCharId);
+            dispatchAppEvent('readonly-character-change');
         }
     }
 
-    createNewCharacter(name = "Hero Name") {
+    async createNewCharacter(name = "Hero Name") {
+        const state = cloneDefaultState();
+        state.name = name;
+
+        if (this.isSignedIn && this.cloudStore) {
+            const charId = await this.cloudStore.createCharacter(name, state);
+            await this.refreshCloudRoster({ activeCharId: charId });
+            this.state = await this.cloudStore.loadCharacter(charId);
+            this.setCloudStatus('saved', 'Cloud character created.');
+            return charId;
+        }
+
         const charId = crypto.randomUUID();
-        this.roster.push({ id: charId, name });
+        this.activeStorage = 'local';
+        this.roster = this.localRoster;
+        this.localRoster.push({ id: charId, name, source: 'local', isMine: true, readOnly: false });
         this.activeCharId = charId;
-        this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-        this.state.name = name;
+        this.localActiveCharId = charId;
+        this.state = state;
         this.saveState();
         this.saveRoster();
         return charId;
     }
 
-    deleteCurrentCharacter() {
+    async deleteCurrentCharacter() {
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
+
+        if (this.activeStorage === 'cloud' && this.cloudStore) {
+            await this.cloudStore.archiveCharacter(this.activeCharId);
+            await this.refreshCloudRoster();
+            if (this.roster.length > 0) {
+                await this.switchCharacter(this.roster[0].id);
+            } else {
+                this.state = cloneDefaultState();
+                this.activeCharId = null;
+            }
+            return;
+        }
+
         if (this.roster.length === 1) {
             this.clearState();
             return;
         }
-        
-        localStorage.removeItem('1000words_state_' + this.activeCharId);
+
+        this.localStore.deleteState(this.activeCharId);
         this.roster = this.roster.filter(r => r.id !== this.activeCharId);
+        this.localRoster = this.roster;
         this.activeCharId = this.roster[0].id;
+        this.localActiveCharId = this.activeCharId;
         this.saveRoster();
         this.state = this.loadState(this.activeCharId);
     }
@@ -462,46 +676,34 @@ export class DataManager {
         dlAnchorElem.click();
     }
 
-    importState(jsonString, overwrite = false) {
+    async importState(jsonString, overwrite = false) {
         try {
-            const newState = JSON.parse(jsonString);
-            if (newState.stats && newState.tiles) {
-                // Backward compatibility
-                if (newState.xpEarned === undefined) newState.xpEarned = 75;
-                if (newState.xpSpentAdjustment === undefined) newState.xpSpentAdjustment = 0;
-                if (newState.storyPoints === undefined) newState.storyPoints = 0;
-                if (newState.storyPointsEarned === undefined) newState.storyPointsEarned = newState.storyPoints;
-                if (newState.storyPointsSpent === undefined) newState.storyPointsSpent = 0;
-                if (newState.hpMax === undefined) newState.hpMax = newState.hp || 10;
-                if (newState.enMax === undefined) newState.enMax = newState.en || 10;
-                if (newState.rxMax === undefined) newState.rxMax = newState.rx || 10;
-                if (newState.sh === undefined) newState.sh = 0;
-                if (newState.showOptionalStats === undefined) newState.showOptionalStats = inferShowOptionalStats(newState);
-                // Vital bonuses backward compat
-                ['hpTemp','hpPerm','enTemp','enPerm','rxTemp','rxPerm','shTemp','shPerm'].forEach(k => {
-                    if (newState[k] === undefined) newState[k] = 0;
-                });
-                if (!newState.journal) newState.journal = [];
-                
-                newState.tiles.forEach(t => {
-                    if (t.xpCost === undefined) t.xpCost = 0;
-                    normalizeTileMetadata(t);
-                });
-                normalizeStateForShadowRules(newState);
-                
+            const newState = normalizeImportedState(JSON.parse(jsonString));
+            if (newState) {
                 if (overwrite) {
+                    if (!this.canEditActiveCharacter()) {
+                        this.markReadOnlyAttempt();
+                        return false;
+                    }
                     this.state = newState;
                     this.saveState();
+                } else if (this.isSignedIn && this.cloudStore) {
+                    const name = newState.name || 'Imported Hero';
+                    const charId = await this.cloudStore.createCharacter(name, newState);
+                    await this.refreshCloudRoster({ activeCharId: charId });
+                    this.state = await this.cloudStore.loadCharacter(charId);
                 } else {
                     const charId = crypto.randomUUID();
                     const name = newState.name || 'Imported Hero';
-                    this.roster.push({ id: charId, name });
+                    this.activeStorage = 'local';
+                    this.roster = this.localRoster;
+                    this.roster.push({ id: charId, name, source: 'local', isMine: true, readOnly: false });
                     this.activeCharId = charId;
+                    this.localActiveCharId = charId;
                     this.state = newState;
                     this.saveState();
                     this.saveRoster();
                 }
-                
                 return true;
             }
         } catch (e) {
@@ -511,7 +713,109 @@ export class DataManager {
     }
 
     clearState() {
-        this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+        if (!this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
+        this.state = cloneDefaultState();
         this.saveState();
+    }
+
+    async refreshCloudRoster({ activeCharId = null, keepActive = false } = {}) {
+        if (!this.cloudStore || !this.isSignedIn) return;
+        const { roster, campaigns } = await this.cloudStore.listRoster();
+        this.cloudRoster = roster;
+        this.campaigns = campaigns;
+
+        if (this.activeStorage !== 'cloud' && !activeCharId) return;
+
+        this.activeStorage = 'cloud';
+        this.roster = this.cloudRoster;
+        const preferredId = activeCharId || (keepActive ? this.activeCharId : null);
+        this.activeCharId = this.roster.find(r => r.id === preferredId)?.id || this.roster[0]?.id || null;
+    }
+
+    async connectCloud(cloudStore) {
+        this.cloudStore = cloudStore;
+        this.cloudUser = cloudStore.user;
+        this.setCloudStatus('loading', 'Loading cloud characters...');
+        await this.refreshCloudRoster();
+        if (this.cloudRoster.length > 0) {
+            await this.switchCharacter(this.cloudRoster[0].id);
+        } else {
+            this.setCloudStatus('signed-in', 'Signed in. Create or upload a character to start cloud saves.');
+        }
+    }
+
+    async disconnectCloud() {
+        await this.flushCloudSave();
+        this.cloudUser = null;
+        this.cloudRoster = [];
+        this.campaigns = [];
+        this.campaignMembers = [];
+        this.activeStorage = 'local';
+        this.roster = this.localRoster;
+        this.activeCharId = this.localActiveCharId;
+        this.state = this.loadState(this.activeCharId);
+        this.setCloudStatus(this.cloudStore ? 'signed-out' : 'local-only', this.cloudStore ? 'Signed out. Using browser storage.' : 'Cloud save is not configured.');
+    }
+
+    async uploadLocalCharacters() {
+        if (!this.cloudStore || !this.isSignedIn) return 0;
+        await this.flushCloudSave();
+        let count = 0;
+        for (const entry of this.localRoster) {
+            const state = this.localStore.loadState(entry.id);
+            const name = state.name || entry.name || 'Imported Hero';
+            await this.cloudStore.createCharacter(name, state);
+            count += 1;
+        }
+        await this.refreshCloudRoster();
+        if (this.cloudRoster.length > 0) await this.switchCharacter(this.cloudRoster[0].id);
+        this.setCloudStatus('saved', `${count} local character${count === 1 ? '' : 's'} uploaded.`);
+        return count;
+    }
+
+    async createCampaign(name) {
+        if (!this.cloudStore || !this.isSignedIn) return null;
+        const campaign = await this.cloudStore.createCampaign(name);
+        await this.refreshCloudRoster({ keepActive: true });
+        this.setCloudStatus('saved', `Campaign "${campaign.name}" created.`);
+        return campaign;
+    }
+
+    async joinCampaign(inviteCode) {
+        if (!this.cloudStore || !this.isSignedIn) return null;
+        const membership = await this.cloudStore.joinCampaign(inviteCode);
+        await this.refreshCloudRoster({ keepActive: true });
+        this.setCloudStatus('saved', 'Campaign joined.');
+        return membership;
+    }
+
+    async assignActiveCharacterToCampaign(campaignId) {
+        if (!this.cloudStore || this.activeStorage !== 'cloud' || !this.canEditActiveCharacter()) {
+            this.markReadOnlyAttempt();
+            return;
+        }
+        await this.cloudStore.assignCharacterToCampaign(this.activeCharId, campaignId || null);
+        await this.refreshCloudRoster({ keepActive: true });
+        this.setCloudStatus('saved', campaignId ? 'Character assigned to campaign.' : 'Character removed from campaign.');
+    }
+
+    async loadCampaignMembers(campaignId) {
+        if (!this.cloudStore || !campaignId) {
+            this.campaignMembers = [];
+            return [];
+        }
+        this.campaignMembers = await this.cloudStore.listCampaignMembers(campaignId);
+        return this.campaignMembers;
+    }
+
+    async setCampaignMemberRole(campaignId, userId, role) {
+        if (!this.cloudStore) return;
+        await this.cloudStore.setCampaignMemberRole(campaignId, userId, role);
+        await this.loadCampaignMembers(campaignId);
+        await this.refreshCloudRoster({ keepActive: true });
+        this.setCloudStatus('saved', 'Campaign role updated.');
     }
 }

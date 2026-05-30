@@ -31,28 +31,42 @@ A zero-dependency, mobile-first web application designed to digitally manage cha
 - **Shadow (SH):** The Shadow resource is completely dynamic. Qi / Id tile boxes add one chosen normal resource and one Shadow point; buried tiles stop contributing both.
 - **Global Rest:** A one-click "Rest & Reset" button immediately restores all resources to their maximums and un-burns all tiles in your mosaic.
 
-### 6. Zero Build Toolchain
-- **Portable Architecture:** Built using pure Vanilla JavaScript (ES6 Modules), HTML5, and CSS3. 
-- **No Node/Webpack Required:** Simply open `index.html` in any modern web browser to run the app instantly.
-- **Persistence:** Automatically saves your entire character state to your browser's `localStorage`.
+### 6. Local and Cloud Persistence
+- **Local-first:** Signed-out users still auto-save their roster to browser `localStorage`.
+- **Cloud saves:** Optional Supabase Auth + Postgres support lets signed-in users sync characters across devices.
+- **Campaign rooms:** Players can join campaigns; GMs can view everyone’s campaign characters in read-only mode.
 - **Import/Export:** Export your character to a `.json` file to back them up or transfer them between devices.
 
 ## Getting Started
 
 1. **Clone or Download** this repository.
-2. Open `index.html` in your favorite web browser (Chrome, Safari, Firefox).
-3. **That's it!** Begin building your character's stats and adding tiles to your mosaic. 
+2. Run `npm install`.
+3. Run `npm run dev` and open the local URL.
+4. Begin building your character's stats and adding tiles to your mosaic.
+
+### Supabase setup
+
+Cloud saves are optional. Without environment variables, the app remains a browser-local character manager.
+
+1. Create a Supabase project.
+2. Run `supabase/schema.sql` in the Supabase SQL editor.
+3. In Supabase Auth, enable email magic links and configure production SMTP before inviting real players.
+4. Add these environment variables locally and in Vercel:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+5. Deploy with Vercel using `npm run build`.
 
 ## Technical Architecture
 
-The codebase is plain ES modules served as static files - no bundler, no framework.
+The codebase is plain browser JavaScript bundled by Vite so Supabase can be imported safely and Vercel can inject public environment variables.
 
 ### Module layout
 
 - `index.html` - UI shell (header, mosaic, action dashboard, journal) and all modal markup (tile, spell wizard, vital, info).
 - `css/styles.css` - thin aggregator that `@import`s eight partials in `css/`: `_variables`, `_base`, `_layout`, `_cards`, `_dashboard`, `_modal`, `_journal`, `_responsive`.
-- `js/app.js` - bootstrap. Constructs `DataManager`, `PoolEngine`, `SpellBuilder`, then calls `init({ deps })` on each UI module.
-- `js/data.js` - persistence model. `DataManager` owns `localStorage` reads/writes, the multi-character roster, legacy-save migration, JSON import/export, and `tile.tags` normalization. Also exports `STAT_COLORS`, `COLOR_HEX`, `VALID_DICE`, and the `getEffectiveMax(state, key, baseOverride)` vital helper.
+- `js/app.js` - bootstrap. Constructs `DataManager`, `PoolEngine`, `SpellBuilder`, optional Supabase client, then calls `init({ deps })` on each UI module.
+- `js/data.js` - persistence model. `DataManager` owns local/cloud character switching, legacy-save migration, JSON import/export, and `tile.tags` normalization. Also exports `STAT_COLORS`, `COLOR_HEX`, `VALID_DICE`, and the `getEffectiveMax(state, key, baseOverride)` vital helper.
+- `js/supabaseClient.js` / `js/supabaseStore.js` - optional Supabase Auth, campaign, and cloud character storage integration.
 - `js/pool.js` - the rules brain. Pure, DOM-free. `PoolEngine` for tag limits, XP cascade math, resource maxes, recursive Chain resolution, virtual rolls, and optimal-keep selection. Also exports shared helpers (`escapeHtml`, `parseDiceInput`, `tileTagList`, `formatTagLimitStatus`, `tagLimitErrorMessage`).
 - `js/resolution-rules.js` - pure post-roll engine. Mode tables, default die assignments, plus-budget accounting, healing-target rules, bonus routing.
 - `js/spellBuilder.js` - the 5-step spell wizard. Owns its own DOM lookups today; consumes `PoolEngine` and `formatTagLimitStatus`.
@@ -65,4 +79,5 @@ The codebase is plain ES modules served as static files - no bundler, no framewo
 
 - `npm test` - runs all `test/**/*.test.js` files via `node --test`. Pure-logic modules (`pool.js`, `resolution-rules.js`, `data.js`) are covered.
 - `npm run lint` - runs ESLint with a flat config (`eslint.config.js`). `import/no-cycle`, `no-alert`, and `no-unused-vars` are warnings today; tightening them is a follow-up.
-- `npm run dev` - serves the workspace via `npx serve`.
+- `npm run dev` - serves the workspace via Vite.
+- `npm run build` - builds the static Vercel artifact.

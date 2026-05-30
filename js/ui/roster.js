@@ -15,8 +15,8 @@ export function init(deps) {
     });
 
     if (els.charRosterSelect) {
-        els.charRosterSelect.addEventListener('change', (e) => {
-            dataManager.switchCharacter(e.target.value);
+        els.charRosterSelect.addEventListener('change', async (e) => {
+            await dataManager.switchCharacter(e.target.value);
             uiState.callTile = null;
             uiState.hitchCallTiles = [];
             uiState.burnTiles = [];
@@ -25,9 +25,9 @@ export function init(deps) {
     }
 
     if (els.btnDelChar) {
-        els.btnDelChar.addEventListener('click', () => {
+        els.btnDelChar.addEventListener('click', async () => {
             if (confirm("WARNING: Are you sure you want to delete this character permanently?")) {
-                dataManager.deleteCurrentCharacter();
+                await dataManager.deleteCurrentCharacter();
                 uiState.callTile = null;
                 uiState.hitchCallTiles = [];
                 uiState.burnTiles = [];
@@ -37,10 +37,10 @@ export function init(deps) {
     }
 
     // New Character Button
-    els.btnNewChar.addEventListener('click', () => {
+    els.btnNewChar.addEventListener('click', async () => {
         const name = prompt("Enter a name for your new character:");
         if (name) {
-            dataManager.createNewCharacter(name);
+            await dataManager.createNewCharacter(name);
             uiState.callTile = null;
             uiState.hitchCallTiles = [];
             uiState.burnTiles = [];
@@ -54,9 +54,9 @@ export function init(deps) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
             const overwrite = confirm("Do you want to overwrite your current character? (Click 'Cancel' to import as a new character slot)");
-            if (dataManager.importState(ev.target.result, overwrite)) {
+            if (await dataManager.importState(ev.target.result, overwrite)) {
                 uiState.callTile = null;
                 uiState.hitchCallTiles = [];
                 uiState.burnTiles = [];
@@ -73,11 +73,20 @@ export function init(deps) {
 export function renderRosterSelect() {
     if (!els.charRosterSelect) return;
     els.charRosterSelect.innerHTML = '';
+    const groups = new Map();
     dataManager.roster.forEach(r => {
+        const groupName = r.group || (r.source === 'cloud' ? 'My Characters' : 'Local Characters');
+        if (!groups.has(groupName)) {
+            const group = document.createElement('optgroup');
+            group.label = groupName;
+            groups.set(groupName, group);
+            els.charRosterSelect.appendChild(group);
+        }
         const opt = document.createElement('option');
         opt.value = r.id;
-        opt.textContent = r.name || 'Unnamed';
+        const suffix = r.readOnly ? ' (view only)' : (r.campaignName ? ` (${r.campaignName})` : '');
+        opt.textContent = `${r.name || 'Unnamed'}${suffix}`;
         if (r.id === dataManager.activeCharId) opt.selected = true;
-        els.charRosterSelect.appendChild(opt);
+        groups.get(groupName).appendChild(opt);
     });
 }
