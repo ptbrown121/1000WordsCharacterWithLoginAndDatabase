@@ -102,11 +102,15 @@ function tokenizeForFocus(value = '') {
         .slice(0, 80);
 }
 
+function fullDocumentText(doc) {
+    return cleanText(doc.content_text || doc.content_summary || '');
+}
+
 function documentFocusText(doc) {
     return cleanText([
         doc.title,
         doc.file_name,
-        doc.content_summary || doc.content_text
+        fullDocumentText(doc)
     ].filter(Boolean).join('\n'));
 }
 
@@ -143,6 +147,38 @@ export function selectFocusedDocuments(documents = [], focusText = '', maxDocs =
     return scored.slice(0, Math.min(2, maxDocs)).map(item => item.doc);
 }
 
+function firstFocusTokenIndex(text, focusTokens = []) {
+    const lower = text.toLowerCase();
+    let bestIndex = -1;
+
+    for (const token of focusTokens) {
+        const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = new RegExp(`(^|[^a-z0-9'-])${escaped}([^a-z0-9'-]|$)`, 'i').exec(lower);
+        if (!match) continue;
+        const index = match.index + match[1].length;
+        if (bestIndex === -1 || index < bestIndex) bestIndex = index;
+    }
+
+    return bestIndex;
+}
+
+export function focusedDocumentExcerpt(doc, focusText = '', maxChars = MAX_FOCUSED_DOCUMENT_CHARS) {
+    const source = fullDocumentText(doc);
+    if (!source) return '';
+    if (source.length <= maxChars) return source;
+
+    const focusTokens = tokenizeForFocus(focusText);
+    const focusIndex = firstFocusTokenIndex(source, focusTokens);
+    if (focusIndex === -1) return truncateText(source, maxChars);
+
+    const halfWindow = Math.floor((maxChars - 48) / 2);
+    const start = Math.max(0, focusIndex - halfWindow);
+    const end = Math.min(source.length, start + maxChars - 24);
+    const prefix = start > 0 ? '[excerpt begins]\n' : '';
+    const suffix = end < source.length ? '\n[excerpt continues]' : '';
+    return `${prefix}${source.slice(start, end).trim()}${suffix}`;
+}
+
 export function summarizeDocumentsForPrompt(documents = [], focusText = '') {
     let remaining = MAX_CAMPAIGN_CONTEXT_CHARS;
     const chunks = [];
@@ -151,11 +187,10 @@ export function summarizeDocumentsForPrompt(documents = [], focusText = '') {
     for (const doc of focusedDocuments) {
         if (remaining <= 0) break;
         const title = truncateText(doc.title || doc.file_name || 'Campaign note', 120);
-        const source = cleanText(doc.content_summary || doc.content_text || '');
+        const source = focusedDocumentExcerpt(doc, focusText, Math.min(remaining, MAX_FOCUSED_DOCUMENT_CHARS));
         if (!source) continue;
-        const body = truncateText(source, Math.min(remaining, MAX_FOCUSED_DOCUMENT_CHARS));
-        chunks.push(`### ${title}\n${body}`);
-        remaining -= body.length + title.length + 8;
+        chunks.push(`### ${title}\n${source}`);
+        remaining -= source.length + title.length + 8;
     }
 
     return chunks.join('\n\n') || 'No GM campaign documents have been provided yet.';
@@ -188,11 +223,11 @@ export function buildSceneAgentInput({ character, thread, messages = [], playerM
         `Current journal entries: ${(characterState.journal || []).map(entry => entry.title).slice(0, 12).join(', ') || 'none yet'}`
     ].join('\n');
     const focusText = [
+        playerMessage,
         thread?.current_scene_title,
         thread?.current_scene_goal,
         characterBrief,
-        transcriptFromMessages(messages, 6),
-        playerMessage
+        transcriptFromMessages(messages, 6)
     ].filter(Boolean).join('\n');
 
     return [

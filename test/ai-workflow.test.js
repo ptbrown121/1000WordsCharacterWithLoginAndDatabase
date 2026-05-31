@@ -5,6 +5,7 @@ import {
     buildSceneAgentInput,
     defaultSceneResponse,
     defaultSummary,
+    focusedDocumentExcerpt,
     normalizeTileSuggestions,
     parseJsonOutput,
     scoreDocumentForFocus,
@@ -44,7 +45,7 @@ describe('AI workflow prompt helpers', () => {
         assert.ok(docs.length < 6000);
         assert.match(docs, /Mirror Court/);
         assert.doesNotMatch(docs, /Unrelated Sea/);
-        assert.match(docs, /truncated for context/);
+        assert.match(docs, /excerpt continues/);
     });
 
     it('scores and selects campaign notes by scene focus text', () => {
@@ -56,6 +57,50 @@ describe('AI workflow prompt helpers', () => {
 
         assert.ok(scoreDocumentForFocus(docs[1], 'The player owes a debt at the harbor') > 0);
         assert.equal(selectFocusedDocuments(docs, 'harbor debt')[0].title, 'Dock Strike');
+    });
+
+    it('scores full document text even when the summary misses the relevant passage', () => {
+        const doc = {
+            title: 'City Guide',
+            content_summary: 'Opening overview with plazas and weather.',
+            content_text: `${'opening overview '.repeat(300)} The Argent Key hides beneath the flooded observatory.`
+        };
+
+        assert.ok(scoreDocumentForFocus(doc, 'Argent Key observatory') > 0);
+        const excerpt = focusedDocumentExcerpt(doc, 'Argent Key observatory', 260);
+        assert.match(excerpt, /Argent Key/);
+        assert.doesNotMatch(excerpt, /^opening overview opening overview opening overview/);
+    });
+
+    it('uses the latest player message as the strongest scene focus signal', () => {
+        const input = buildSceneAgentInput({
+            character: {
+                name: 'Ash',
+                state: {
+                    tiles: [{ name: 'Old Debt', type: 'Story' }],
+                    journal: []
+                }
+            },
+            thread: {
+                scene_index: 1,
+                current_scene_title: 'Old harbor troubles',
+                current_scene_goal: 'Explore Ash and the harbor debt.'
+            },
+            messages: Array.from({ length: 8 }, (_, index) => ({
+                role: index % 2 === 0 ? 'assistant' : 'user',
+                content: 'harbor debt cranes dock strike workers '.repeat(20)
+            })),
+            playerMessage: 'Actually I want this scene to pivot to the Argent Key under the observatory.',
+            documents: [
+                { title: 'Harbor Strike', content_text: 'harbor debt cranes dock strike workers '.repeat(300) },
+                { title: 'Argent Key', content_text: 'The Argent Key waits under the old observatory.' }
+            ],
+            settings: null
+        });
+
+        const joined = input.map(item => item.content).join('\n');
+        assert.match(joined, /Argent Key/);
+        assert.match(joined, /old observatory/);
     });
 
     it('builds scene agent input with character and transcript context', () => {
