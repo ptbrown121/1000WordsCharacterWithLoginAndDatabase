@@ -46,6 +46,8 @@ A zero-dependency, mobile-first web application designed to digitally manage cha
 3. Run `npm run dev` and open the local URL.
 4. Begin building your character's stats and adding tiles to your mosaic.
 
+For a lighter table-operations overview, see the [GM Guide](docs/gm-guide.md).
+
 ### Supabase setup
 
 Cloud saves are optional. Without environment variables, the app remains a browser-local character manager.
