@@ -1,0 +1,175 @@
+.ai-creation-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 2rem 1rem;
+}
+
+.ai-creation-header,
+.campaign-ai-docs-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.ai-creation-header h2,
+.campaign-ai-docs-header h3 {
+    margin: 0;
+}
+
+.ai-creation-header p,
+.campaign-ai-docs-header span {
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0;
+}
+
+.ai-creation-actions,
+.ai-creation-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.ai-creation-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    max-height: 26rem;
+    overflow: auto;
+    padding-right: 0.25rem;
+}
+
+.ai-message,
+.ai-summary-card,
+.campaign-ai-doc-row {
+    background: rgba(0, 0, 0, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.ai-message {
+    max-width: min(48rem, 100%);
+}
+
+.ai-message-user {
+    align-self: flex-end;
+    border-color: rgba(112, 211, 255, 0.32);
+}
+
+.ai-message-assistant {
+    align-self: flex-start;
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.ai-message p,
+.ai-summary-card p {
+    margin: 0.35rem 0 0;
+    white-space: pre-wrap;
+}
+
+.ai-creation-form textarea,
+.campaign-ai-docs-panel textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.ai-creation-form textarea,
+.campaign-ai-docs-panel textarea,
+.campaign-ai-docs-panel input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    padding: 0.65rem 0.75rem;
+}
+
+.ai-creation-form textarea {
+    flex: 1 1 auto;
+    min-height: 5rem;
+}
+
+.ai-scene-summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ai-scene-summary-list h3,
+.ai-summary-card h4 {
+    margin: 0;
+}
+
+.ai-summary-status {
+    color: var(--text-secondary);
+    display: inline-block;
+    font-size: 0.85rem;
+    margin-top: 0.2rem;
+}
+
+.ai-summary-status-accepted {
+    color: #8df7bd;
+}
+
+.ai-summary-status-needs_revision {
+    color: #ffd166;
+}
+
+.ai-summary-notes,
+.ai-empty-state {
+    color: var(--text-secondary);
+}
+
+.ai-tile-suggestions {
+    color: var(--text-secondary);
+    margin: 0.65rem 0;
+    padding-left: 1.25rem;
+}
+
+.campaign-ai-docs-panel {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding-top: 0.75rem;
+}
+
+.campaign-ai-field {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.campaign-ai-upload-grid {
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.campaign-ai-doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.campaign-ai-doc-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.campaign-ai-doc-row span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+    .ai-creation-header,
+    .ai-creation-actions,
+    .ai-creation-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

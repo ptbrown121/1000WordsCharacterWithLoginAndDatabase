@@ -9,6 +9,7 @@ import { renderJournal } from './ui/journal.js';
 import { renderRosterSelect } from './ui/roster.js';
 import { renderRulesReview } from './ui/rulesReview.js';
 import { renderCloudControls } from './ui/cloud.js';
+import { renderAiCreation } from './ui/aiCreation.js';
 
 let dataManager;
 
@@ -56,4 +57,5 @@ export function renderAll() {
     renderRosterSelect();
     renderRulesReview();
     renderCloudControls();
+    renderAiCreation();
 }

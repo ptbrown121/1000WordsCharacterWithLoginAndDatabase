@@ -54,6 +54,28 @@
             </label>
             <div id="campaign-member-list" class="campaign-member-list"></div>
             <div id="roll-log-list" class="roll-log-list"></div>
+            <div id="campaign-ai-docs-panel" class="campaign-ai-docs-panel" hidden>
+                <div class="campaign-ai-docs-header">
+                    <h3>Campaign AI notes</h3>
+                    <span id="campaign-ai-docs-status"></span>
+                </div>
+                <label class="campaign-ai-field">
+                    Scenario seed
+                    <textarea id="campaign-ai-scenario-seed" rows="3" placeholder="Opening premise, campaign tone, important factions, safety boundaries, or setup notes."></textarea>
+                </label>
+                <label class="campaign-ai-field">
+                    GM guidance
+                    <textarea id="campaign-ai-gm-instructions" rows="3" placeholder="What should the AI emphasize, avoid, or ask players about during character creation?"></textarea>
+                </label>
+                <button id="btn-campaign-ai-settings-save" class="btn btn-outline" type="button">Save AI guidance</button>
+                <div class="campaign-ai-upload-grid">
+                    <input id="campaign-ai-doc-title" type="text" placeholder="Document title" aria-label="Campaign AI document title">
+                    <input id="campaign-ai-doc-file" type="file" accept=".txt,.md,text/plain,text/markdown" aria-label="Campaign AI text file">
+                </div>
+                <textarea id="campaign-ai-doc-text" rows="4" placeholder="Paste a short setting note, faction brief, location writeup, or scenario outline."></textarea>
+                <button id="btn-campaign-ai-doc-upload" class="btn btn-outline" type="button">Save campaign note</button>
+                <div id="campaign-ai-doc-list" class="campaign-ai-doc-list"></div>
+            </div>
         </div>
         <div id="readonly-banner" class="readonly-banner" hidden>
             Viewing a campaign character as GM. Edits are disabled in this version.
@@ -421,6 +443,25 @@
             </section>
         </div>
     </main>
+
+    <section id="ai-creation-section" class="glass-panel ai-creation-section" hidden>
+        <div class="ai-creation-header">
+            <div>
+                <h2>Character Creation AI</h2>
+                <p id="ai-creation-status">Assign this cloud character to a campaign to start guided creation.</p>
+            </div>
+            <div class="ai-creation-actions">
+                <button id="btn-ai-thread-start" class="btn btn-primary" type="button">Start chat</button>
+                <button id="btn-ai-scene-finalize" class="btn btn-outline" type="button">Finalize scene</button>
+            </div>
+        </div>
+        <div id="ai-creation-messages" class="ai-creation-messages" aria-live="polite"></div>
+        <form id="ai-creation-form" class="ai-creation-form">
+            <textarea id="ai-creation-input" rows="3" placeholder="Tell the AI what your character remembers, wants, fears, or did before the campaign."></textarea>
+            <button id="btn-ai-message-send" class="btn btn-primary" type="submit">Send</button>
+        </form>
+        <div id="ai-scene-summary-list" class="ai-scene-summary-list"></div>
+    </section>
 
     <!-- Journal Section -->
     <section id="journal-section" class="glass-panel" style="margin: 2rem 1rem;">

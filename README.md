@@ -69,6 +69,23 @@ Cloud saves are optional. Without environment variables, the app remains a brows
    - `VITE_SUPABASE_ANON_KEY`
 6. Deploy with Vercel using `npm run build`.
 
+### Character creation AI setup
+
+The AI character creation MVP runs through Vercel API routes so model and service-role keys stay server-side.
+
+1. Re-run `supabase/schema.sql` after pulling this version. It adds private campaign AI tables, RLS policies, and a private `campaign-ai-documents` storage bucket.
+2. Add these private environment variables in Vercel:
+   - `OPENAI_API_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - Optional: `OPENAI_ORCHESTRATOR_MODEL` (defaults to `gpt-5.5`)
+   - Optional: `OPENAI_VALIDATOR_MODEL` (defaults to the orchestrator model)
+   - Optional: `OPENAI_SCENE_MODEL` (defaults to `gpt-5.4-mini`)
+3. Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as the browser-visible Supabase values. If you prefer separate server names, the API routes also read `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+4. GM users can use the campaign panel to save short text/Markdown setting notes and AI guidance. The MVP intentionally supports pasted text plus `.txt`/`.md` files; PDF/DOCX extraction is a later upgrade.
+5. Players start the guided AI chat from a cloud character assigned to a campaign. Finalized summaries are saved in Supabase first, then accepted summaries are appended to the character journal.
+
+Without `OPENAI_API_KEY`, the Vercel routes return deterministic local fallback responses. That keeps local UI/database testing possible, but production play should use a real OpenAI key. For local AI route testing, run the app through `vercel dev`; plain `npm run dev` serves the Vite client only.
+
 ### Roll tracking and free-tier usage
 
 Each normal cloud roll creates one `roll_logs` row and appears in the GM campaign panel’s recent roll history. Test rolls still behave like normal rolls locally, including resource spending and burns, but create no database row. Around 200 normal rolls in a session means around 200 insert requests and a small amount of JSON storage. Supabase currently lists unlimited API requests on the Free plan, so this should not be a request-count problem; the practical limits to watch are database size and egress. Because each log stores only character/roll metadata and called tile IDs/names, normal table play should stay well below the 500 MB Free database limit for a long time.
@@ -84,13 +101,15 @@ The codebase is plain browser JavaScript bundled by Vite so Supabase can be impo
 - `js/app.js` - bootstrap. Constructs `DataManager`, `PoolEngine`, `SpellBuilder`, optional Supabase client, then calls `init({ deps })` on each UI module.
 - `js/data.js` - persistence model. `DataManager` owns local/cloud character switching, legacy-save migration, JSON import/export, and `tile.tags` normalization. Also exports `STAT_COLORS`, `COLOR_HEX`, `VALID_DICE`, and the `getEffectiveMax(state, key, baseOverride)` vital helper.
 - `js/supabaseClient.js` / `js/supabaseStore.js` - optional Supabase Auth, campaign, and cloud character storage integration.
+- `api/ai/` - Vercel API routes for campaign AI documents, settings, guided player chat, scene finalization, and accepted-summary journal writes.
+- `api/_lib/aiWorkflow.js` / `api/_lib/openaiWorkflow.js` - server-side prompt/context builders, structured-output schemas, OpenAI Responses calls, and local fallbacks for development.
 - `js/pool.js` - the rules brain. Pure, DOM-free. `PoolEngine` for tag limits, XP cascade math, resource maxes, recursive Chain resolution, virtual rolls, and optimal-keep selection. Also exports shared helpers (`escapeHtml`, `parseDiceInput`, `tileTagList`, `formatTagLimitStatus`, `tagLimitErrorMessage`).
 - `js/resolution-rules.js` - pure post-roll engine. Mode tables, default die assignments, plus-budget accounting, healing-target rules, bonus routing.
 - `js/spellBuilder.js` - the 5-step spell wizard. Owns its own DOM lookups today; consumes `PoolEngine` and `formatTagLimitStatus`.
 - `js/render.js` - top-level `renderAll()` that delegates to each UI module's render function.
 - `js/state.js` - shared mutable `uiState` singleton (call tile, burn tiles, current resolution mode, etc.).
 - `js/els.js` - centralized DOM cache. All UI modules import from here rather than calling `getElementById` directly.
-- `js/ui/` - one module per dashboard concern: `cards.js` (mosaic render + select/burn), `pool.js` (dice pool preview + roll), `resolution.js` (post-roll resolution screen), `modals.js` (tile add/edit modal), `journal.js`, `roster.js` (character switcher + import/export), `stats.js` (stat dice + XP tracker), `vitals.js` (HP/EN/RX/SH inputs + Rest + Auto-Calc).
+- `js/ui/` - one module per dashboard concern: `cards.js` (mosaic render + select/burn), `pool.js` (dice pool preview + roll), `resolution.js` (post-roll resolution screen), `modals.js` (tile add/edit modal), `journal.js`, `roster.js` (character switcher + import/export), `stats.js` (stat dice + XP tracker), `vitals.js` (HP/EN/RX/SH inputs + Rest + Auto-Calc), `aiCreation.js` (campaign AI notes and guided character creation chat).
 
 ### Tests, lint, and CI scripts
 

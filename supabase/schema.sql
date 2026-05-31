@@ -67,12 +67,117 @@ create table if not exists public.roll_logs (
     created_at timestamptz not null default now()
 );
 
+create table if not exists public.campaign_ai_settings (
+    campaign_id uuid primary key references public.campaigns(id) on delete cascade,
+    scenario_seed text not null default '',
+    gm_instructions text not null default '',
+    updated_by uuid references public.profiles(id) on delete set null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.campaign_documents (
+    id uuid primary key default gen_random_uuid(),
+    campaign_id uuid not null references public.campaigns(id) on delete cascade,
+    uploaded_by uuid not null references public.profiles(id) on delete cascade,
+    title text not null,
+    file_name text,
+    storage_path text,
+    content_text text not null default '',
+    content_summary text not null default '',
+    metadata jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.ai_creation_threads (
+    id uuid primary key default gen_random_uuid(),
+    campaign_id uuid not null references public.campaigns(id) on delete cascade,
+    character_id uuid not null references public.characters(id) on delete cascade,
+    owner_id uuid not null references public.profiles(id) on delete cascade,
+    status text not null default 'active' check (status in ('active', 'ready_for_summary', 'summary_pending', 'completed', 'paused')),
+    current_scene_title text not null default 'Opening backstory scene',
+    current_scene_goal text not null default '',
+    scene_index integer not null default 1,
+    compact_summary text not null default '',
+    orchestrator_notes text not null default '',
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.ai_creation_messages (
+    id uuid primary key default gen_random_uuid(),
+    thread_id uuid not null references public.ai_creation_threads(id) on delete cascade,
+    role text not null check (role in ('user', 'assistant', 'system')),
+    content text not null,
+    metadata jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
+);
+
+create table if not exists public.ai_scene_summaries (
+    id uuid primary key default gen_random_uuid(),
+    thread_id uuid not null references public.ai_creation_threads(id) on delete cascade,
+    campaign_id uuid not null references public.campaigns(id) on delete cascade,
+    character_id uuid not null references public.characters(id) on delete cascade,
+    owner_id uuid not null references public.profiles(id) on delete cascade,
+    scene_index integer not null default 1,
+    title text not null,
+    summary text not null,
+    player_facing_notes text[] not null default '{}',
+    tile_suggestions jsonb not null default '[]'::jsonb,
+    continuity_flags text[] not null default '{}',
+    status text not null default 'draft' check (status in ('draft', 'pending_player', 'needs_revision', 'accepted', 'gm_reviewed', 'rejected')),
+    validation_status text not null default 'pending' check (validation_status in ('pending', 'valid', 'needs_revision')),
+    validation_notes text not null default '',
+    required_revisions text[] not null default '{}',
+    accepted_at timestamptz,
+    reviewed_at timestamptz,
+    reviewed_by uuid references public.profiles(id) on delete set null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.ai_agent_run_logs (
+    id uuid primary key default gen_random_uuid(),
+    thread_id uuid references public.ai_creation_threads(id) on delete set null,
+    campaign_id uuid references public.campaigns(id) on delete cascade,
+    character_id uuid references public.characters(id) on delete cascade,
+    agent_name text not null,
+    model text not null,
+    status text not null default 'completed' check (status in ('completed', 'failed')),
+    input_tokens integer,
+    output_tokens integer,
+    error_message text,
+    metadata jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
+);
+
 create index if not exists characters_owner_idx on public.characters(owner_id);
 create index if not exists characters_campaign_idx on public.characters(campaign_id);
 create index if not exists campaign_memberships_user_idx on public.campaign_memberships(user_id);
 create index if not exists roll_logs_character_idx on public.roll_logs(character_id);
 create index if not exists roll_logs_campaign_idx on public.roll_logs(campaign_id, rolled_at desc);
 create index if not exists roll_logs_owner_idx on public.roll_logs(owner_id, rolled_at desc);
+create index if not exists campaign_documents_campaign_idx on public.campaign_documents(campaign_id, created_at desc);
+create index if not exists ai_creation_threads_character_idx on public.ai_creation_threads(character_id, updated_at desc);
+create index if not exists ai_creation_threads_campaign_idx on public.ai_creation_threads(campaign_id, updated_at desc);
+create index if not exists ai_creation_messages_thread_idx on public.ai_creation_messages(thread_id, created_at asc);
+create index if not exists ai_scene_summaries_thread_idx on public.ai_scene_summaries(thread_id, created_at desc);
+create index if not exists ai_scene_summaries_campaign_idx on public.ai_scene_summaries(campaign_id, created_at desc);
+create index if not exists ai_agent_run_logs_thread_idx on public.ai_agent_run_logs(thread_id, created_at desc);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'campaign-ai-documents',
+    'campaign-ai-documents',
+    false,
+    2097152,
+    array['text/plain', 'text/markdown', 'application/octet-stream']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = 2097152,
+    allowed_mime_types = array['text/plain', 'text/markdown', 'application/octet-stream'];
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -102,6 +207,26 @@ for each row execute function public.set_updated_at();
 drop trigger if exists characters_set_updated_at on public.characters;
 create trigger characters_set_updated_at
 before update on public.characters
+for each row execute function public.set_updated_at();
+
+drop trigger if exists campaign_ai_settings_set_updated_at on public.campaign_ai_settings;
+create trigger campaign_ai_settings_set_updated_at
+before update on public.campaign_ai_settings
+for each row execute function public.set_updated_at();
+
+drop trigger if exists campaign_documents_set_updated_at on public.campaign_documents;
+create trigger campaign_documents_set_updated_at
+before update on public.campaign_documents
+for each row execute function public.set_updated_at();
+
+drop trigger if exists ai_creation_threads_set_updated_at on public.ai_creation_threads;
+create trigger ai_creation_threads_set_updated_at
+before update on public.ai_creation_threads
+for each row execute function public.set_updated_at();
+
+drop trigger if exists ai_scene_summaries_set_updated_at on public.ai_scene_summaries;
+create trigger ai_scene_summaries_set_updated_at
+before update on public.ai_scene_summaries
 for each row execute function public.set_updated_at();
 
 create or replace function public.is_campaign_member(target_campaign_id uuid)
@@ -185,6 +310,12 @@ alter table public.campaign_memberships enable row level security;
 alter table public.campaign_creators enable row level security;
 alter table public.characters enable row level security;
 alter table public.roll_logs enable row level security;
+alter table public.campaign_ai_settings enable row level security;
+alter table public.campaign_documents enable row level security;
+alter table public.ai_creation_threads enable row level security;
+alter table public.ai_creation_messages enable row level security;
+alter table public.ai_scene_summaries enable row level security;
+alter table public.ai_agent_run_logs enable row level security;
 
 drop policy if exists "profiles_select_self_or_campaign_peers" on public.profiles;
 create policy "profiles_select_self_or_campaign_peers"
@@ -326,6 +457,195 @@ with check (
         from public.characters
         where characters.id = roll_logs.character_id
           and characters.owner_id = auth.uid()
+    )
+);
+
+drop policy if exists "campaign_ai_settings_select_members" on public.campaign_ai_settings;
+create policy "campaign_ai_settings_select_members"
+on public.campaign_ai_settings for select
+to authenticated
+using (public.is_campaign_member(campaign_id));
+
+drop policy if exists "campaign_ai_settings_insert_gms" on public.campaign_ai_settings;
+create policy "campaign_ai_settings_insert_gms"
+on public.campaign_ai_settings for insert
+to authenticated
+with check (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_ai_settings_update_gms" on public.campaign_ai_settings;
+create policy "campaign_ai_settings_update_gms"
+on public.campaign_ai_settings for update
+to authenticated
+using (public.is_campaign_gm(campaign_id))
+with check (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_documents_select_members" on public.campaign_documents;
+create policy "campaign_documents_select_members"
+on public.campaign_documents for select
+to authenticated
+using (public.is_campaign_member(campaign_id));
+
+drop policy if exists "campaign_documents_insert_gms" on public.campaign_documents;
+create policy "campaign_documents_insert_gms"
+on public.campaign_documents for insert
+to authenticated
+with check (uploaded_by = auth.uid() and public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_documents_update_gms" on public.campaign_documents;
+create policy "campaign_documents_update_gms"
+on public.campaign_documents for update
+to authenticated
+using (public.is_campaign_gm(campaign_id))
+with check (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_documents_delete_gms" on public.campaign_documents;
+create policy "campaign_documents_delete_gms"
+on public.campaign_documents for delete
+to authenticated
+using (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "ai_threads_select_owner_or_campaign_gm" on public.ai_creation_threads;
+create policy "ai_threads_select_owner_or_campaign_gm"
+on public.ai_creation_threads for select
+to authenticated
+using (owner_id = auth.uid() or public.is_campaign_gm(campaign_id));
+
+drop policy if exists "ai_threads_insert_character_owner" on public.ai_creation_threads;
+create policy "ai_threads_insert_character_owner"
+on public.ai_creation_threads for insert
+to authenticated
+with check (
+    owner_id = auth.uid()
+    and public.is_campaign_member(campaign_id)
+    and exists (
+        select 1
+        from public.characters
+        where characters.id = ai_creation_threads.character_id
+          and characters.owner_id = auth.uid()
+          and characters.campaign_id = ai_creation_threads.campaign_id
+    )
+);
+
+drop policy if exists "ai_threads_update_owner_or_campaign_gm" on public.ai_creation_threads;
+create policy "ai_threads_update_owner_or_campaign_gm"
+on public.ai_creation_threads for update
+to authenticated
+using (owner_id = auth.uid() or public.is_campaign_gm(campaign_id))
+with check (owner_id = auth.uid() or public.is_campaign_gm(campaign_id));
+
+drop policy if exists "ai_threads_delete_owner_or_campaign_gm" on public.ai_creation_threads;
+create policy "ai_threads_delete_owner_or_campaign_gm"
+on public.ai_creation_threads for delete
+to authenticated
+using (owner_id = auth.uid() or public.is_campaign_gm(campaign_id));
+
+drop policy if exists "ai_messages_select_thread_participants" on public.ai_creation_messages;
+create policy "ai_messages_select_thread_participants"
+on public.ai_creation_messages for select
+to authenticated
+using (
+    exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_creation_messages.thread_id
+          and (thread.owner_id = auth.uid() or public.is_campaign_gm(thread.campaign_id))
+    )
+);
+
+drop policy if exists "ai_messages_insert_thread_owner" on public.ai_creation_messages;
+create policy "ai_messages_insert_thread_owner"
+on public.ai_creation_messages for insert
+to authenticated
+with check (
+    exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_creation_messages.thread_id
+          and thread.owner_id = auth.uid()
+    )
+);
+
+drop policy if exists "ai_summaries_select_owner_or_campaign_gm" on public.ai_scene_summaries;
+create policy "ai_summaries_select_owner_or_campaign_gm"
+on public.ai_scene_summaries for select
+to authenticated
+using (owner_id = auth.uid() or public.is_campaign_gm(campaign_id));
+
+drop policy if exists "ai_summaries_insert_owner" on public.ai_scene_summaries;
+create policy "ai_summaries_insert_owner"
+on public.ai_scene_summaries for insert
+to authenticated
+with check (
+    owner_id = auth.uid()
+    and exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_scene_summaries.thread_id
+          and thread.owner_id = auth.uid()
+          and thread.campaign_id = ai_scene_summaries.campaign_id
+          and thread.character_id = ai_scene_summaries.character_id
+    )
+);
+
+drop policy if exists "ai_summaries_update_owner_or_campaign_gm" on public.ai_scene_summaries;
+create policy "ai_summaries_update_owner_or_campaign_gm"
+on public.ai_scene_summaries for update
+to authenticated
+using (owner_id = auth.uid() or public.is_campaign_gm(campaign_id))
+with check (owner_id = auth.uid() or public.is_campaign_gm(campaign_id));
+
+drop policy if exists "ai_agent_logs_select_owner_or_campaign_gm" on public.ai_agent_run_logs;
+create policy "ai_agent_logs_select_owner_or_campaign_gm"
+on public.ai_agent_run_logs for select
+to authenticated
+using (
+    exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_agent_run_logs.thread_id
+          and (thread.owner_id = auth.uid() or public.is_campaign_gm(thread.campaign_id))
+    )
+);
+
+drop policy if exists "ai_agent_logs_insert_thread_owner_or_gm" on public.ai_agent_run_logs;
+create policy "ai_agent_logs_insert_thread_owner_or_gm"
+on public.ai_agent_run_logs for insert
+to authenticated
+with check (
+    thread_id is null
+    or exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_agent_run_logs.thread_id
+          and (thread.owner_id = auth.uid() or public.is_campaign_gm(thread.campaign_id))
+    )
+);
+
+drop policy if exists "campaign_ai_docs_storage_select_members" on storage.objects;
+create policy "campaign_ai_docs_storage_select_members"
+on storage.objects for select
+to authenticated
+using (
+    bucket_id = 'campaign-ai-documents'
+    and exists (
+        select 1
+        from public.campaign_documents document
+        where document.storage_path = storage.objects.name
+          and public.is_campaign_member(document.campaign_id)
+    )
+);
+
+drop policy if exists "campaign_ai_docs_storage_delete_gms" on storage.objects;
+create policy "campaign_ai_docs_storage_delete_gms"
+on storage.objects for delete
+to authenticated
+using (
+    bucket_id = 'campaign-ai-documents'
+    and exists (
+        select 1
+        from public.campaign_documents document
+        where document.storage_path = storage.objects.name
+          and public.is_campaign_gm(document.campaign_id)
     )
 );
 
