@@ -51,6 +51,8 @@ Ask each character for one personal tie to the city, one faction they distrust, 
 Do not reveal the true patron behind the Glass Choir. It is fine to hint that the Choir has political backing.
 ```
 
+The app does not send the entire campaign packet to every AI call. It sends a compact campaign brief, your GM guidance, and a few focused note snippets that look relevant to the current scene. This keeps costs lower and usually gives the AI a clearer starting point. If human testing shows the AI needs more context, expand the scenario seed, add sharper summaries, or add more targeted notes before increasing the amount of context sent per call.
+
 ## Player AI Character Creation
 
 Once a player's cloud character is assigned to the campaign, they see the **Character Creation AI** panel.

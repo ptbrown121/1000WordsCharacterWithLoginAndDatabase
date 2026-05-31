@@ -7,6 +7,8 @@ import {
     defaultSummary,
     normalizeTileSuggestions,
     parseJsonOutput,
+    scoreDocumentForFocus,
+    selectFocusedDocuments,
     summarizeDocumentsForPrompt,
     transcriptFromMessages
 } from '../api/_lib/aiWorkflow.js';
@@ -16,27 +18,44 @@ describe('AI workflow prompt helpers', () => {
     it('builds campaign context from settings and documents', () => {
         const context = buildCampaignContext({
             settings: {
-                scenario_seed: 'The campaign starts in a city of stained glass.',
+                scenario_seed: 'The campaign starts in a city of stained glass. '.repeat(200),
                 gm_instructions: 'Ask about prior obligations.'
             },
             documents: [
                 { title: 'Factions', content_text: 'The Mirror Court controls the old transit lines.' }
-            ]
+            ],
+            focusText: 'Mirror Court obligations'
         });
 
         assert.match(context, /stained glass/);
         assert.match(context, /prior obligations/);
         assert.match(context, /Mirror Court/);
+        assert.ok(context.length < 6000);
     });
 
-    it('summarizes documents within a bounded prompt section', () => {
+    it('summarizes only focused documents within a bounded prompt section', () => {
         const docs = summarizeDocumentsForPrompt([
-            { title: 'Long note', content_text: 'x'.repeat(30000) }
-        ]);
+            { title: 'Mirror Court', content_text: 'mirror transit masks '.repeat(600) },
+            { title: 'Desert Kingdom', content_text: 'sand empress oasis '.repeat(600) },
+            { title: 'Hidden Archive', content_text: 'library ghosts catalog '.repeat(600) },
+            { title: 'Unrelated Sea', content_text: 'sailors reef tide '.repeat(600) }
+        ], 'The player owes the Mirror Court for transit through the old lines.');
 
-        assert.ok(docs.length < 25000);
-        assert.match(docs, /Long note/);
+        assert.ok(docs.length < 6000);
+        assert.match(docs, /Mirror Court/);
+        assert.doesNotMatch(docs, /Unrelated Sea/);
         assert.match(docs, /truncated for context/);
+    });
+
+    it('scores and selects campaign notes by scene focus text', () => {
+        const docs = [
+            { title: 'Glass Choir', content_text: 'patron singers stained glass city' },
+            { title: 'Dock Strike', content_text: 'workers cranes harbor debt' },
+            { title: 'Moon Market', content_text: 'vendors masks night' }
+        ];
+
+        assert.ok(scoreDocumentForFocus(docs[1], 'The player owes a debt at the harbor') > 0);
+        assert.equal(selectFocusedDocuments(docs, 'harbor debt')[0].title, 'Dock Strike');
     });
 
     it('builds scene agent input with character and transcript context', () => {

@@ -1,4 +1,12 @@
-export const MAX_DOCUMENT_CHARS = 24000;
+export const MAX_CAMPAIGN_SEED_CHARS = 1800;
+export const MAX_GM_INSTRUCTIONS_CHARS = 1800;
+export const MAX_FOCUSED_DOCUMENT_CHARS = 1600;
+export const MAX_FOCUSED_DOCUMENTS = 3;
+// Safety ceiling for the combined focused-document section. The real binding
+// limits are MAX_FOCUSED_DOCUMENTS x MAX_FOCUSED_DOCUMENT_CHARS plus per-doc
+// title/heading overhead; this guard sits just above that product so a future
+// bump to either constant can't silently balloon the prompt.
+export const MAX_CAMPAIGN_CONTEXT_CHARS = MAX_FOCUSED_DOCUMENTS * (MAX_FOCUSED_DOCUMENT_CHARS + 160);
 export const MAX_MESSAGE_CHARS = 8000;
 export const MAX_TRANSCRIPT_MESSAGES = 18;
 
@@ -77,16 +85,75 @@ export function normalizeTileSuggestions(value = []) {
         .slice(0, 6);
 }
 
-export function summarizeDocumentsForPrompt(documents = []) {
-    let remaining = MAX_DOCUMENT_CHARS;
-    const chunks = [];
+const FOCUS_STOP_WORDS = new Set([
+    'about', 'after', 'again', 'also', 'before', 'being', 'campaign', 'character',
+    'could', 'from', 'have', 'into', 'like', 'that', 'their', 'there', 'these',
+    'they', 'this', 'through', 'what', 'when', 'where', 'which', 'with', 'would',
+    'your'
+]);
 
-    for (const doc of documents) {
+function matchTokens(value = '') {
+    return cleanText(value).toLowerCase().match(/[a-z0-9][a-z0-9'-]{2,}/g) || [];
+}
+
+function tokenizeForFocus(value = '') {
+    return matchTokens(value)
+        .filter(token => !FOCUS_STOP_WORDS.has(token))
+        .slice(0, 80);
+}
+
+function documentFocusText(doc) {
+    return cleanText([
+        doc.title,
+        doc.file_name,
+        doc.content_summary || doc.content_text
+    ].filter(Boolean).join('\n'));
+}
+
+// Scores a document against pre-tokenized focus terms using whole-token set
+// membership (so "sea" no longer matches "season"). Title hits are weighted
+// higher. Callers that score many documents should tokenize the focus text once
+// and reuse the array rather than passing a raw string per document.
+function scoreDocumentTokens(doc, focusTokens = []) {
+    if (focusTokens.length === 0) return 0;
+    const haystackTokens = new Set(matchTokens(documentFocusText(doc)));
+    if (haystackTokens.size === 0) return 0;
+    const titleTokens = new Set(matchTokens(doc.title || doc.file_name || ''));
+
+    return focusTokens.reduce((score, token) => {
+        if (!haystackTokens.has(token)) return score;
+        return score + 1 + (titleTokens.has(token) ? 3 : 0);
+    }, 0);
+}
+
+export function scoreDocumentForFocus(doc, focusText = '') {
+    return scoreDocumentTokens(doc, tokenizeForFocus(focusText));
+}
+
+export function selectFocusedDocuments(documents = [], focusText = '', maxDocs = MAX_FOCUSED_DOCUMENTS) {
+    const focusTokens = tokenizeForFocus(focusText);
+    const scored = documents
+        .map((doc, index) => ({ doc, index, score: scoreDocumentTokens(doc, focusTokens) }))
+        .filter(item => documentFocusText(item.doc))
+        .sort((a, b) => b.score - a.score || a.index - b.index);
+
+    const matches = scored.filter(item => item.score > 0).slice(0, maxDocs);
+    if (matches.length > 0) return matches.map(item => item.doc);
+
+    return scored.slice(0, Math.min(2, maxDocs)).map(item => item.doc);
+}
+
+export function summarizeDocumentsForPrompt(documents = [], focusText = '') {
+    let remaining = MAX_CAMPAIGN_CONTEXT_CHARS;
+    const chunks = [];
+    const focusedDocuments = selectFocusedDocuments(documents, focusText);
+
+    for (const doc of focusedDocuments) {
         if (remaining <= 0) break;
         const title = truncateText(doc.title || doc.file_name || 'Campaign note', 120);
         const source = cleanText(doc.content_summary || doc.content_text || '');
         if (!source) continue;
-        const body = truncateText(source, Math.min(remaining, 5000));
+        const body = truncateText(source, Math.min(remaining, MAX_FOCUSED_DOCUMENT_CHARS));
         chunks.push(`### ${title}\n${body}`);
         remaining -= body.length + title.length + 8;
     }
@@ -94,15 +161,15 @@ export function summarizeDocumentsForPrompt(documents = []) {
     return chunks.join('\n\n') || 'No GM campaign documents have been provided yet.';
 }
 
-export function buildCampaignContext({ documents = [], settings = null } = {}) {
-    const seed = truncateText(settings?.scenario_seed || '', 4000);
-    const instructions = truncateText(settings?.gm_instructions || '', 4000);
-    const docs = summarizeDocumentsForPrompt(documents);
+export function buildCampaignContext({ documents = [], settings = null, focusText = '' } = {}) {
+    const seed = truncateText(settings?.scenario_seed || '', MAX_CAMPAIGN_SEED_CHARS);
+    const instructions = truncateText(settings?.gm_instructions || '', MAX_GM_INSTRUCTIONS_CHARS);
+    const docs = summarizeDocumentsForPrompt(documents, focusText);
 
     return [
-        seed ? `GM scenario seed:\n${seed}` : '',
+        seed ? `Campaign brief:\n${seed}` : '',
         instructions ? `GM AI guidance:\n${instructions}` : '',
-        `Campaign documents:\n${docs}`
+        `Focused campaign notes:\n${docs}`
     ].filter(Boolean).join('\n\n');
 }
 
@@ -120,6 +187,13 @@ export function buildSceneAgentInput({ character, thread, messages = [], playerM
         `Current tiles: ${(characterState.tiles || []).map(tile => `${tile.name} (${tile.type || 'Tile'})`).slice(0, 30).join(', ') || 'none yet'}`,
         `Current journal entries: ${(characterState.journal || []).map(entry => entry.title).slice(0, 12).join(', ') || 'none yet'}`
     ].join('\n');
+    const focusText = [
+        thread?.current_scene_title,
+        thread?.current_scene_goal,
+        characterBrief,
+        transcriptFromMessages(messages, 6),
+        playerMessage
+    ].filter(Boolean).join('\n');
 
     return [
         {
@@ -135,7 +209,7 @@ export function buildSceneAgentInput({ character, thread, messages = [], playerM
         {
             role: 'user',
             content: [
-                `Campaign context:\n${buildCampaignContext({ documents, settings })}`,
+                `Campaign context:\n${buildCampaignContext({ documents, settings, focusText })}`,
                 `Thread scene ${thread?.scene_index || 1}: ${thread?.current_scene_title || 'Opening backstory scene'}`,
                 thread?.compact_summary ? `Earlier compact summary:\n${thread.compact_summary}` : '',
                 `Character context:\n${characterBrief}`,
@@ -147,6 +221,13 @@ export function buildSceneAgentInput({ character, thread, messages = [], playerM
 }
 
 export function buildSummaryAgentInput({ character, thread, messages = [], documents = [], settings = null }) {
+    const focusText = [
+        character?.name || character?.state?.name,
+        thread?.current_scene_title,
+        thread?.current_scene_goal,
+        transcriptFromMessages(messages, 40)
+    ].filter(Boolean).join('\n');
+
     return [
         {
             role: 'developer',
@@ -159,7 +240,7 @@ export function buildSummaryAgentInput({ character, thread, messages = [], docum
         {
             role: 'user',
             content: [
-                `Campaign context:\n${buildCampaignContext({ documents, settings })}`,
+                `Campaign context:\n${buildCampaignContext({ documents, settings, focusText })}`,
                 `Character: ${character?.name || character?.state?.name || 'Unnamed character'}`,
                 `Scene ${thread?.scene_index || 1}: ${thread?.current_scene_title || 'Backstory scene'}`,
                 `Transcript:\n${transcriptFromMessages(messages, 40)}`
@@ -169,6 +250,8 @@ export function buildSummaryAgentInput({ character, thread, messages = [], docum
 }
 
 export function buildValidationAgentInput({ summary, documents = [], settings = null }) {
+    const focusText = JSON.stringify(summary, null, 2);
+
     return [
         {
             role: 'developer',
@@ -181,7 +264,7 @@ export function buildValidationAgentInput({ summary, documents = [], settings = 
         {
             role: 'user',
             content: [
-                `Campaign context:\n${buildCampaignContext({ documents, settings })}`,
+                `Campaign context:\n${buildCampaignContext({ documents, settings, focusText })}`,
                 `Proposed scene summary:\n${JSON.stringify(summary, null, 2)}`
             ].join('\n\n')
         }
