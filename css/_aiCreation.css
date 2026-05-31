@@ -69,6 +69,22 @@
     white-space: pre-wrap;
 }
 
+.ai-message-header {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.ai-message-edited {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.ai-message-edit {
+    margin-left: auto;
+    padding: 0.2rem 0.45rem;
+}
+
 .ai-creation-form textarea,
 .campaign-ai-docs-panel textarea {
     width: 100%;

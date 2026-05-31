@@ -82,7 +82,7 @@ The AI character creation MVP runs through Vercel API routes so model and servic
    - Optional: `OPENAI_SCENE_MODEL` (defaults to `gpt-5.4-mini`)
 3. Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as the browser-visible Supabase values. If you prefer separate server names, the API routes also read `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 4. GM users can use the campaign panel to save short text/Markdown setting notes and AI guidance. The MVP intentionally supports pasted text plus `.txt`/`.md` files; PDF/DOCX extraction is a later upgrade.
-5. Players start the guided AI chat from a cloud character assigned to a campaign. Finalized summaries are saved in Supabase first, then accepted summaries are appended to the character journal.
+5. Players start the guided AI chat from a cloud character assigned to a campaign. Finalized summaries are saved in Supabase first, then accepted summaries are appended to the character journal. Players can also cancel an unfinished scene or edit a previous response; editing rewinds later AI replies and supersedes any pending summary for that scene.
 
 Without `OPENAI_API_KEY`, the Vercel routes return deterministic local fallback responses. That keeps local UI/database testing possible, but production play should use a real OpenAI key. For local AI route testing, run the app through `vercel dev`; plain `npm run dev` serves the Vite client only.
 

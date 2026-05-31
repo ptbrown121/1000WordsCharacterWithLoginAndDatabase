@@ -183,6 +183,7 @@ export const els = {
     aiCreationStatus: document.getElementById('ai-creation-status'),
     btnAiThreadStart: document.getElementById('btn-ai-thread-start'),
     btnAiSceneFinalize: document.getElementById('btn-ai-scene-finalize'),
+    btnAiSceneCancel: document.getElementById('btn-ai-scene-cancel'),
     aiCreationMessages: document.getElementById('ai-creation-messages'),
     aiCreationForm: document.getElementById('ai-creation-form'),
     aiCreationInput: document.getElementById('ai-creation-input'),

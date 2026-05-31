@@ -18,6 +18,9 @@ export default async function handler(req, res) {
         if (bundle.thread.owner_id !== user.id) {
             throw new ApiError(403, 'Only the character owner can chat in this AI creation thread.');
         }
+        if (['completed', 'cancelled'].includes(bundle.thread.status)) {
+            throw new ApiError(400, 'This scene is already closed. Start a new scene to continue chatting.');
+        }
 
         const character = await loadVisibleCharacter(client, bundle.thread.character_id);
         const context = await fetchCampaignContext(client, bundle.thread.campaign_id);

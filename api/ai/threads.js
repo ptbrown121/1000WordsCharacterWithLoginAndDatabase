@@ -35,7 +35,7 @@ export default async function handler(req, res) {
         await requireCampaignMember(client, campaignId);
 
         const existing = await fetchLatestThreadForCharacter(client, character.id);
-        if (existing?.thread && ['active', 'ready_for_summary', 'summary_pending'].includes(existing.thread.status)) {
+        if (existing?.thread && ['active', 'ready_for_summary', 'summary_pending', 'paused'].includes(existing.thread.status)) {
             sendJson(res, 200, { bundle: existing });
             return;
         }

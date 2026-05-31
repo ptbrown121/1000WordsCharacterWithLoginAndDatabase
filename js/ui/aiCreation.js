@@ -60,6 +60,20 @@ function applyBundle(bundle) {
     renderAiCreation();
 }
 
+function isClosedThread(thread = aiState.activeBundle?.thread) {
+    return ['completed', 'cancelled'].includes(thread?.status);
+}
+
+function statusForBundle(bundle) {
+    const status = bundle?.thread?.status;
+    if (!bundle) return 'Start a guided creation chat for this campaign character.';
+    if (status === 'cancelled') return 'Previous scene was cancelled. Start a new guided scene when ready.';
+    if (status === 'completed') return 'Previous scene was accepted. Start a new guided scene when ready.';
+    if (status === 'summary_pending') return 'A scene summary is ready for review.';
+    if (status === 'ready_for_summary') return 'This scene is ready to summarize, or you can keep chatting.';
+    return 'Continue guided character creation.';
+}
+
 async function loadActiveThread(characterId) {
     if (!characterId || aiState.loadingThread) return;
     aiState.loadingThread = true;
@@ -67,7 +81,7 @@ async function loadActiveThread(characterId) {
     try {
         const payload = await apiFetch(`/api/ai/threads?characterId=${encodeURIComponent(characterId)}`);
         applyBundle(payload.bundle);
-        setThreadStatus(payload.bundle ? 'AI creation chat loaded.' : 'Start a guided creation chat for this campaign character.');
+        setThreadStatus(statusForBundle(payload.bundle));
     } catch (error) {
         applyBundle(null);
         setThreadStatus(error.message);
@@ -134,7 +148,7 @@ async function sendMessage(event) {
 }
 
 async function finalizeScene() {
-    if (aiState.busyThread || !aiState.activeBundle?.thread) return;
+    if (aiState.busyThread || !aiState.activeBundle?.thread || isClosedThread()) return;
     aiState.busyThread = true;
     setThreadStatus('Orchestrator and validator are drafting the scene summary...');
     renderAiCreation();
@@ -145,6 +159,27 @@ async function finalizeScene() {
         });
         applyBundle(payload.bundle);
         setThreadStatus('Scene summary is ready for review.');
+    } catch (error) {
+        setThreadStatus(error.message);
+    } finally {
+        aiState.busyThread = false;
+        renderAiCreation();
+    }
+}
+
+async function cancelScene() {
+    if (aiState.busyThread || !aiState.activeBundle?.thread || isClosedThread()) return;
+    if (!confirm('Cancel this AI scene? The chat will stay visible for reference, but it will not be finalized or saved to the journal.')) return;
+    aiState.busyThread = true;
+    setThreadStatus('Cancelling this scene...');
+    renderAiCreation();
+    try {
+        const payload = await apiFetch('/api/ai/cancel-scene', {
+            method: 'POST',
+            body: JSON.stringify({ threadId: aiState.activeBundle.thread.id })
+        });
+        applyBundle(payload.bundle);
+        setThreadStatus('Scene cancelled. You can start a new guided scene.');
     } catch (error) {
         setThreadStatus(error.message);
     } finally {
@@ -166,6 +201,31 @@ async function acceptSummary(summaryId) {
         if (payload.characterState) dataManager.state = payload.characterState;
         applyBundle(payload.bundle);
         setThreadStatus('Scene accepted and saved.');
+    } catch (error) {
+        setThreadStatus(error.message);
+    } finally {
+        aiState.busyThread = false;
+        renderAiCreation();
+    }
+}
+
+async function editMessage(message) {
+    if (aiState.busyThread || !message?.id || isClosedThread()) return;
+    const edited = prompt('Edit your response:', message.content || '');
+    if (edited === null) return;
+    const content = edited.trim();
+    if (!content || content === message.content) return;
+
+    aiState.busyThread = true;
+    setThreadStatus('Rewinding the scene from your edited response...');
+    renderAiCreation();
+    try {
+        const payload = await apiFetch('/api/ai/edit-message', {
+            method: 'POST',
+            body: JSON.stringify({ messageId: message.id, content })
+        });
+        applyBundle(payload.bundle);
+        setThreadStatus('Response edited and scene chat regenerated.');
     } catch (error) {
         setThreadStatus(error.message);
     } finally {
@@ -286,13 +346,34 @@ function renderMessages() {
         const row = document.createElement('div');
         row.className = `ai-message ai-message-${message.role}`;
 
+        const header = document.createElement('div');
+        header.className = 'ai-message-header';
+
         const role = document.createElement('strong');
         role.textContent = message.role === 'assistant' ? 'AI' : 'Player';
+        header.appendChild(role);
+
+        if (message.metadata?.edited || message.edited_at) {
+            const edited = document.createElement('span');
+            edited.className = 'ai-message-edited';
+            edited.textContent = 'edited';
+            header.appendChild(edited);
+        }
+
+        if (message.role === 'user' && activeCampaignEntry()?.isMine && !isClosedThread()) {
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'btn btn-outline ai-message-edit';
+            edit.textContent = 'Edit';
+            edit.disabled = aiState.busyThread;
+            edit.addEventListener('click', () => editMessage(message));
+            header.appendChild(edit);
+        }
 
         const content = document.createElement('p');
         content.textContent = message.content;
 
-        row.append(role, content);
+        row.append(header, content);
         container.appendChild(row);
     });
     container.scrollTop = container.scrollHeight;
@@ -406,23 +487,30 @@ export function renderAiCreation() {
 
     const canChat = Boolean(entry.isMine && !entry.readOnly);
     const hasThread = Boolean(aiState.activeBundle?.thread);
+    const hasOpenThread = hasThread && !isClosedThread();
     const status = aiState.loadingThread
         ? 'Loading AI creation chat...'
-        : aiState.threadStatus || (hasThread ? 'Continue guided character creation.' : 'Start a guided creation chat for this character.');
+        : aiState.threadStatus || statusForBundle(aiState.activeBundle);
 
     if (els.aiCreationStatus) els.aiCreationStatus.textContent = status;
     if (els.btnAiThreadStart) {
-        els.btnAiThreadStart.hidden = hasThread;
+        els.btnAiThreadStart.hidden = hasOpenThread;
+        els.btnAiThreadStart.textContent = hasThread ? 'Start new scene' : 'Start chat';
         els.btnAiThreadStart.disabled = !canChat || aiState.busyThread || aiState.loadingThread;
     }
     if (els.btnAiSceneFinalize) {
-        els.btnAiSceneFinalize.disabled = !canChat || !hasThread || aiState.busyThread || aiState.loadingThread;
+        els.btnAiSceneFinalize.hidden = !hasOpenThread;
+        els.btnAiSceneFinalize.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
+    }
+    if (els.btnAiSceneCancel) {
+        els.btnAiSceneCancel.hidden = !hasOpenThread;
+        els.btnAiSceneCancel.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
     }
     if (els.aiCreationInput) {
-        els.aiCreationInput.disabled = !canChat || !hasThread || aiState.busyThread || aiState.loadingThread;
+        els.aiCreationInput.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
     }
     if (els.btnAiMessageSend) {
-        els.btnAiMessageSend.disabled = !canChat || !hasThread || aiState.busyThread || aiState.loadingThread;
+        els.btnAiMessageSend.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
     }
 
     renderMessages();
@@ -436,6 +524,7 @@ export function init(deps) {
     els.btnAiThreadStart?.addEventListener('click', startThread);
     els.aiCreationForm?.addEventListener('submit', sendMessage);
     els.btnAiSceneFinalize?.addEventListener('click', finalizeScene);
+    els.btnAiSceneCancel?.addEventListener('click', cancelScene);
     els.btnCampaignAiSettingsSave?.addEventListener('click', saveCampaignAiSettings);
     els.btnCampaignAiDocUpload?.addEventListener('click', uploadCampaignAiDoc);
     els.campaignManageSelect?.addEventListener('change', () => {

@@ -15,6 +15,9 @@ export default async function handler(req, res) {
         if (bundle.thread.owner_id !== user.id) {
             throw new ApiError(403, 'Only the character owner can finalize this AI scene.');
         }
+        if (['completed', 'cancelled'].includes(bundle.thread.status)) {
+            throw new ApiError(400, 'This scene is already closed. Start a new scene instead.');
+        }
         if (!bundle.messages.some(message => message.role === 'user')) {
             throw new ApiError(400, 'Add at least one player message before finalizing a scene.');
         }

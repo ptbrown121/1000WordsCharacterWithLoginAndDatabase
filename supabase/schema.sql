@@ -95,7 +95,7 @@ create table if not exists public.ai_creation_threads (
     campaign_id uuid not null references public.campaigns(id) on delete cascade,
     character_id uuid not null references public.characters(id) on delete cascade,
     owner_id uuid not null references public.profiles(id) on delete cascade,
-    status text not null default 'active' check (status in ('active', 'ready_for_summary', 'summary_pending', 'completed', 'paused')),
+    status text not null default 'active' check (status in ('active', 'ready_for_summary', 'summary_pending', 'completed', 'paused', 'cancelled')),
     current_scene_title text not null default 'Opening backstory scene',
     current_scene_goal text not null default '',
     scene_index integer not null default 1,
@@ -111,6 +111,7 @@ create table if not exists public.ai_creation_messages (
     role text not null check (role in ('user', 'assistant', 'system')),
     content text not null,
     metadata jsonb not null default '{}'::jsonb,
+    edited_at timestamptz,
     created_at timestamptz not null default now()
 );
 
@@ -165,6 +166,16 @@ create index if not exists ai_creation_messages_thread_idx on public.ai_creation
 create index if not exists ai_scene_summaries_thread_idx on public.ai_scene_summaries(thread_id, created_at desc);
 create index if not exists ai_scene_summaries_campaign_idx on public.ai_scene_summaries(campaign_id, created_at desc);
 create index if not exists ai_agent_run_logs_thread_idx on public.ai_agent_run_logs(thread_id, created_at desc);
+
+alter table public.ai_creation_messages
+add column if not exists edited_at timestamptz;
+
+alter table public.ai_creation_threads
+drop constraint if exists ai_creation_threads_status_check;
+
+alter table public.ai_creation_threads
+add constraint ai_creation_threads_status_check
+check (status in ('active', 'ready_for_summary', 'summary_pending', 'completed', 'paused', 'cancelled'));
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -557,6 +568,42 @@ create policy "ai_messages_insert_thread_owner"
 on public.ai_creation_messages for insert
 to authenticated
 with check (
+    exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_creation_messages.thread_id
+          and thread.owner_id = auth.uid()
+    )
+);
+
+drop policy if exists "ai_messages_update_thread_owner" on public.ai_creation_messages;
+create policy "ai_messages_update_thread_owner"
+on public.ai_creation_messages for update
+to authenticated
+using (
+    role = 'user'
+    and exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_creation_messages.thread_id
+          and thread.owner_id = auth.uid()
+    )
+)
+with check (
+    role = 'user'
+    and exists (
+        select 1
+        from public.ai_creation_threads thread
+        where thread.id = ai_creation_messages.thread_id
+          and thread.owner_id = auth.uid()
+    )
+);
+
+drop policy if exists "ai_messages_delete_thread_owner" on public.ai_creation_messages;
+create policy "ai_messages_delete_thread_owner"
+on public.ai_creation_messages for delete
+to authenticated
+using (
     exists (
         select 1
         from public.ai_creation_threads thread
