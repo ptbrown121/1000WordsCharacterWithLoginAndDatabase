@@ -315,6 +315,62 @@ begin
 end;
 $$;
 
+-- Atomically applies a player's message edit: updates the message, deletes the
+-- later replies, supersedes pending summaries, and reopens the thread in one
+-- transaction so a mid-sequence failure cannot leave the thread inconsistent.
+-- Runs with invoker rights, so every statement is still authorized by the RLS
+-- policies below (only the thread owner can edit their own user messages).
+create or replace function public.rewind_ai_thread_from_message(target_message_id uuid, new_content text)
+returns uuid
+language plpgsql
+as $$
+declare
+    target public.ai_creation_messages;
+    edited timestamptz := now();
+begin
+    select * into target
+    from public.ai_creation_messages
+    where id = target_message_id;
+
+    if target.id is null then
+        raise exception 'Player message not found';
+    end if;
+    if target.role <> 'user' then
+        raise exception 'Only player responses can be edited';
+    end if;
+
+    update public.ai_creation_messages
+    set content = new_content,
+        edited_at = edited,
+        metadata = coalesce(metadata, '{}'::jsonb)
+            || jsonb_build_object('edited', true, 'editedAt', edited)
+    where id = target_message_id;
+
+    if not found then
+        raise exception 'Only the character owner can edit this response';
+    end if;
+
+    delete from public.ai_creation_messages
+    where thread_id = target.thread_id
+      and created_at > target.created_at;
+
+    update public.ai_scene_summaries
+    set status = 'rejected',
+        validation_notes = 'Player edited an earlier response, so this summary was superseded.',
+        updated_at = edited
+    where thread_id = target.thread_id
+      and status in ('draft', 'pending_player', 'needs_revision');
+
+    update public.ai_creation_threads
+    set status = 'active',
+        orchestrator_notes = 'Player edited an earlier response; later AI replies were rewound.',
+        updated_at = edited
+    where id = target.thread_id;
+
+    return target.thread_id;
+end;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.campaigns enable row level security;
 alter table public.campaign_memberships enable row level security;
@@ -701,6 +757,7 @@ using (
 
 grant execute on function public.join_campaign_by_code(text) to authenticated;
 grant execute on function public.can_create_campaign() to authenticated;
+grant execute on function public.rewind_ai_thread_from_message(uuid, text) to authenticated;
 
 -- To allow a specific user to create campaigns, run this manually in the
 -- Supabase SQL editor after that user has signed in at least once:

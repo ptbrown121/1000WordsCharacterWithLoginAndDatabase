@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
         const message = assertNoSupabaseError(await client
             .from('ai_creation_messages')
-            .select('id, thread_id, role, content, metadata, created_at')
+            .select('id, thread_id, role')
             .eq('id', messageId)
             .single(), 'Could not load player message.');
 
@@ -32,44 +32,14 @@ export default async function handler(req, res) {
             throw new ApiError(400, 'This scene is already closed. Start a new scene for new changes.');
         }
 
-        const editedAt = new Date().toISOString();
+        // One transactional RPC applies the edit, deletes later replies,
+        // supersedes pending summaries, and reopens the thread; a failure
+        // rolls the whole rewind back instead of leaving it half-applied.
         assertNoSupabaseError(await client
-            .from('ai_creation_messages')
-            .update({
-                content,
-                edited_at: editedAt,
-                metadata: {
-                    ...(message.metadata || {}),
-                    edited: true,
-                    editedAt
-                }
-            })
-            .eq('id', messageId), 'Could not update player response.');
-
-        assertNoSupabaseError(await client
-            .from('ai_creation_messages')
-            .delete()
-            .eq('thread_id', message.thread_id)
-            .gt('created_at', message.created_at), 'Could not rewind later AI messages.');
-
-        assertNoSupabaseError(await client
-            .from('ai_scene_summaries')
-            .update({
-                status: 'rejected',
-                validation_notes: 'Player edited an earlier response, so this summary was superseded.',
-                updated_at: editedAt
-            })
-            .eq('thread_id', message.thread_id)
-            .in('status', ['draft', 'pending_player', 'needs_revision']), 'Could not supersede pending scene summaries.');
-
-        assertNoSupabaseError(await client
-            .from('ai_creation_threads')
-            .update({
-                status: 'active',
-                orchestrator_notes: 'Player edited an earlier response; later AI replies were rewound.',
-                updated_at: editedAt
-            })
-            .eq('id', message.thread_id), 'Could not reopen AI scene.');
+            .rpc('rewind_ai_thread_from_message', {
+                target_message_id: messageId,
+                new_content: content
+            }), 'Could not rewind the scene from your edited response.');
 
         const latestBundle = await fetchThreadBundle(client, message.thread_id);
         const character = await loadVisibleCharacter(client, latestBundle.thread.character_id);
@@ -82,6 +52,22 @@ export default async function handler(req, res) {
             documents: context.documents,
             settings: context.settings
         });
+
+        if (agent.failed) {
+            await insertAgentLog(client, {
+                threadId: message.thread_id,
+                campaignId: latestBundle.thread.campaign_id,
+                characterId: latestBundle.thread.character_id,
+                agentName: 'scene_chat_edit',
+                model: agent.model,
+                status: 'failed',
+                errorMessage: agent.errorMessage,
+                usage: agent.usage,
+                metadata: { editedMessageId: messageId }
+            });
+            // The rewind is already committed; only the regenerated reply failed.
+            throw new ApiError(502, 'Your edit was saved and later replies were rewound, but the AI reply failed. Send a message to continue the scene.');
+        }
 
         assertNoSupabaseError(await client
             .from('ai_creation_messages')

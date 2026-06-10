@@ -31,11 +31,40 @@ export default async function handler(req, res) {
             documents: context.documents,
             settings: context.settings
         });
+        if (summaryAgent.failed) {
+            await insertAgentLog(client, {
+                threadId,
+                campaignId: bundle.thread.campaign_id,
+                characterId: bundle.thread.character_id,
+                agentName: 'orchestrator_summary',
+                model: summaryAgent.model,
+                status: 'failed',
+                errorMessage: summaryAgent.errorMessage,
+                usage: summaryAgent.usage,
+                metadata: {}
+            });
+            throw new ApiError(502, 'The AI summarizer is unavailable right now. No summary was created; please try again.');
+        }
+
         const validationAgent = await runValidationAgent({
             summary: summaryAgent.result,
             documents: context.documents,
             settings: context.settings
         });
+        if (validationAgent.failed) {
+            await insertAgentLog(client, {
+                threadId,
+                campaignId: bundle.thread.campaign_id,
+                characterId: bundle.thread.character_id,
+                agentName: 'validator',
+                model: validationAgent.model,
+                status: 'failed',
+                errorMessage: validationAgent.errorMessage,
+                usage: validationAgent.usage,
+                metadata: {}
+            });
+            throw new ApiError(502, 'The AI validator is unavailable right now. No summary was saved; please try again.');
+        }
 
         const summaryStatus = validationAgent.result.status === 'valid' ? 'pending_player' : 'needs_revision';
         const summary = assertNoSupabaseError(await client

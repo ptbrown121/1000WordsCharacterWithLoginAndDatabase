@@ -14,6 +14,7 @@ import {
     transcriptFromMessages
 } from '../api/_lib/aiWorkflow.js';
 import { extractBearerToken, safeFileName } from '../api/_lib/supabase.js';
+import { describeStructuredFailure, resolveMaxOutputTokens } from '../api/_lib/openaiWorkflow.js';
 
 describe('AI workflow prompt helpers', () => {
     it('builds campaign context from settings and documents', () => {
@@ -173,5 +174,29 @@ describe('AI API utility helpers', () => {
     it('sanitizes uploaded campaign note filenames', () => {
         assert.equal(safeFileName('../A strange: file?.md'), '..-A-strange-file-.md');
         assert.equal(safeFileName(''), 'campaign-note.txt');
+    });
+});
+
+describe('OpenAI agent runtime helpers', () => {
+    it('resolves per-agent output token budgets with env overrides', () => {
+        delete process.env.TEST_MAX_OUTPUT_TOKENS;
+        assert.equal(resolveMaxOutputTokens('TEST_MAX_OUTPUT_TOKENS', 6000), 6000);
+
+        process.env.TEST_MAX_OUTPUT_TOKENS = '9000';
+        assert.equal(resolveMaxOutputTokens('TEST_MAX_OUTPUT_TOKENS', 6000), 9000);
+
+        process.env.TEST_MAX_OUTPUT_TOKENS = 'not-a-number';
+        assert.equal(resolveMaxOutputTokens('TEST_MAX_OUTPUT_TOKENS', 6000), 6000);
+
+        process.env.TEST_MAX_OUTPUT_TOKENS = '-50';
+        assert.equal(resolveMaxOutputTokens('TEST_MAX_OUTPUT_TOKENS', 6000), 6000);
+        delete process.env.TEST_MAX_OUTPUT_TOKENS;
+    });
+
+    it('describes structured-output failures distinctly', () => {
+        assert.match(describeStructuredFailure('max_output_tokens', 2500), /2500 tokens/);
+        assert.match(describeStructuredFailure('max_output_tokens', 2500), /reasoning/);
+        assert.match(describeStructuredFailure('content_filter', 2500), /incomplete \(content_filter\)/);
+        assert.match(describeStructuredFailure('', 2500), /could not be parsed/);
     });
 });

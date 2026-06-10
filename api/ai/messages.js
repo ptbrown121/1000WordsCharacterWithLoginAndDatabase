@@ -25,6 +25,32 @@ export default async function handler(req, res) {
         const character = await loadVisibleCharacter(client, bundle.thread.character_id);
         const context = await fetchCampaignContext(client, bundle.thread.campaign_id);
 
+        // Run the agent before persisting anything: if the model call fails,
+        // nothing is saved and the player can retry the same message.
+        const agent = await runSceneAgent({
+            character,
+            thread: bundle.thread,
+            messages: bundle.messages,
+            playerMessage: message,
+            documents: context.documents,
+            settings: context.settings
+        });
+
+        if (agent.failed) {
+            await insertAgentLog(client, {
+                threadId,
+                campaignId: bundle.thread.campaign_id,
+                characterId: bundle.thread.character_id,
+                agentName: 'scene_chat',
+                model: agent.model,
+                status: 'failed',
+                errorMessage: agent.errorMessage,
+                usage: agent.usage,
+                metadata: {}
+            });
+            throw new ApiError(502, 'The AI storyteller is unavailable right now. Your message was not saved; please try again.');
+        }
+
         assertNoSupabaseError(await client
             .from('ai_creation_messages')
             .insert({
@@ -33,16 +59,6 @@ export default async function handler(req, res) {
                 content: message,
                 metadata: {}
             }), 'Could not save player message.');
-
-        const latestBundle = await fetchThreadBundle(client, threadId);
-        const agent = await runSceneAgent({
-            character,
-            thread: latestBundle.thread,
-            messages: latestBundle.messages,
-            playerMessage: message,
-            documents: context.documents,
-            settings: context.settings
-        });
 
         assertNoSupabaseError(await client
             .from('ai_creation_messages')
@@ -65,16 +81,16 @@ export default async function handler(req, res) {
             .from('ai_creation_threads')
             .update({
                 status: nextStatus,
-                current_scene_title: agent.result.scene_title || latestBundle.thread.current_scene_title,
-                orchestrator_notes: agent.result.handoff_note || latestBundle.thread.orchestrator_notes,
+                current_scene_title: agent.result.scene_title || bundle.thread.current_scene_title,
+                orchestrator_notes: agent.result.handoff_note || bundle.thread.orchestrator_notes,
                 updated_at: new Date().toISOString()
             })
             .eq('id', threadId), 'Could not update AI thread.');
 
         await insertAgentLog(client, {
             threadId,
-            campaignId: latestBundle.thread.campaign_id,
-            characterId: latestBundle.thread.character_id,
+            campaignId: bundle.thread.campaign_id,
+            characterId: bundle.thread.character_id,
             agentName: 'scene_chat',
             model: agent.model,
             usage: agent.usage,

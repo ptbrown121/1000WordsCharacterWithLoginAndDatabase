@@ -141,6 +141,9 @@ async function sendMessage(event) {
         applyBundle(payload.bundle);
         setThreadStatus('Scene chat updated.');
     } catch (error) {
+        // Failed sends are not persisted server-side, so put the message back
+        // in the input for an easy retry.
+        if (els.aiCreationInput && !els.aiCreationInput.value) els.aiCreationInput.value = message;
         setThreadStatus(error.message);
     } finally {
         aiState.busyThread = false;
@@ -234,6 +237,14 @@ async function editMessage(message) {
         applyBundle(payload.bundle);
         setThreadStatus('Response edited and scene chat regenerated.');
     } catch (error) {
+        // The rewind may have committed even though the AI reply failed, so
+        // refresh the thread instead of leaving deleted replies on screen.
+        try {
+            const refreshed = await apiFetch(`/api/ai/threads?characterId=${encodeURIComponent(aiState.activeCharacterId)}`);
+            applyBundle(refreshed.bundle);
+        } catch {
+            // Keep the existing view if the refresh also fails.
+        }
         setThreadStatus(error.message);
     } finally {
         aiState.busyThread = false;
