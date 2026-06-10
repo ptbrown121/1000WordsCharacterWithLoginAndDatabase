@@ -15,6 +15,7 @@ import {
 } from '../api/_lib/aiWorkflow.js';
 import { extractBearerToken, safeFileName } from '../api/_lib/supabase.js';
 import { describeStructuredFailure, resolveMaxOutputTokens } from '../api/_lib/openaiWorkflow.js';
+import { readJson } from '../api/_lib/http.js';
 
 describe('AI workflow prompt helpers', () => {
     it('builds campaign context from settings and documents', () => {
@@ -174,6 +175,23 @@ describe('AI API utility helpers', () => {
     it('sanitizes uploaded campaign note filenames', () => {
         assert.equal(safeFileName('../A strange: file?.md'), '..-A-strange-file-.md');
         assert.equal(safeFileName(''), 'campaign-note.txt');
+    });
+
+    it('rejects malformed JSON bodies with a 400 ApiError', async () => {
+        const req = {
+            async *[Symbol.asyncIterator]() {
+                yield Buffer.from('{not valid json');
+            }
+        };
+
+        await assert.rejects(readJson(req), error => {
+            assert.equal(error.name, 'ApiError');
+            assert.equal(error.status, 400);
+            return true;
+        });
+
+        assert.deepEqual(await readJson({ body: { threadId: 't-1' } }), { threadId: 't-1' });
+        await assert.rejects(readJson({ body: '{broken' }), error => error.status === 400);
     });
 });
 
