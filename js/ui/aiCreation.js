@@ -1,4 +1,5 @@
 import { els } from '../els.js';
+import { renderJournal } from './journal.js';
 
 let dataManager;
 let supabaseClient;
@@ -194,11 +195,17 @@ async function acceptSummary(summaryId) {
     setThreadStatus('Saving accepted scene to the character journal...');
     renderAiCreation();
     try {
+        // Push any debounced local edits first so the server appends the journal
+        // entry onto current state instead of a stale snapshot, and a pending
+        // autosave can no longer fire afterwards and wipe the new entry.
+        await dataManager.flushCloudSave();
         const payload = await apiFetch('/api/ai/accept-summary', {
             method: 'POST',
             body: JSON.stringify({ summaryId, appendToJournal: true })
         });
-        if (payload.characterState) dataManager.state = payload.characterState;
+        if (payload.characterState && payload.bundle?.thread?.character_id === dataManager.activeCharId) {
+            if (dataManager.mergeServerJournalEntries(payload.characterState)) renderJournal();
+        }
         applyBundle(payload.bundle);
         setThreadStatus('Scene accepted and saved.');
     } catch (error) {

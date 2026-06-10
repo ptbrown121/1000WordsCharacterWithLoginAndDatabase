@@ -468,6 +468,9 @@ with check (
         from public.characters
         where characters.id = roll_logs.character_id
           and characters.owner_id = auth.uid()
+          -- The log's campaign must be the character's actual campaign (or both
+          -- null), so players cannot write roll logs into arbitrary campaigns.
+          and characters.campaign_id is not distinct from roll_logs.campaign_id
     )
 );
 

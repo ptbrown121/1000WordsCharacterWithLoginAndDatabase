@@ -519,6 +519,24 @@ export class DataManager {
         this.setCloudStatus('saved', 'Cloud save complete.');
     }
 
+    // Folds journal entries a server route appended into the local state without
+    // replacing it wholesale, so edits made while the request was in flight
+    // survive. The follow-up saveState() re-syncs the merged state to the cloud.
+    mergeServerJournalEntries(serverState) {
+        if (!this.canEditActiveCharacter()) return false;
+        const serverJournal = Array.isArray(serverState?.journal) ? serverState.journal : [];
+        if (serverJournal.length === 0) return false;
+
+        const journal = Array.isArray(this.state.journal) ? this.state.journal : [];
+        const knownIds = new Set(journal.map(entry => entry?.id).filter(Boolean));
+        const added = serverJournal.filter(entry => entry?.id && !knownIds.has(entry.id));
+        if (added.length === 0) return false;
+
+        this.state.journal = [...journal, ...added];
+        this.saveState();
+        return true;
+    }
+
     updateStat(statName, value) {
         if (!Object.prototype.hasOwnProperty.call(DEFAULT_STATE.stats, statName)) return;
         if (!this.canEditActiveCharacter()) {
