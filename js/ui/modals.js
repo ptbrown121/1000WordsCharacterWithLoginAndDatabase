@@ -14,7 +14,8 @@ import {
     serializeTileBoxes,
     validateShadowTags,
     ARMOR_COVERAGE_SOAK,
-    ARMOR_MATERIALS
+    ARMOR_MATERIALS,
+    HINDER_TYPES
 } from '../pool.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
@@ -274,6 +275,28 @@ function setFormBoxes(boxes = []) {
     syncTileBoxResourceVisibility();
 }
 
+function populateHinderTypes() {
+    const select = document.getElementById('hinder-assault-type');
+    if (!select || select.dataset.populated === 'true') return;
+
+    HINDER_TYPES.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.id;
+        option.textContent = `${type.assault} (${type.skill})`;
+        select.appendChild(option);
+    });
+    select.dataset.populated = 'true';
+}
+
+function renderHinderAssaultDetail() {
+    const detail = document.getElementById('hinder-assault-detail');
+    const selected = HINDER_TYPES.find(type => type.id === document.getElementById('hinder-assault-type')?.value);
+    if (!detail) return;
+    detail.textContent = selected
+        ? `${selected.skill} attack; injures ${selected.injures}; suggested tags: Range: ${selected.range === 'any' ? 'any range' : selected.range} and Crit ${selected.crit}. Defenders use Guile/Menace/Presence/Reason/Wiles, but not ${selected.skill}.`
+        : 'Hinders are nonlethal verbal attacks that exhaust opponents (-3 XP rebate). Add the suggested Range and Crit as tags.';
+}
+
 function populateWeaponTemplates() {
     const select = document.getElementById('weapon-template');
     if (!select || select.dataset.populated === 'true') return;
@@ -342,6 +365,7 @@ function syncTileTypeSections() {
     document.getElementById('weapon-builder-container').style.display = type === 'Gear' && gearSubtype === 'Weapon' ? 'block' : 'none';
     document.getElementById('armor-base-container').style.display = type === 'Gear' && gearSubtype === 'Armor' ? 'block' : 'none';
     document.getElementById('ammo-builder-container').style.display = isAmmo ? 'block' : 'none';
+    document.getElementById('hinder-builder-container').style.display = type === 'Gear' && gearSubtype === 'Hinder' ? 'block' : 'none';
 
     const diceInput = document.getElementById('tile-dice');
     const diceNote = document.getElementById('tile-dice-note');
@@ -582,6 +606,7 @@ export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     populateWeaponTemplates();
+    populateHinderTypes();
 
     // Info Modal
     els.btnInfo.addEventListener('click', () => els.infoModal.classList.add('active'));
@@ -652,6 +677,7 @@ export function init(deps) {
         renderTileTagLimitStatus();
     });
     document.getElementById('gear-subtype').addEventListener('change', syncTileTypeSections);
+    document.getElementById('hinder-assault-type').addEventListener('change', renderHinderAssaultDetail);
     document.getElementById('tile-exotic-skill').addEventListener('change', (e) => {
         if (e.target.value.startsWith('arcana-')) {
             document.getElementById('tile-is-spellcast').checked = true;
@@ -686,7 +712,8 @@ export function init(deps) {
             exoticSkill: getFormExoticSkill(),
             boxes: getFormBoxes(),
             tileType: document.getElementById('tile-type')?.value,
-            specialIdentity: getFormSpecialIdentity()
+            specialIdentity: getFormSpecialIdentity(),
+            gearSubtype: document.getElementById('tile-type')?.value === 'Gear' ? getFormGearSubtype() : null
         });
         els.tileXp.value = xp;
         renderXpEstimateNote(unknownTags);

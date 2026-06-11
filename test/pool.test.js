@@ -23,6 +23,10 @@ import {
     getTileWhileForms,
     getCharacterForms,
     applyFormToTiles,
+    HINDER_TYPES,
+    isHinderTile,
+    countGizmoTiles,
+    countSliverTiles,
     calculateHitchRebateTotal,
     calculateArmorSoak,
     calculateArmorSoakDetails,
@@ -1469,5 +1473,52 @@ describe('Stranger: Celestial rank (v5.02 p.63)', () => {
         assert.match(getCelestialAspectSummary(9, 'astral'), /Astral 7.*1 month/); // clamped to 7
         assert.match(getCelestialAspectSummary(2, ''), /pick an Aural or Astral/i);
         assert.equal(getCelestialAspectSummary(0, 'aural'), '');
+    });
+});
+
+describe('Hinders (v5.02 p.41)', () => {
+    it('applies the -3 XP Hinder rebate (Violet\'s cutting one-liner = 6 XP)', () => {
+        // d6 (3) + Crit GOAD (3) + Range: Earshot (3) - 3 rebate = 6.
+        assert.equal(
+            engine.estimateTileXp(['d6'], ['GOAD', 'Range: Earshot'], null, { gearSubtype: 'Hinder', tileType: 'Gear' }),
+            6
+        );
+        // Without the subtype the same tile costs 9.
+        assert.equal(engine.estimateTileXp(['d6'], ['GOAD', 'Range: Earshot']), 9);
+    });
+
+    it('exposes the five assault types with skills, injuries, and crits', () => {
+        assert.equal(HINDER_TYPES.length, 5);
+        const guile = HINDER_TYPES.find(type => type.id === 'guile');
+        assert.equal(guile.injures, 'Reflex');
+        assert.equal(guile.crit, 'HOLD');
+        const wiles = HINDER_TYPES.find(type => type.id === 'wiles');
+        assert.equal(wiles.injures, 'Energy');
+        assert.equal(wiles.crit, 'VOW');
+    });
+
+    it('identifies Hinder gear tiles', () => {
+        assert.equal(isHinderTile({ type: 'Gear', gearSubtype: 'Hinder' }), true);
+        assert.equal(isHinderTile({ type: 'Gear', gearSubtype: 'Weapon' }), false);
+        assert.equal(isHinderTile({ type: 'Story', gearSubtype: 'Hinder' }), false);
+    });
+});
+
+describe('Gizmos and Slivers (v5.02 p.68)', () => {
+    it('discounts an unchained Gizmo to 2 XP', () => {
+        assert.equal(engine.estimateTileXp(['d6'], ['Gizmo']), 5);               // 3 + 4 - 2
+        assert.equal(engine.estimateTileXp(['d6'], ['Gizmo', 'Chain Tinker']), 11); // 3 + 4 + 4
+    });
+
+    it('counts gizmo and sliver tiles, skipping buried ones', () => {
+        const tiles = [
+            { id: '1', name: 'wristband', type: 'Gear', dice: ['d6'], tags: ['Gizmo'] },
+            { id: '2', name: 'buried gizmo', type: 'Gear', isBuried: true, dice: ['d4'], tags: ['Gizmo'] },
+            { id: '3', name: 'accelerator', type: 'Gear', dice: ['d6'], tags: ['Implant'] },
+            { id: '4', name: 'fire breath', type: 'Gear', dice: ['d4'], tags: ['Knack'] },
+            { id: '5', name: 'plain', type: 'Gear', dice: ['d6'], tags: ['Keen'] }
+        ];
+        assert.equal(countGizmoTiles(tiles), 1);
+        assert.equal(countSliverTiles(tiles), 2);
     });
 });

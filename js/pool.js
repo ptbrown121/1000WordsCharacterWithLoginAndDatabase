@@ -873,6 +873,40 @@ export function getCoreAbilities(tiles = []) {
     return Array.from(abilities.values()).sort((a, b) => a.id.localeCompare(b.id));
 }
 
+// Repartee (p.41): Hinders are verbal-attack Gear tiles (nonlethal,
+// exhausting opponents, -3 XP rebate). Each assault type maps a skill to the
+// pool it injures and its typical Range / Crit. Defending uses the same
+// skills, but not the attacker's skill.
+export const HINDER_TYPES = [
+    { id: 'guile', skill: 'Guile', assault: 'Deception or distraction', injures: 'Reflex', range: 'Earshot', crit: 'HOLD', defense: 'I see what you’re trying to do.' },
+    { id: 'menace', skill: 'Menace', assault: 'Intimidation or frightening', injures: 'Reflex', range: 'Visual', crit: 'FEAR', defense: 'Your childish tricks will not work on me.' },
+    { id: 'presence', skill: 'Presence', assault: 'Taunting or provocation', injures: 'Energy', range: 'Earshot', crit: 'GOAD', defense: 'I’ve heard this before from worse than you.' },
+    { id: 'reason', skill: 'Reason', assault: 'Searching or observation', injures: 'Hidden things', range: 'any', crit: 'REVEAL', defense: 'What is it you gain from this challenge?' },
+    { id: 'wiles', skill: 'Wiles', assault: 'Persuasion or enticement', injures: 'Energy', range: 'Visual', crit: 'VOW', defense: 'I’ve got the perfect comeback.' }
+];
+
+export function isHinderTile(tile) {
+    return tile?.type === 'Gear' && tile?.gearSubtype === 'Hinder';
+}
+
+// Generic "does this tile carry tag X" check on the mechanical base name.
+// Broken gear's tags are off; buried state is the caller's concern.
+export function tileHasMechanicalTag(tile, baseTag) {
+    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === baseTag);
+}
+
+// Gizmo / Sliver capacity (p.68): a character can have up to MIND+FOCUS ▟
+// gizmos and BODY+POWER ▟ slivers (Knacks and Implants are the sliver tags).
+export function countGizmoTiles(tiles = []) {
+    return (tiles || []).filter(tile => tile && !tile.isBuried && tileHasMechanicalTag(tile, 'gizmo')).length;
+}
+
+export function countSliverTiles(tiles = []) {
+    return (tiles || []).filter(tile =>
+        tile && !tile.isBuried && (tileHasMechanicalTag(tile, 'knack') || tileHasMechanicalTag(tile, 'implant'))
+    ).length;
+}
+
 // ---------------------------------------------------------------------------
 // Stranger helpers (pp.61-63): Bestial resource points, While X forms, and
 // Celestial Aural/Astral ranks.
@@ -1346,6 +1380,18 @@ export class PoolEngine {
         // Armor base cost: material + coverage.
         if (armorType) {
             xp += (ARMOR_MATERIAL_XP[armorType.material] || 0) + (ARMOR_COVERAGE_XP[armorType.coverage] || 0);
+        }
+
+        // Hinders have a rebate of 3 XP (p.41).
+        if (options.gearSubtype === 'Hinder') {
+            xp -= 3;
+        }
+
+        // Gizmo (p.68): the tag is 4 XP chained to a skill; "If it does not
+        // Chain a skill, Gizmo only costs 2 XP."
+        const allBaseTags = tagsArray.map(tag => getMechanicalBaseTag(normalizeTagForXp(tag)));
+        if (allBaseTags.includes('gizmo') && !allBaseTags.includes('chain')) {
+            xp -= 2;
         }
 
         const weapon = options.weapon || null;

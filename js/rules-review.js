@@ -1,4 +1,16 @@
-import { activeTileTagList, calculateHitchRebateTotal, getExoticSkillBaseXp, isHitchedTile, tileHasBestialTag, tileTagList, validateShadowTags } from './pool.js';
+import {
+    activeTileTagList,
+    calculateHitchRebateTotal,
+    countGizmoTiles,
+    countSliverTiles,
+    getExoticSkillBaseXp,
+    getTileShadowBoxes,
+    isHitchedTile,
+    tileHasBestialTag,
+    tileHasMechanicalTag,
+    tileTagList,
+    validateShadowTags
+} from './pool.js';
 
 function hasBestialResourceChoice(tile) {
     return tileTagList(tile).some(tag => /^(?:build\s*:|detail\s*:)?\s*bestial\s*:?\s*(hp|health|en|energy|rx|reflex)/i.test(String(tag).trim()));
@@ -63,7 +75,8 @@ export function buildRulesReviewItems(state, poolEngine) {
                 exoticSkill: tile.exoticSkill,
                 boxes: tile.boxes,
                 tileType: tile.type,
-                specialIdentity: tile.specialIdentity
+                specialIdentity: tile.specialIdentity,
+                gearSubtype: tile.type === 'Gear' ? tile.gearSubtype : null
             }).xp;
             const stored = parseInt(tile.xpCost, 10) || 0;
             if (stored !== estimate) {
@@ -134,6 +147,40 @@ export function buildRulesReviewItems(state, poolEngine) {
                 severity: 'medium',
                 category: 'Arcana',
                 message: `${skill.name}: ${chainedSpells.length}/${capacity} chained spells for this Arcana skill.`
+            });
+        }
+    });
+
+    // Gizmo / Sliver caps (p.68): up to MIND+FOCUS ▟ gizmos and BODY+POWER ▟
+    // slivers (Knack or Implant tags).
+    const statSteps = (stat) => poolEngine.calculateSteps(poolEngine.parseDiceString(state.stats?.[stat] || ''));
+    const gizmoCount = countGizmoTiles(tiles);
+    const gizmoCap = statSteps('MIND') + statSteps('FOCUS');
+    if (gizmoCount > gizmoCap) {
+        items.push({
+            severity: 'medium',
+            category: 'Gizmo',
+            message: `${gizmoCount}/${gizmoCap} gizmos (limit is MIND+FOCUS ▟).`
+        });
+    }
+    const sliverCount = countSliverTiles(tiles);
+    const sliverCap = statSteps('BODY') + statSteps('POWER');
+    if (sliverCount > sliverCap) {
+        items.push({
+            severity: 'medium',
+            category: 'Sliver',
+            message: `${sliverCount}/${sliverCap} slivers (Knacks/Implants; limit is BODY+POWER ▟).`
+        });
+    }
+
+    // Gizmos and Implants cannot use Qi or Id (p.68); Knacks can.
+    tiles.forEach(tile => {
+        const isGizmoOrImplant = tileHasMechanicalTag(tile, 'gizmo') || tileHasMechanicalTag(tile, 'implant');
+        if (isGizmoOrImplant && getTileShadowBoxes(tile).length > 0) {
+            items.push({
+                severity: 'medium',
+                category: 'Gizmo',
+                message: `${tile.name}: Gizmos and Implants cannot use Qi or Id boxes (Knacks can).`
             });
         }
     });

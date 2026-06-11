@@ -120,3 +120,48 @@ describe('buildRulesReviewItems', () => {
         ));
     });
 });
+
+describe('gizmo and sliver caps (v5.02 p.68)', () => {
+    it('flags gizmo count over MIND+FOCUS steps', () => {
+        const state = {
+            xpEarned: 100,
+            stats: { MIND: 'd4', FOCUS: '' }, // cap 1
+            tiles: [
+                { id: 'g1', type: 'Gear', name: 'wristband', dice: ['d4'], tags: ['Gizmo'], xpCost: 3 },
+                { id: 'g2', type: 'Gear', name: 'beacon', dice: ['d4'], tags: ['Gizmo'], xpCost: 3 }
+            ]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(items.some(item => item.category === 'Gizmo' && /2\/1 gizmos/.test(item.message)));
+    });
+
+    it('flags sliver count over BODY+POWER steps and shadow boxes on gizmos', () => {
+        const state = {
+            xpEarned: 100,
+            stats: { BODY: '', POWER: '' }, // cap 0
+            tiles: [
+                { id: 's1', type: 'Gear', name: 'fire breath', dice: ['d4'], tags: ['Knack'], xpCost: 3 },
+                {
+                    id: 'g1', type: 'Gear', name: 'shadow gizmo', dice: ['d4'], tags: ['Gizmo'], xpCost: 5,
+                    boxes: [{ type: 'shadow', kind: 'Qi', resource: 'hp' }, { type: 'color', color: 'Red' }]
+                }
+            ]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(items.some(item => item.category === 'Sliver' && /1\/0 slivers/.test(item.message)));
+        assert.ok(items.some(item => item.category === 'Gizmo' && /cannot use Qi or Id/.test(item.message)));
+    });
+
+    it('does not flag counts at or under the caps', () => {
+        const state = {
+            xpEarned: 100,
+            stats: { MIND: 'd6', FOCUS: 'd4', BODY: 'd4', POWER: '' }, // gizmo cap 3, sliver cap 1
+            tiles: [
+                { id: 'g1', type: 'Gear', name: 'wristband', dice: ['d4'], tags: ['Gizmo'], xpCost: 3 },
+                { id: 's1', type: 'Gear', name: 'implant', dice: ['d4'], tags: ['Implant'], xpCost: 3 }
+            ]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(!items.some(item => ['Gizmo', 'Sliver'].includes(item.category)));
+    });
+});

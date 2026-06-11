@@ -608,7 +608,15 @@
                             <option value="Armor">Armor</option>
                             <option value="Ammo">Ammo</option>
                             <option value="Tool">Tool</option>
+                            <option value="Hinder">Hinder (verbal attack; -3 XP)</option>
                         </select>
+                    </div>
+                    <div id="hinder-builder-container" style="display: none; margin-top: 0.5rem;">
+                        <label style="font-weight: normal; font-size: 0.9rem;">Assault Type (guidance)</label>
+                        <select id="hinder-assault-type" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 0.95rem; margin-top: 0.3rem;">
+                            <option value="">-- Pick an assault type --</option>
+                        </select>
+                        <small id="hinder-assault-detail" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Hinders are nonlethal verbal attacks that exhaust opponents (-3 XP rebate). Add the suggested Range and Crit as tags.</small>
                     </div>
                     <div id="gear-break-container" style="display: none; margin-top: 0.5rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal; font-size: 0.9rem; cursor: pointer;">
@@ -1471,6 +1479,8 @@
                     <li><strong>Special Identity tiles</strong>: mark a tile as Titan Identity (Gear/Story) or Homeworld (Story) to give it a third color box that counts toward pools and call colors. Titan Identity tiles take unlimited Build/Shield/Detail tags at -1 XP each (Crits still count and cost full price).</li>
                     <li><strong>Stranger panel</strong> (appears for Bestial/Celestial/While X characters): pick the current form to bury/unbury all <em>While X</em> tiles at once; choose a Celestial Aural or Astral aspect to see your projected-sense range or out-of-body time (rank = count of Celestial tiles); Bestial tiles each grant +1 to a chosen resource via <em>Bestial: HP/EN/RX</em> tags, and Pace equals Walk. The skill tile's own exotic tag is free (covered by its +2 base).</li>
                     <li><strong>Stranger skills</strong>: Bestial — Flight, Instinct, Shape; Celestial — Dreaming, Kinesis, Network (each 2 XP before the d4, with the exotic tag included). Space-setting skills at normal cost, no exotic tag: Adapt, Dogfight, Gunner, Hardsuit, Navigate, Psinger, Vibro, Xenology, Zappers.</li>
+                    <li><strong>Hinders</strong> (Gear subtype): nonlethal verbal attacks with a -3 XP rebate. Pick an assault type for guidance — Guile (HOLD, drains Reflex), Menace (FEAR, Reflex), Presence (GOAD, Energy), Reason (REVEAL, finds hidden), Wiles (VOW, Energy) — and add the Range and Crit as tags. Defenders use the same five skills but never the attacker's.</li>
+                    <li><strong>Gizmos & Slivers</strong>: a Gizmo (4 XP chained to a skill, 2 XP unchained) converts a spell into a tool with ▟ HP that may BREAK on Haywire; Knacks and Implants graft spells into the body as slivers. Caps: MIND+FOCUS ▟ gizmos, BODY+POWER ▟ slivers — the review strip flags overruns. Gizmos and Implants cannot use Qi/Id; Knacks can.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

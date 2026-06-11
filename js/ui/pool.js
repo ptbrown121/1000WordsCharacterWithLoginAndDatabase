@@ -648,6 +648,9 @@ export function executeVirtualRoll() {
     result.flatBonus = (res.flatBonus || 0) - result.woundPenalty;
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
+    // The resolution panel needs the called tiles for called-armor soak and
+    // Hinder/Gizmo notices.
+    result.calledTileIds = [...new Set(res.calledTileIds || [])];
     result.freebieUsed = Boolean(res.freebieDie);
     result.titanActive = Boolean(res.titanActive);
     result.titanRerolls = titanRerolls;
@@ -697,6 +700,7 @@ export function executeManualCalculate() {
     result.flatBonus = (res.flatBonus || 0) - result.woundPenalty;
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
+    result.calledTileIds = [...new Set(res.calledTileIds || [])];
     result.freebieUsed = Boolean(res.freebieDie);
     // Manual mode: the player rolls physical dice, so Titan rerolls happen
     // at the table; the results panel reminds them.

@@ -1,4 +1,4 @@
-import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, tileHasMechanicalTag } from '../pool.js';
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
@@ -239,6 +239,7 @@ export function renderResolutionExtraFields() {
                 </div>
             </div>
             ${renderDefenseShieldPanel()}
+            <p class="hint-text">Resisting a Hinder: defend with Guile, Menace, Presence, Reason, or Wiles — but not the attacker's skill. Hinder impact drains Energy or Reflex, not Health.</p>
         `;
     }
 
@@ -716,6 +717,15 @@ export function renderResolutionDetails() {
     }
     if (result.woundPenalty > 0) {
         notices.push(`<div class="result-notice">WOUND: -${result.woundPenalty} applied to this check's totals (all checks at -3 per active WOUND).</div>`);
+    }
+    const calledIds = new Set(result.calledTileIds || []);
+    const calledTiles = (dataManager?.state?.tiles || []).filter(tile => calledIds.has(tile.id));
+    const calledHinder = calledTiles.find(isHinderTile);
+    if (calledHinder) {
+        notices.push(`<div class="result-notice">Hinder (${escapeHtml(calledHinder.name)}): nonlethal verbal attack — impact drains Energy or Reflex per its assault type, not Health. Defenders resist with Guile/Menace/Presence/Reason/Wiles, but not the attacking skill.</div>`);
+    }
+    if (result.isHaywire && calledTiles.some(tile => tileHasMechanicalTag(tile, 'gizmo'))) {
+        notices.push('<div class="result-notice">Haywire with a gizmo in the check: the gizmo may BREAK (it has ▟ HP; GM call).</div>');
     }
     if ((result.titanRerolls || []).length > 0) {
         notices.push(`<div class="result-notice">Titan reroll: ${result.titanRerolls.map(r => `${escapeHtml(r.die)} ${r.from}→${r.to}`).join(', ')}.</div>`);
