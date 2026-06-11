@@ -631,3 +631,78 @@
     color: #00ffcc;
     font-weight: 700;
 }
+
+/* Condition panel: status badges, crits dashboard, press tracker */
+.status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-right: 0.25rem;
+}
+
+.status-major {
+    background: rgba(255, 170, 0, 0.2);
+    color: #ffaa00;
+    border: 1px solid rgba(255, 170, 0, 0.5);
+}
+
+.status-critical {
+    background: rgba(255, 51, 51, 0.2);
+    color: #ff5555;
+    border: 1px solid rgba(255, 51, 51, 0.5);
+}
+
+.crit-group {
+    margin-top: 0.5rem;
+}
+
+.crit-group small {
+    color: var(--text-secondary);
+}
+
+.crit-group-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+}
+
+.crit-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.3rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.crit-counter.crit-active {
+    color: #ff5555;
+    border-color: rgba(255, 51, 51, 0.6);
+    background: rgba(255, 51, 51, 0.1);
+}
+
+.crit-step {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 0.25rem;
+}
+
+.press-tracker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.press-count {
+    font-weight: 700;
+}

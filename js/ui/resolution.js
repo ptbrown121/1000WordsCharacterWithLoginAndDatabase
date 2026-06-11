@@ -1,4 +1,5 @@
 import { ARMOR_COVERAGE_SOAK, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
+import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import {
@@ -12,14 +13,18 @@ import {
     calculateResolutionPlusUsage,
     getHealingAssignments,
     applyShieldsToCrits,
-    parseCritList
+    parseCritList,
+    getRangeExtensionResults,
+    getChainMaxedDieCost
 } from '../resolution-rules.js';
 
 let dataManager;
+let poolEngine;
 let renderAll;
 
 export function init(deps = {}) {
     dataManager = deps.dataManager;
+    poolEngine = deps.poolEngine;
     renderAll = deps.renderAll;
 
     els.resolutionControls.addEventListener('change', (e) => {
@@ -67,6 +72,10 @@ export function init(deps = {}) {
     });
 
     els.resolutionControls.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-roll-freebie')) {
+            rollPostRollFreebie();
+            return;
+        }
         if (!e.target.classList.contains('btn-resolve-ammo')) return;
         resolveAmmo(e.target.dataset.ammoTileId);
     });
@@ -314,6 +323,67 @@ export function renderAmmoResolution(result) {
     `;
 }
 
+// Post-roll Freebie (p.25): "You can do this before or after you roll, but
+// only once per check." Pre-roll freebies set result.freebieUsed, which
+// hides this panel.
+function renderFreebiePanel(result) {
+    if (result.freebieUsed || !poolEngine) return '';
+
+    const distinctDice = [...new Set((result.originalRolls || []).map(roll => roll.die))]
+        .filter(die => /^d\d+$/.test(String(die)))
+        .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
+    if (distinctDice.length === 0) return '';
+
+    const options = distinctDice.map(die => {
+        const cost = poolEngine.calculateSteps([die]);
+        return `<option value="${escapeHtml(die)}">${escapeHtml(die)} (${cost} EN)</option>`;
+    }).join('');
+
+    return `
+        <div class="freebie-resolution-panel" style="margin-top: 0.5rem;">
+            <h3>Freebie Die</h3>
+            <p class="hint-text">Once per test: spend Energy equal to the die's ▟ to add one more die that duplicates a die already in the pool.</p>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <select id="freebie-postroll-die">
+                    <option value="">-- Choose die --</option>
+                    ${options}
+                </select>
+                <button class="btn btn-outline btn-roll-freebie" type="button">Roll Freebie</button>
+            </div>
+        </div>
+    `;
+}
+
+function rollPostRollFreebie() {
+    const result = uiState.lastRollResult;
+    if (!result || result.freebieUsed || !poolEngine) return;
+
+    const die = document.getElementById('freebie-postroll-die')?.value || '';
+    if (!die) return;
+    if (!(result.originalRolls || []).some(roll => roll.die === die)) return;
+
+    const cost = poolEngine.calculateSteps([die]);
+    if (cost > 0 && dataManager) {
+        const currentEn = parseInt(dataManager.state.en, 10) || 0;
+        if (currentEn < cost && !dataManager.state.gmOverride) {
+            alert(`A Freebie ${die} costs ${cost} Energy, but only ${currentEn} is available.`);
+            return;
+        }
+        if (!confirm(`Spend ${cost} Energy for a Freebie ${die}?`)) return;
+        dataManager.state.en = Math.max(0, currentEn - cost);
+        dataManager.saveState();
+        if (renderAll) renderAll();
+    }
+
+    const rolls = [...(result.originalRolls || []), { source: 'Freebie', die, val: poolEngine.rollDie(die) }];
+    const recalculated = poolEngine.calculateOptimalTotal(rolls, result.adds ?? 2, {
+        haywireThreshold: result.haywireThreshold || 1
+    });
+    Object.assign(result, recalculated);
+    result.freebieUsed = true;
+    renderResolution();
+}
+
 function resolveAmmo(tileId) {
     if (!dataManager || !uiState.lastRollResult) return;
     const selectedRollId = uiState.ammoAssignments[tileId];
@@ -393,6 +463,14 @@ export function calculateResolutionSummary(result) {
             }
         }
 
+        const extension = getRangeExtensionResults(result, uiState.currentResolutionAssignments);
+        if (extension.entries.length > 0) {
+            const detail = extension.entries
+                .map(entry => `${entry.val} vs ${entry.threshold} ${entry.success ? '✓' : '✗'}`)
+                .join(', ');
+            lines.push(`<p><strong>Range/Duration:</strong> ${detail} → ${extension.increments} increment${extension.increments === 1 ? '' : 's'} on the Space &amp; Time table. One use; Instant, Sustain, and Rite durations cannot be modified.</p>`);
+        }
+
         return {
             headline: `Attack ${attackTotal} / Impact ${impactTotal}`,
             html: lines.join('') + renderBonusDetails(bonusInfo.details),
@@ -418,6 +496,11 @@ export function calculateResolutionSummary(result) {
             `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus${escapeHtml(armorSoakText)})</p>`,
             `<p><strong>Pluses Used:</strong> ${plusUsage.used}/${plusUsage.budget}</p>`
         ];
+
+        const activeJolts = normalizeActiveCrits(dataManager?.state?.activeCrits).jolt || 0;
+        if (activeJolts > 0) {
+            lines.push(`<p class="resolution-warning">JOLT active ×${activeJolts}: reduce Grit by 3 each on this defense, then clear the JOLT from the Condition panel.</p>`);
+        }
 
         if (!plusesAreLegal) {
             lines.push('<p class="resolution-warning">Reduce plus use before resolving defense.</p>');
@@ -518,7 +601,16 @@ export function renderResolutionDetails() {
         notices.push('<div class="result-notice">TEST ROLL: this roll was not saved to campaign history.</div>');
     }
     if (result.isHaywire) {
-        notices.push('<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1.</div>');
+        notices.push(result.haywireThreshold === 2
+            ? '<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1 or 2 (Glitch).</div>'
+            : '<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1.</div>');
+    }
+    if (result.woundPenalty > 0) {
+        notices.push(`<div class="result-notice">WOUND: -${result.woundPenalty} applied to this check's totals (all checks at -3 per active WOUND).</div>`);
+    }
+    const chainCost = getChainMaxedDieCost(result);
+    if (chainCost.maxedCount > 0) {
+        notices.push(`<div class="result-notice">Chain cost: ${chainCost.maxedCount} maxed chain ${chainCost.maxedCount === 1 ? 'die' : 'dice'} — spend ${chainCost.maxedCount} resource point${chainCost.maxedCount === 1 ? '' : 's'} (EN, RX, or HP; player's choice).</div>`);
     }
     els.resultNotices.innerHTML = notices.join('');
 
@@ -557,6 +649,7 @@ export function renderResolution() {
             ${renderResolutionAssignments(result)}
         </div>
         ${renderAmmoResolution(result)}
+        ${renderFreebiePanel(result)}
         ${warningHtml}
     `;
 

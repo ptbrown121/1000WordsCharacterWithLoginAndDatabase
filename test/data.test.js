@@ -226,3 +226,22 @@ describe('reorderTilesByVisibleMove', () => {
         assert.equal(reorderTilesByVisibleMove(tiles, ['a'], 'b', 'a'), tiles);
     });
 });
+
+describe('condition tracking normalization (v5.02 PR 4)', () => {
+    it('normalizes activeCrits and pressCount on load', () => {
+        const state = normalizeStateForShadowRules({
+            stats: {},
+            tiles: [],
+            activeCrits: { WOUND: '2', bogus: 1, jolt: -1 },
+            pressCount: '3'
+        });
+        assert.deepEqual(state.activeCrits, { wound: 2 });
+        assert.equal(state.pressCount, 3);
+    });
+
+    it('defaults missing condition fields safely', () => {
+        const state = normalizeStateForShadowRules({ stats: {}, tiles: [] });
+        assert.deepEqual(state.activeCrits, {});
+        assert.equal(state.pressCount, 0);
+    });
+});

@@ -8,6 +8,7 @@ import {
     parseDiceInput,
     RESOURCE_LABELS
 } from '../pool.js';
+import { getWoundPenalty } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showResults } from './resolution.js';
@@ -52,6 +53,7 @@ export function init(deps) {
     });
     els.risenAberrantEffect?.addEventListener('change', updatePoolPreview);
     els.fallenAberrantEffect?.addEventListener('change', updatePoolPreview);
+    els.freebieDieSelect?.addEventListener('change', updatePoolPreview);
     els.chainOptions.addEventListener('change', (e) => {
         if (e.target.classList.contains('chain-cb')) {
             const chainId = e.target.dataset.chainId;
@@ -155,6 +157,13 @@ function finalizeRoll(result, compiledPool, mode, callColors) {
 
     applyAberrationForShadowUse(compiledPool.shadowUse);
     processBurns();
+
+    // Freebies are once per test: clear the pre-roll selection so the next
+    // roll does not silently charge Energy again.
+    if (els.freebieDieSelect && els.freebieDieSelect.value) {
+        els.freebieDieSelect.value = '';
+        updatePoolPreview();
+    }
 }
 
 function syncLegacyCallColorSelects(colors) {
@@ -245,6 +254,30 @@ function syncExtraDiceChips() {
     });
 }
 
+function getSelectedFreebieDie() {
+    return els.freebieDieSelect?.value || '';
+}
+
+// Refresh the Freebie select from the compiled pool: a freebie must
+// duplicate a die already present, so only those dice are offered. The
+// current selection survives when its die is still in the pool.
+function syncFreebieOptions(poolDice = []) {
+    const select = els.freebieDieSelect;
+    if (!select) return;
+
+    const current = select.value;
+    const distinctDice = [...new Set(poolDice
+        .filter(entry => entry.source !== 'Freebie')
+        .map(entry => entry.die))]
+        .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
+
+    select.innerHTML = '<option value="">None</option>' + distinctDice.map(die => {
+        const cost = poolEngine.calculateSteps([die]);
+        return `<option value="${escapeHtml(die)}">${escapeHtml(die)} (${cost} EN)</option>`;
+    }).join('');
+    select.value = distinctDice.includes(current) ? current : '';
+}
+
 export function clearCallSelection() {
     setCallColors([]);
     uiState.callTile = null;
@@ -278,6 +311,7 @@ export function getPoolOptions() {
         hitchCallTiles: [...(uiState.hitchCallTiles || [])],
         disabledChainIds: new Set(uiState.disabledChainIds),
         chainColorSelections: { ...(uiState.chainColorSelections || {}) },
+        freebieDie: getSelectedFreebieDie(),
         aberrantEffects: {
             risen: alignmentStates.includes('Risen Aberrant') || Boolean(els.risenAberrantEffect?.checked),
             fallen: alignmentStates.includes('Fallen Aberrant') || Boolean(els.fallenAberrantEffect?.checked)
@@ -514,7 +548,17 @@ export function updatePoolPreview() {
     }
 
     const res = poolEngine.compilePool(colors, dataManager.state.stats, uiState.callTile, uiState.burnTiles, dataManager.state.tiles, extraDice.dice, getPoolOptions());
-    
+
+    // Re-sync the Freebie options against the compiled pool. If the stored
+    // selection is no longer a duplicate of a pool die it is cleared, and the
+    // preview recompiles once without it.
+    const freebieBefore = getSelectedFreebieDie();
+    syncFreebieOptions(res.dice || []);
+    if (freebieBefore && getSelectedFreebieDie() !== freebieBefore) {
+        updatePoolPreview();
+        return;
+    }
+
     if (res.error) {
         els.poolDiceDisplay.innerHTML = `<span style="color:#ff3333">${escapeHtml(res.error)}</span>`;
         els.poolAddsDisplay.innerText = `Adds: --`;
@@ -588,12 +632,14 @@ export function executeVirtualRoll() {
     if (!applyResourceCosts(res.resourceCosts || [])) return;
 
     const rolled = poolEngine.rollPool(res.dice);
-    const result = poolEngine.calculateOptimalTotal(rolled, res.adds);
+    const result = poolEngine.calculateOptimalTotal(rolled, res.adds, { haywireThreshold: res.haywireThreshold });
     const appliedTagBonuses = getSelectedTagBonuses(res.tagBonuses || []);
     result.adds = res.adds;
-    result.flatBonus = res.flatBonus || 0;
+    result.woundPenalty = getWoundPenalty(dataManager.state.activeCrits);
+    result.flatBonus = (res.flatBonus || 0) - result.woundPenalty;
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
+    result.freebieUsed = Boolean(res.freebieDie);
     finalizeRoll(result, res, 'virtual', colors);
 }
 
@@ -633,12 +679,14 @@ export function executeManualCalculate() {
     }
     if (!applyResourceCosts(res.resourceCosts || [])) return;
 
-    const result = poolEngine.calculateOptimalTotal(rolled, res.adds);
+    const result = poolEngine.calculateOptimalTotal(rolled, res.adds, { haywireThreshold: res.haywireThreshold });
     const appliedTagBonuses = getSelectedTagBonuses(res.tagBonuses || []);
     result.adds = res.adds;
-    result.flatBonus = res.flatBonus || 0;
+    result.woundPenalty = getWoundPenalty(dataManager.state.activeCrits);
+    result.flatBonus = (res.flatBonus || 0) - result.woundPenalty;
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
+    result.freebieUsed = Boolean(res.freebieDie);
     finalizeRoll(result, res, 'manual', colors);
 }
 

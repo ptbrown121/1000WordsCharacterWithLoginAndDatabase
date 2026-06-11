@@ -29,6 +29,7 @@ export const RESOLUTION_MODES = {
         options: [
             { value: 'attack', label: 'Attack' },
             { value: 'impact', label: 'Impact' },
+            { value: 'extend', label: 'Range/Duration' },
             { value: 'unused', label: 'Unused' }
         ]
     },
@@ -73,6 +74,43 @@ export const RESOLUTION_PLUS_BUCKETS = {
     defense: new Set(['evasion', 'grit']),
     healing: new Set(['diagnosis', 'heal_energy', 'heal_health', 'heal_reflex'])
 };
+
+// On-the-fly Range/Duration extension (pp.52-53): spare dice assigned to
+// 'extend' raise Range or Duration tags one increment each on the Space and
+// Time table. The first die applied needs a 3, the second a 4, the third a
+// 5, etc. Dice are sorted descending so the player's spare dice are applied
+// in their best order. Instant, Sustain, and Rite durations cannot be
+// modified; modifications are one-use.
+export function getRangeExtensionResults(result, assignments) {
+    const values = [];
+    (result.originalRolls || []).forEach((roll, index) => {
+        if ((assignments[getRollId(roll, index)] || 'unused') === 'extend') values.push(roll.val);
+    });
+    values.sort((a, b) => b - a);
+
+    const entries = values.map((val, index) => ({
+        val,
+        threshold: 3 + index,
+        success: val >= 3 + index
+    }));
+
+    return { entries, increments: entries.filter(entry => entry.success).length };
+}
+
+// Chain cost (p.25): "Each maxed die used costs 1 resource." Counts dice
+// contributed by chain-called tiles (source "Chain (...)") that rolled their
+// maximum face. The resource (EN, RX, or HP) is the player's choice, so the
+// UI reports the cost rather than auto-deducting it.
+export function getChainMaxedDieCost(result) {
+    const chainRolls = (result.originalRolls || [])
+        .filter(roll => String(roll.source || '').startsWith('Chain ('));
+    const maxedCount = chainRolls.filter(roll => {
+        const faces = parseInt(String(roll.die || '').replace('d', ''), 10);
+        return Number.isFinite(faces) && roll.val === faces;
+    }).length;
+
+    return { chainDiceCount: chainRolls.length, maxedCount };
+}
 
 // Free-text crit list ("BLEED, DOWN") -> lowercased crit names.
 export function parseCritList(text) {

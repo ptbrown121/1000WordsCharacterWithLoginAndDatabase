@@ -104,13 +104,15 @@ export function init(deps) {
 
     // Rest Button
     els.btnRest.addEventListener('click', () => {
-        if (!confirm("Rest and recover all resources? This will un-burn all tiles.")) return;
+        if (!confirm("Rest and recover all resources? This will un-burn all tiles and clear tracked crits and the Press counter.")) return;
         const state = dataManager.state;
         state.hp = getEffectiveMax(state, 'hp');
         state.en = getEffectiveMax(state, 'en');
         state.rx = getEffectiveMax(state, 'rx');
         state.sh = getEffectiveMax(state, 'sh', poolEngine.calculateShadowMax(state.tiles));
         state.tiles.forEach(t => t.isBurnt = false);
+        state.activeCrits = {};
+        state.pressCount = 0;
         dataManager.saveState();
         renderAll();
     });

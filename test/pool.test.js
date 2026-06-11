@@ -873,7 +873,7 @@ describe('compilePool', () => {
             'Stat (BODY):d6',
             'Tile (Sword):d8',
             'Tile (Oath):d6',
-            'Tile (Helper):d4'
+            'Chain (Helper):d4'
         ]);
         assert.deepEqual(res.resourceCosts.map(cost => ({
             resource: cost.resource,
@@ -1153,5 +1153,89 @@ describe('getTileShieldCrits / getDefenseShieldSources', () => {
             sources.map(source => [source.tileId, source.kind, source.crits]),
             [['a', 'armor', ['jolt']], ['b', 'weapon', ['down']]]
         );
+    });
+});
+
+describe('compilePool v5.02 additions (Freebie, chain limit, Glitch)', () => {
+    const stats = { BODY: 'd6', MIND: 'd8' }; // Red, Blue
+
+    it('adds a Freebie die that duplicates a pool die and charges EN equal to its steps', () => {
+        const res = engine.compilePool(['Red'], stats, null, [], [], [], { freebieDie: 'd6' });
+        assert.equal(res.error, null);
+        assert.deepEqual(res.dice.map(d => [d.source, d.die]), [['Stat (BODY)', 'd6'], ['Freebie', 'd6']]);
+        assert.deepEqual(res.resourceCosts, [{
+            resource: 'en', amount: 2, sourceTileId: null, sourceTileName: 'Freebie d6', reason: 'Freebie'
+        }]);
+        assert.equal(res.freebieDie, 'd6');
+    });
+
+    it('rejects a Freebie die that does not duplicate a die in the pool', () => {
+        const res = engine.compilePool(['Red'], stats, null, [], [], [], { freebieDie: 'd12' });
+        assert.match(res.error, /duplicate a die already in the pool/i);
+    });
+
+    it('rejects an invalid Freebie die code', () => {
+        const res = engine.compilePool(['Red'], stats, null, [], [], [], { freebieDie: 'd20' });
+        assert.match(res.error, /freebie die/i);
+    });
+
+    it('charges no EN for a d3 Freebie (0 steps)', () => {
+        const res = engine.compilePool(['Red'], { BODY: 'd3' }, null, [], [], [], { freebieDie: 'd3' });
+        assert.equal(res.error, null);
+        assert.deepEqual(res.resourceCosts, []);
+    });
+
+    it('labels chained tile dice as Chain sources', () => {
+        const callTile = { id: '1', name: 'Kit', colors: ['Red'], dice: ['d6'], tags: ['Chain Tinker'] };
+        const target = { id: '2', name: 'Tinker', colors: ['Red'], dice: ['d4'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, callTile, [], [callTile, target], []);
+        assert.equal(res.error, null);
+        assert.deepEqual(res.dice.map(d => d.source), ['Stat (BODY)', 'Tile (Kit)', 'Chain (Tinker)']);
+    });
+
+    it('limits chained tiles to the root tile die steps (p.25)', () => {
+        // d4 root = 1 step, so a second chained tile exceeds the limit.
+        const callTile = { id: '1', name: 'Kit', colors: ['Red'], dice: ['d4'], tags: ['Chain A', 'Chain B'] };
+        const tileA = { id: '2', name: 'A', colors: ['Red'], dice: ['d4'], tags: '' };
+        const tileB = { id: '3', name: 'B', colors: ['Red'], dice: ['d4'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, callTile, [], [callTile, tileA, tileB], []);
+        assert.match(res.error, /allows at most 1/i);
+
+        // A d6 root (2 steps) supports both chains.
+        const widerRoot = { ...callTile, dice: ['d6'] };
+        const ok = engine.compilePool(['Red'], stats, widerRoot, [], [widerRoot, tileA, tileB], []);
+        assert.equal(ok.error, null);
+        assert.equal(ok.adds, 4); // base 2 + two chained Adds
+    });
+
+    it('counts nested chains against the root tile limit', () => {
+        const callTile = { id: '1', name: 'Kit', colors: ['Red'], dice: ['d4'], tags: ['Chain A'] };
+        const tileA = { id: '2', name: 'A', colors: ['Red'], dice: ['d4'], tags: ['Chain B'] };
+        const tileB = { id: '3', name: 'B', colors: ['Red'], dice: ['d4'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, callTile, [], [callTile, tileA, tileB], []);
+        assert.match(res.error, /allows at most 1/i);
+    });
+
+    it('raises the haywire threshold to 2 when a called tile has the Glitch flaw', () => {
+        const glitchy = { id: '1', name: 'Optics', colors: ['Red'], dice: ['d6'], tags: ['Glitch'] };
+        const clean = { id: '2', name: 'Sword', colors: ['Red'], dice: ['d6'], tags: '' };
+        assert.equal(engine.compilePool(['Red'], stats, glitchy, [], [glitchy], []).haywireThreshold, 2);
+        assert.equal(engine.compilePool(['Red'], stats, clean, [], [clean], []).haywireThreshold, 1);
+    });
+});
+
+describe('calculateOptimalTotal haywire threshold', () => {
+    const roll = (die, val) => ({ source: 'x', die, val });
+
+    it('defaults to counting only 1s', () => {
+        const result = engine.calculateOptimalTotal([roll('d6', 2), roll('d6', 2), roll('d6', 5)], 2);
+        assert.equal(result.isHaywire, false);
+        assert.equal(result.haywireThreshold, 1);
+    });
+
+    it('counts 1s and 2s at threshold 2 (Glitch)', () => {
+        const result = engine.calculateOptimalTotal([roll('d6', 2), roll('d6', 2), roll('d6', 5)], 2, { haywireThreshold: 2 });
+        assert.equal(result.isHaywire, true);
+        assert.equal(result.haywireThreshold, 2);
     });
 });

@@ -116,6 +116,13 @@ export const els = {
     extraDiceButtons: document.getElementById('extra-dice-buttons'),
     risenAberrantEffect: document.getElementById('risen-aberrant-effect'),
     fallenAberrantEffect: document.getElementById('fallen-aberrant-effect'),
+    freebieDieSelect: document.getElementById('freebie-die-select'),
+
+    statusConditionsDisplay: document.getElementById('status-conditions-display'),
+    btnConditionToggle: document.getElementById('btn-condition-toggle'),
+    conditionPanelBody: document.getElementById('condition-panel-body'),
+    critsDashboard: document.getElementById('crits-dashboard'),
+    pressTracker: document.getElementById('press-tracker'),
 
     rollResults: document.getElementById('roll-results'),
     resultNotices: document.getElementById('result-notices'),

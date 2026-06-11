@@ -275,6 +275,21 @@
                     </label>
                 </div>
             </div>
+            <div id="condition-panel" class="shadow-panel">
+                <div class="shadow-panel-header">
+                    <div>
+                        <h3>Condition</h3>
+                        <div id="status-conditions-display">No conditions</div>
+                    </div>
+                    <div class="shadow-panel-actions">
+                        <button type="button" id="btn-condition-toggle" class="btn btn-outline" aria-expanded="false">Show</button>
+                    </div>
+                </div>
+                <div id="condition-panel-body" class="shadow-panel-body" hidden>
+                    <div id="crits-dashboard"></div>
+                    <div id="press-tracker" style="margin-top: 0.75rem;"></div>
+                </div>
+            </div>
         </section>
 
         <div class="main-columns">
@@ -351,6 +366,14 @@
                         <button type="button" class="dice-add-btn" data-die="d14">+ d14</button>
                         <button type="button" class="dice-add-btn" data-die="d16">+ d16</button>
                     </div>
+                </div>
+
+                <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
+                    <label for="freebie-die-select" style="font-size: 0.9rem; margin-bottom: 0.3rem; display: block;">Freebie Die (once per test):</label>
+                    <select id="freebie-die-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <option value="">None</option>
+                    </select>
+                    <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Duplicates a die already in the pool and costs Energy equal to its ▟ (d6 = 2 EN, d8 = 3 EN). A freebie can also be added after the roll from the results panel.</small>
                 </div>
 
                 <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
@@ -1330,6 +1353,12 @@
                     <li><strong>Weapons</strong> can use templates grouped by Melee, Near, Far, and Burst. Templates fill range, skill, and starting tags.</li>
                     <li><strong>Armor Soak</strong> in the header totals active armor coverage plus Ironclad soak from armor dice. Buried, burned, and BREAK-marked armor is ignored. Per the rules, armor Soak applies only when the armor tile is called; the defense panel adds called armor automatically.</li>
                     <li><strong>Shield Tags</strong> on gear (e.g. <em>Shield: JOLT</em>) each block one matching inbound Crit after Grit fails. Armor shields apply automatically in the defense panel; weapon shields are opt-in because the weapon must be ready as a defense.</li>
+                    <li><strong>Freebie Die</strong>: once per test, spend Energy equal to a die's ▟ to add a copy of a die already in the pool — before the roll (pool builder) or after (results panel).</li>
+                    <li><strong>Chains</strong> cannot call more tiles than the called tile's ▟. After the roll, each chain die that rolls its maximum costs 1 resource point (EN, RX, or HP — your choice); the results panel reports the count.</li>
+                    <li><strong>Range/Duration</strong>: in Attack resolution, assign spare dice to "Range/Duration" to raise Range or Duration one increment each (first die needs a 3, second a 4, third a 5). Instant, Sustain, and Rite durations cannot be modified.</li>
+                    <li><strong>Glitch</strong> gear makes Haywire count 1s and 2s for that roll.</li>
+                    <li><strong>Condition panel</strong>: status badges appear automatically when a pool hits 0 (Fatigued / Cornered / Riven and their combinations). Track Crits with the +/- counters — active WOUNDs automatically apply -3 per WOUND to every check, and active JOLTs are flagged in defense resolution. Rest clears tracked crits.</li>
+                    <li><strong>Press tracker</strong>: Press Move (1 RX) or Press Action (2 RX); every Press or Haywire raises later Press costs by 1. Toggle repeat (-1), Fast weapon (-1), or Recoil (+1) before pressing. Reset when the fight ends.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

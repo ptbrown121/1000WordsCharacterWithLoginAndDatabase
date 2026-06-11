@@ -1190,6 +1190,8 @@ export class PoolEngine {
             calledTileIds,
             shadowUse: null,
             dieStepEffects,
+            haywireThreshold: 1,
+            freebieDie: null,
             error: null,
             ...overrides
         });
@@ -1233,9 +1235,27 @@ export class PoolEngine {
         });
 
         // Recursive resolution for call tiles and chains
-        const resolveTile = (tile, isCallTile, visitedIds, chainColor = '') => {
+        const resolveTile = (tile, isCallTile, visitedIds, chainColor = '', chainTracker = null) => {
             if (!tile || visitedIds.has(tile.id)) return;
             visitedIds.add(tile.id);
+
+            // Chain length limit (p.25): "The chain cannot call more tiles
+            // than the ▟ of the Chained tile." The tracker is rooted at the
+            // called tile bearing the Chain tag; every tile pulled in through
+            // chain links counts against the root's die steps.
+            if (isCallTile) {
+                chainTracker = {
+                    rootName: tile.name,
+                    limit: this.calculateSteps(tile.dice || []),
+                    count: 0
+                };
+            } else if (chainTracker) {
+                chainTracker.count += 1;
+                if (chainTracker.count > chainTracker.limit) {
+                    error = `Chain from '${chainTracker.rootName}' calls ${chainTracker.count} tiles, but its ${chainTracker.limit}▟ allows at most ${chainTracker.limit}.`;
+                    return;
+                }
+            }
 
             const unavailableReason = this.getUnavailableReason(tile);
             if (unavailableReason) {
@@ -1278,9 +1298,10 @@ export class PoolEngine {
                 });
             });
 
-            // Add tile dice
-            tile.dice.forEach(d => pool.push({ source: `Tile (${tile.name})`, die: d }));
-            
+            // Add tile dice. Chained tiles are labeled separately so the
+            // resolution panel can price maxed chain dice (1 resource each).
+            tile.dice.forEach(d => pool.push({ source: `${isCallTile ? 'Tile' : 'Chain'} (${tile.name})`, die: d }));
+
             // Extra add if chained
             if (!isCallTile) adds += 1;
 
@@ -1392,7 +1413,7 @@ export class PoolEngine {
                         }
                     }
 
-                    resolveTile(targetTile, false, visitedIds, nextChainColor);
+                    resolveTile(targetTile, false, visitedIds, nextChainColor, chainTracker);
                     if (error) return;
                 }
             }
@@ -1460,6 +1481,35 @@ export class PoolEngine {
             extraDice.forEach(d => pool.push({ source: `Extra`, die: d }));
         }
 
+        // 6. Freebie die (p.25): once per test, spend Energy equal to the
+        // die's ▟ to add a die that duplicates one already in the pool.
+        const freebieDie = options.freebieDie || null;
+        if (freebieDie) {
+            if (!VALID_DICE.has(freebieDie)) {
+                return buildResult({ error: getDiceValidationMessage('Freebie die') });
+            }
+            if (!pool.some(entry => entry.die === freebieDie)) {
+                return buildResult({ error: `Freebie die must duplicate a die already in the pool; there is no ${freebieDie} to copy.` });
+            }
+            pool.push({ source: 'Freebie', die: freebieDie });
+            const freebieCost = DIE_STEPS[freebieDie] || 0;
+            if (freebieCost > 0) {
+                resourceCosts.push({
+                    resource: 'en',
+                    amount: freebieCost,
+                    sourceTileId: null,
+                    sourceTileName: `Freebie ${freebieDie}`,
+                    reason: 'Freebie'
+                });
+            }
+        }
+
+        // Glitch flaw (p.65): haywire counts 1s and 2s when any tile in the
+        // pool carries it.
+        const haywireThreshold = usedTiles.some(tile =>
+            activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'glitch')
+        ) ? 2 : 1;
+
         const netDieStep = getAberrantDieStepNet(aberrantEffects);
         if (netDieStep !== 0) {
             pool = pool.map(dieEntry => {
@@ -1476,7 +1526,7 @@ export class PoolEngine {
             });
         }
 
-        return buildResult({ shadowUse: shadowUse.kind });
+        return buildResult({ shadowUse: shadowUse.kind, haywireThreshold, freebieDie });
     }
 
     rollDie(dieString) {
@@ -1494,16 +1544,17 @@ export class PoolEngine {
         }));
     }
 
-    calculateOptimalTotal(rolledArray, adds) {
+    calculateOptimalTotal(rolledArray, adds, { haywireThreshold = 1 } = {}) {
         // Sort descending by value
         const sorted = [...rolledArray].sort((a, b) => b.val - a.val);
         const kept = sorted.slice(0, adds);
         const total = kept.reduce((sum, item) => sum + item.val, 0);
-        
-        // Haywire detection: more than half of the dice roll 1s.
-        const onesCount = rolledArray.filter(d => d.val === 1).length;
+
+        // Haywire detection: more than half of the dice roll 1s. The Glitch
+        // Cyber flaw raises the threshold so 1s AND 2s count (p.65).
+        const onesCount = rolledArray.filter(d => d.val <= haywireThreshold).length;
         const isHaywire = onesCount > (rolledArray.length / 2);
-        
-        return { total, kept, all: sorted, isHaywire, originalRolls: rolledArray };
+
+        return { total, kept, all: sorted, isHaywire, haywireThreshold, originalRolls: rolledArray };
     }
 }

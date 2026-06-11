@@ -14,7 +14,9 @@ import {
     calculateResolutionPlusUsage,
     getHealingAssignments,
     applyShieldsToCrits,
-    parseCritList
+    parseCritList,
+    getRangeExtensionResults,
+    getChainMaxedDieCost
 } from '../js/resolution-rules.js';
 
 // Roll factory: roll[i] gets implicit id=String(i) so tests can build
@@ -62,7 +64,7 @@ describe('getAssignmentOptions', () => {
     it('returns the mode-specific options', () => {
         assert.deepEqual(
             getAssignmentOptions('attack').map(o => o.value),
-            ['attack', 'impact', 'unused']
+            ['attack', 'impact', 'extend', 'unused']
         );
     });
     it('falls back to action options for an unknown mode', () => {
@@ -377,5 +379,47 @@ describe('applyShieldsToCrits', () => {
         assert.deepEqual(remaining, []);
         assert.deepEqual(applyShieldsToCrits([], ['jolt']).blocked, []);
         assert.deepEqual(applyShieldsToCrits(['down'], []).remaining, ['down']);
+    });
+});
+
+describe('getRangeExtensionResults', () => {
+    it('applies escalating thresholds (3, 4, 5...) to dice sorted descending', () => {
+        const res = result(rolls(2, 5, 4, 6));
+        const assignments = { 0: 'extend', 1: 'extend', 2: 'extend', 3: 'attack' };
+        const { entries, increments } = getRangeExtensionResults(res, assignments);
+        // extend dice are 2, 5, 4 -> sorted 5, 4, 2 vs thresholds 3, 4, 5.
+        assert.deepEqual(entries, [
+            { val: 5, threshold: 3, success: true },
+            { val: 4, threshold: 4, success: true },
+            { val: 2, threshold: 5, success: false }
+        ]);
+        assert.equal(increments, 2);
+    });
+
+    it('returns no entries when nothing is assigned to extend', () => {
+        const res = result(rolls(4, 5));
+        const { entries, increments } = getRangeExtensionResults(res, { 0: 'attack', 1: 'impact' });
+        assert.deepEqual(entries, []);
+        assert.equal(increments, 0);
+    });
+});
+
+describe('getChainMaxedDieCost', () => {
+    it('counts only chain-sourced dice that rolled their maximum', () => {
+        const res = result([
+            { source: 'Tile (Kit)', die: 'd6', val: 6 },
+            { source: 'Chain (Tinker)', die: 'd4', val: 4 },
+            { source: 'Chain (Tinker)', die: 'd6', val: 5 },
+            { source: 'Chain (Lore)', die: 'd6', val: 6 }
+        ]);
+        const cost = getChainMaxedDieCost(res);
+        assert.equal(cost.chainDiceCount, 3);
+        assert.equal(cost.maxedCount, 2);
+    });
+
+    it('returns zero for rolls without chain dice', () => {
+        const cost = getChainMaxedDieCost(result(rolls(6, 6)));
+        assert.equal(cost.chainDiceCount, 0);
+        assert.equal(cost.maxedCount, 0);
     });
 });
