@@ -706,3 +706,16 @@
 .press-count {
     font-weight: 700;
 }
+
+.core-ability-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+}
+
+.core-ability-row .btn {
+    padding: 0.2rem 0.6rem;
+    flex-shrink: 0;
+}

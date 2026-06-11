@@ -275,6 +275,25 @@
                     </label>
                 </div>
             </div>
+            <div id="core-panel" class="shadow-panel" hidden>
+                <div class="shadow-panel-header">
+                    <div>
+                        <h3>Core</h3>
+                        <div id="core-display">0 / 0</div>
+                    </div>
+                    <div class="shadow-panel-actions">
+                        <button type="button" id="btn-core-toggle" class="btn btn-outline" aria-expanded="false">Show</button>
+                    </div>
+                </div>
+                <div id="core-panel-body" class="shadow-panel-body" hidden>
+                    <label>
+                        Current Core
+                        <input type="number" id="val-core" value="0" min="0">
+                    </label>
+                    <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Each unburied Cyber tile grants 1 Core. Core adds its current value to Grit (applied automatically in defense resolution). Recovery: 1 per hour, or all Core with a battery pack or a supercharger hour; Rest restores all.</small>
+                    <div id="core-abilities" style="margin-top: 0.5rem;"></div>
+                </div>
+            </div>
             <div id="condition-panel" class="shadow-panel">
                 <div class="shadow-panel-header">
                     <div>
@@ -1359,6 +1378,7 @@
                     <li><strong>Glitch</strong> gear makes Haywire count 1s and 2s for that roll.</li>
                     <li><strong>Condition panel</strong>: status badges appear automatically when a pool hits 0 (Fatigued / Cornered / Riven and their combinations). Track Crits with the +/- counters — active WOUNDs automatically apply -3 per WOUND to every check, and active JOLTs are flagged in defense resolution. Rest clears tracked crits.</li>
                     <li><strong>Press tracker</strong>: Press Move (1 RX) or Press Action (2 RX); every Press or Haywire raises later Press costs by 1. Toggle repeat (-1), Fast weapon (-1), or Recoil (+1) before pressing. Reset when the fight ends.</li>
+                    <li><strong>Core panel</strong> (appears for characters with Cyber tiles): each unburied Cyber-tagged tile grants 1 Core. Current Core adds to Grit automatically in defense resolution. Spend buttons list the Core abilities your tags grant (Wired, Machine, Reticle, ...); Reticle appears in the Press tracker to skip the counter rise for 1 Core. Rest restores all Core.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

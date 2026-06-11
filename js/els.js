@@ -118,6 +118,13 @@ export const els = {
     fallenAberrantEffect: document.getElementById('fallen-aberrant-effect'),
     freebieDieSelect: document.getElementById('freebie-die-select'),
 
+    corePanel: document.getElementById('core-panel'),
+    coreDisplay: document.getElementById('core-display'),
+    btnCoreToggle: document.getElementById('btn-core-toggle'),
+    corePanelBody: document.getElementById('core-panel-body'),
+    valCore: document.getElementById('val-core'),
+    coreAbilities: document.getElementById('core-abilities'),
+
     statusConditionsDisplay: document.getElementById('status-conditions-display'),
     btnConditionToggle: document.getElementById('btn-condition-toggle'),
     conditionPanelBody: document.getElementById('condition-panel-body'),

@@ -244,4 +244,16 @@ describe('condition tracking normalization (v5.02 PR 4)', () => {
         assert.deepEqual(state.activeCrits, {});
         assert.equal(state.pressCount, 0);
     });
+
+    it('normalizes Core fields and floors current Core at 0', () => {
+        const state = normalizeStateForShadowRules({ stats: {}, tiles: [], core: '-2', coreTemp: 'x', corePerm: 1 });
+        assert.equal(state.core, 0);
+        assert.equal(state.coreTemp, 0);
+        assert.equal(state.corePerm, 1);
+
+        const defaults = normalizeStateForShadowRules({ stats: {}, tiles: [] });
+        assert.equal(defaults.core, 0);
+        assert.equal(defaults.coreTemp, 0);
+        assert.equal(defaults.corePerm, 0);
+    });
 });

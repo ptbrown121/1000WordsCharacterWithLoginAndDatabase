@@ -214,6 +214,9 @@ export const DEFAULT_STATE = {
     sh: 0,
     shTemp: 0,
     shPerm: 0,
+    core: 0,     // current Cyber Core; max derives from Cyber-tagged tiles
+    coreTemp: 0,
+    corePerm: 0,
     aberration: 0,
     legacyShadowWarning: false,
     gmOverride: false,
@@ -265,6 +268,9 @@ export function normalizeStateForShadowRules(state) {
     if (state.sh === undefined) state.sh = 0;
     if (state.shTemp === undefined) state.shTemp = 0;
     if (state.shPerm === undefined) state.shPerm = 0;
+    state.core = Math.max(0, normalizeNumber(state.core, 0));
+    state.coreTemp = normalizeNumber(state.coreTemp, 0);
+    state.corePerm = normalizeNumber(state.corePerm, 0);
     if (!Array.isArray(state.tiles)) state.tiles = [];
     state.tiles.forEach(normalizeTileMetadata);
     return state;

@@ -12,6 +12,8 @@ import {
     getTileNormalCallColors,
     getTileShieldCrits,
     getDefenseShieldSources,
+    calculateCoreMax,
+    getCoreAbilities,
     calculateHitchRebateTotal,
     calculateArmorSoak,
     calculateArmorSoakDetails,
@@ -1237,5 +1239,39 @@ describe('calculateOptimalTotal haywire threshold', () => {
         const result = engine.calculateOptimalTotal([roll('d6', 2), roll('d6', 2), roll('d6', 5)], 2, { haywireThreshold: 2 });
         assert.equal(result.isHaywire, true);
         assert.equal(result.haywireThreshold, 2);
+    });
+});
+
+describe('Cyber Core pool (v5.02 p.64)', () => {
+    it('counts unburied Cyber-tagged tiles, including exotic Cyber skills and Ammo', () => {
+        const tiles = [
+            { id: '1', name: 'sense', type: 'Skill', exoticSkill: { id: 'cyber', system: 'Cyber', specialty: 'Cyber', label: 'Cyber', baseXp: 2 }, dice: ['d4'], tags: '' },
+            { id: '2', name: 'chassis', type: 'Gear', dice: ['d6'], tags: ['Cyber', 'Ironclad'] },
+            { id: '3', name: 'arm', type: 'Gear', dice: ['d4'], tags: ['Build: Cyber'] },
+            { id: '4', name: 'supercharger', type: 'Gear', gearSubtype: 'Ammo', dice: [], tags: ['Cyber'] },
+            { id: '5', name: 'buried leg', type: 'Gear', isBuried: true, dice: ['d4'], tags: ['Cyber'] },
+            { id: '6', name: 'plain sword', type: 'Gear', dice: ['d6'], tags: ['Keen'] }
+        ];
+        assert.equal(calculateCoreMax(tiles), 4);
+        assert.equal(calculateCoreMax([]), 0);
+    });
+
+    it('drops the contribution of BREAK-marked Cyber gear but keeps Cyber skill tiles', () => {
+        const broken = { id: '1', name: 'arm', type: 'Gear', gearBroken: true, dice: ['d4'], tags: ['Cyber'] };
+        const skill = { id: '2', name: 'sense', type: 'Skill', exoticSkill: { id: 'cyber', system: 'Cyber', specialty: 'Cyber', label: 'Cyber', baseXp: 2 }, dice: ['d4'], tags: '' };
+        assert.equal(calculateCoreMax([broken, skill]), 1);
+    });
+
+    it('collects deduped Core spend abilities with their source tiles', () => {
+        const tiles = [
+            { id: '1', name: 'chassis', type: 'Gear', dice: ['d6'], tags: ['Wired', 'Ironclad'] },
+            { id: '2', name: 'optics', type: 'Gear', dice: ['d4'], tags: ['Reticle', 'Wired'] },
+            { id: '3', name: 'buried', type: 'Gear', isBuried: true, dice: ['d4'], tags: ['Machine'] }
+        ];
+        const abilities = getCoreAbilities(tiles);
+        assert.deepEqual(abilities.map(a => a.id), ['reticle', 'wired']);
+        const wired = abilities.find(a => a.id === 'wired');
+        assert.equal(wired.effect, 'Reduce BLEED');
+        assert.deepEqual(wired.sources, ['chassis', 'optics']);
     });
 });

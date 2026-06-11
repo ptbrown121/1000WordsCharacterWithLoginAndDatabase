@@ -1,6 +1,6 @@
 import { els } from '../els.js';
 import { getEffectiveMax } from '../data.js';
-import { formatAberration, getAvailableShadowAbilities, getShadowTagCounts } from '../pool.js';
+import { calculateCoreMax, formatAberration, getAvailableShadowAbilities, getShadowTagCounts } from '../pool.js';
 
 let dataManager;
 let poolEngine;
@@ -110,6 +110,7 @@ export function init(deps) {
         state.en = getEffectiveMax(state, 'en');
         state.rx = getEffectiveMax(state, 'rx');
         state.sh = getEffectiveMax(state, 'sh', poolEngine.calculateShadowMax(state.tiles));
+        state.core = getEffectiveMax(state, 'core', calculateCoreMax(state.tiles));
         state.tiles.forEach(t => t.isBurnt = false);
         state.activeCrits = {};
         state.pressCount = 0;

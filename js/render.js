@@ -6,6 +6,7 @@ import { updatePoolPreview } from './ui/pool.js';
 import { renderOptionalStatsVisibility, updateXpTracker } from './ui/stats.js';
 import { renderTempBadge, updateShadowMax } from './ui/vitals.js';
 import { renderCondition } from './ui/condition.js';
+import { renderCore } from './ui/core.js';
 import { renderJournal } from './ui/journal.js';
 import { renderRosterSelect } from './ui/roster.js';
 import { renderRulesReview } from './ui/rulesReview.js';
@@ -55,6 +56,7 @@ export function renderAll() {
     updateXpTracker();
     updateShadowMax();
     renderCondition();
+    renderCore();
     renderJournal();
     renderRosterSelect();
     renderRulesReview();

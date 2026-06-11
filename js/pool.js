@@ -795,6 +795,66 @@ export function calculateArmorSoak(tiles = []) {
     return calculateArmorSoakDetails(tiles).total;
 }
 
+// Cyber Core spend abilities (p.64): "Spend 1 Core to..." Each entry is
+// unlocked by carrying the matching Build/Detail tag on an active tile.
+export const CORE_ABILITIES = {
+    antivenin: 'Reduce POISON',
+    boost: 'Maximize dice on the chosen stat',
+    breathless: 'Survive without air for 6 hours',
+    charged: 'Go without fuel for 1 day',
+    enhanced: 'Maximize dice on this tile',
+    fireproof: 'Reduce AFIRE',
+    machine: 'Add Core to Soak',
+    plated: 'Reduce WOUND',
+    reticle: 'Press without increasing the Press counter',
+    sleepless: 'Go without sleep for 1 day',
+    spacewalk: 'Survive vacuum for 1 hour',
+    wired: 'Reduce BLEED'
+};
+
+// A tile is Cyber when it carries the Cyber tag (any prefix form) or is a
+// Cyber exotic skill tile ("They start with the Cyber Exotic tag", p.64).
+export function tileHasCyberTag(tile) {
+    if (tile?.exoticSkill?.system === 'Cyber') return true;
+    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'cyber');
+}
+
+// "Each tile with the Cyber tag contributes 1 point to the Core Resource
+// Pool" (p.64). Buried tiles lose their contribution, matching the other
+// resource pools; Ammo tiles count (the cyber supercharger example says its
+// Cyber tag "counts toward Core").
+export function calculateCoreMax(tiles = []) {
+    return (tiles || []).filter(tile => tile && !tile.isBuried && tileHasCyberTag(tile)).length;
+}
+
+// Core spend abilities available to this character, deduped across tiles,
+// with the granting tile names for display.
+export function getCoreAbilities(tiles = []) {
+    const abilities = new Map();
+
+    (tiles || []).forEach(tile => {
+        if (!tile || tile.isBuried) return;
+        activeTileTagList(tile).forEach(tag => {
+            const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
+            const effect = CORE_ABILITIES[baseTag];
+            if (!effect) return;
+            if (!abilities.has(baseTag)) {
+                abilities.set(baseTag, {
+                    id: baseTag,
+                    label: baseTag.charAt(0).toUpperCase() + baseTag.slice(1),
+                    effect,
+                    sources: []
+                });
+            }
+            const sources = abilities.get(baseTag).sources;
+            const name = tile.name || 'Tile';
+            if (!sources.includes(name)) sources.push(name);
+        });
+    });
+
+    return Array.from(abilities.values()).sort((a, b) => a.id.localeCompare(b.id));
+}
+
 /**
  * Crit names a tile's Shield tags can block. Tags are written either one per
  * tag ("Shield: JOLT") or several after one prefix ("Shield: BREAK KO BLEED",

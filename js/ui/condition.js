@@ -2,7 +2,7 @@
 // Dashboard counters, and the Press tracker. Rules math lives in
 // js/status-rules.js; this module only renders and persists.
 import { els } from '../els.js';
-import { escapeHtml } from '../pool.js';
+import { escapeHtml, getCoreAbilities } from '../pool.js';
 import {
     CRIT_DASHBOARD,
     calculatePressCost,
@@ -22,8 +22,13 @@ function getPressToggles() {
     return {
         repeatPrevious: Boolean(document.getElementById('press-repeat')?.checked),
         fastWeapon: Boolean(document.getElementById('press-fast')?.checked),
-        recoilWeapon: Boolean(document.getElementById('press-recoil')?.checked)
+        recoilWeapon: Boolean(document.getElementById('press-recoil')?.checked),
+        reticle: Boolean(document.getElementById('press-reticle')?.checked)
     };
+}
+
+function hasReticleAbility() {
+    return getCoreAbilities(dataManager.state.tiles || []).some(ability => ability.id === 'reticle');
 }
 
 function adjustCrit(critId, step) {
@@ -43,8 +48,12 @@ function adjustCrit(critId, step) {
 function executePress(kind) {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
-    const cost = calculatePressCost({ kind, pressCount: state.pressCount, ...getPressToggles() });
+    const toggles = getPressToggles();
+    const cost = calculatePressCost({ kind, pressCount: state.pressCount, ...toggles });
     const currentRx = toInt(state.rx);
+    // Reticle (Cyber, p.64): spend 1 Core to Press without increasing the
+    // Press counter.
+    const useReticle = toggles.reticle && hasReticleAbility() && toInt(state.core) > 0;
 
     if (currentRx <= 0) {
         alert('Cornered (0 Reflex): the character cannot Press.');
@@ -54,10 +63,17 @@ function executePress(kind) {
         alert(`This Press costs ${cost} RX, but only ${currentRx} is available.`);
         return;
     }
-    if (!confirm(`Press for a${kind === 'move' ? ' Move' : 'n Action'}: spend ${cost} RX? The press counter rises to ${toInt(state.pressCount) + 1}.`)) return;
+    const counterText = useReticle
+        ? `1 Core (Reticle) keeps the press counter at ${toInt(state.pressCount)}`
+        : `the press counter rises to ${toInt(state.pressCount) + 1}`;
+    if (!confirm(`Press for a${kind === 'move' ? ' Move' : 'n Action'}: spend ${cost} RX? ${counterText}.`)) return;
 
     state.rx = Math.max(0, currentRx - cost);
-    state.pressCount = toInt(state.pressCount) + 1;
+    if (useReticle) {
+        state.core = Math.max(0, toInt(state.core) - 1);
+    } else {
+        state.pressCount = toInt(state.pressCount) + 1;
+    }
     dataManager.saveState();
     if (renderAll) renderAll();
 }
@@ -137,6 +153,7 @@ function renderPressTracker() {
             <label class="filter-toggle" title="Repeating your previous action reduces that Press by 1"><input type="checkbox" id="press-repeat"${toggles.repeatPrevious ? ' checked' : ''}> Repeat previous action (-1)</label>
             <label class="filter-toggle" title="Fast weapon Detail tag: -1 to Press Actions with that weapon"><input type="checkbox" id="press-fast"${toggles.fastWeapon ? ' checked' : ''}> Fast weapon (-1)</label>
             <label class="filter-toggle" title="Recoil flaw: +1 to Press Actions"><input type="checkbox" id="press-recoil"${toggles.recoilWeapon ? ' checked' : ''}> Recoil weapon (+1)</label>
+            ${hasReticleAbility() ? `<label class="filter-toggle" title="Reticle (Cyber): spend 1 Core to Press without raising the counter"><input type="checkbox" id="press-reticle"${toggles.reticle ? ' checked' : ''}${toInt(state.core) <= 0 ? ' disabled' : ''}> Reticle (1 Core: no counter rise)</label>` : ''}
         </div>
     `;
 }
@@ -182,7 +199,7 @@ export function init(deps) {
     });
 
     els.conditionPanelBody?.addEventListener('change', (e) => {
-        if (['press-repeat', 'press-fast', 'press-recoil'].includes(e.target.id)) {
+        if (['press-repeat', 'press-fast', 'press-recoil', 'press-reticle'].includes(e.target.id)) {
             renderPressTracker();
         }
     });

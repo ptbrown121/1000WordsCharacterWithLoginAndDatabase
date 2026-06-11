@@ -1,4 +1,4 @@
-import { ARMOR_COVERAGE_SOAK, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, calculateCoreMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
@@ -480,7 +480,12 @@ export function calculateResolutionSummary(result) {
 
     if (uiState.currentResolutionMode === 'defense') {
         const evasionTotal = (totals.evasion || 0) + bonuses.evasion;
-        const gritTotal = (totals.grit || 0) + bonuses.grit;
+        // Core adds its current value to Grit (p.64) - automatic for any
+        // character whose tiles grant a Core pool.
+        const coreGrit = calculateCoreMax(dataManager?.state?.tiles || []) > 0
+            ? Math.max(0, parseInt(dataManager.state.core, 10) || 0)
+            : 0;
+        const gritTotal = (totals.grit || 0) + bonuses.grit + coreGrit;
         const otherSoak = getResolutionNumber('defense-soak') || 0;
         const calledArmor = getCalledArmorSoak(result);
         const soakTotal = otherSoak + bonuses.soak + calledArmor.total;
@@ -490,9 +495,10 @@ export function calculateResolutionSummary(result) {
         const armorSoakText = calledArmor.sources.length
             ? ` + ${calledArmor.total} called armor (${calledArmor.sources.map(source => source.tileName).join(', ')})`
             : '';
+        const coreGritText = coreGrit > 0 ? ` + ${coreGrit} Core` : '';
         const lines = [
             `<p><strong>Evasion:</strong> ${evasionTotal} (${totals.evasion || 0} dice + ${bonuses.evasion} bonus)</p>`,
-            `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice + ${bonuses.grit} bonus)</p>`,
+            `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice + ${bonuses.grit} bonus${coreGritText})</p>`,
             `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus${escapeHtml(armorSoakText)})</p>`,
             `<p><strong>Pluses Used:</strong> ${plusUsage.used}/${plusUsage.budget}</p>`
         ];
