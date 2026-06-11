@@ -32,7 +32,11 @@ export const uiState = {
     // Map of ammo tile id -> roll id selected for ammo supply resolution.
     ammoAssignments: {},
     // Whether healing-in-combat penalties apply to the current roll.
-    healingInCombat: false
+    healingInCombat: false,
+    // Map of gear tile id -> whether its Shield tags protect this defense.
+    // Unset entries default by kind: armor shields on, weapon/gear shields
+    // off (the weapon must be ready as a defense - GM adjudicated).
+    defenseShieldSelections: {}
 };
 
 // NOTE: a `resetTransientState()` helper is intentionally NOT added here.

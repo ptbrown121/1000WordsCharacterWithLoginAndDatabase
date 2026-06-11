@@ -10,6 +10,8 @@ import {
     getHitchValue,
     isHitchedTile,
     getTileNormalCallColors,
+    getTileShieldCrits,
+    getDefenseShieldSources,
     calculateHitchRebateTotal,
     calculateArmorSoak,
     calculateArmorSoakDetails,
@@ -142,14 +144,14 @@ describe('estimateTileXp', () => {
     it('adds tag modifiers to the dice cost (floored at 0)', () => {
         assert.equal(engine.estimateTileXp(['d6'], ['Keen']), 5);      // 3 + 2
         assert.equal(engine.estimateTileXp(['d4'], ['Chain Foo']), 5); // 1 + 4
-        assert.equal(engine.estimateTileXp(['d4'], ['World Foo']), 1); // World is free
+        assert.equal(engine.estimateTileXp(['d4'], ['World Foo']), 4); // World Build tag is 3 XP (v5.02 p.63)
         assert.equal(engine.estimateTileXp(['d4'], ['Old', 'Worn']), 0); // 1 - 2 - 2 -> max(0)
     });
 
     it('charges duplicate tags 2 XP more than the previous copy', () => {
         assert.equal(engine.estimateTileXp(['d6'], ['Keen', 'Keen']), 9); // d6 3 + Keen 2 + duplicate Keen 4
         assert.equal(engine.estimateTileXp(['d8'], ['Old', 'Old']), 4);   // d8 6 -2 + duplicate Old 0
-        assert.equal(engine.estimateTileXp(['d4'], ['World Foo', 'World Foo']), 1);
+        assert.equal(engine.estimateTileXp(['d4'], ['World Foo', 'World Foo']), 7); // 1 + 3 + 3, no duplicate surcharge
     });
 
     it('charges parameterized duplicate tags by mechanical tag name', () => {
@@ -194,6 +196,32 @@ describe('estimateTileXp', () => {
     it('uses the hard-armor flaw rebate assumption and discounts Shield tags', () => {
         assert.equal(engine.estimateTileXp(['d8'], ['Old'], { material: 'Hard', coverage: 'Open' }), 7); // 6 -3 +4
         assert.equal(engine.estimateTileXp(['d4'], ['Shield: WOUND'], { material: 'Hard', coverage: 'Open' }), 8); // 1 +4 +(4-1)
+    });
+
+    it('prices the v5.02 Sticky and Titan tags', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Sticky']), 5); // 1 + 4
+        assert.equal(engine.estimateTileXp(['d4'], ['Titan']), 4);  // 1 + 3
+    });
+
+    it('prices Crowd ranges from the Space and Time table', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Crowd 1']), 2);        // 1 + 1
+        assert.equal(engine.estimateTileXp(['d4'], ['Crowd 5']), 4);        // 1 + 3
+        assert.equal(engine.estimateTileXp(['d4'], ['Range: Crowd 10']), 5); // 1 + 4
+        assert.equal(engine.estimateTileXp(['d4'], ['Crowd 1000']), 9);     // 1 + 8
+    });
+
+    it('charges Bestial/Celestial 4 XP on non-Skill tiles and 2 XP on Skill tiles', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial'], null, { tileType: 'Skill' }), 3);   // 1 + 2
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial'], null, { tileType: 'Trait' }), 5);   // 1 + 4
+        assert.equal(engine.estimateTileXp(['d4'], ['Celestial'], null, { tileType: 'Story' }), 5); // 1 + 4
+        assert.equal(engine.estimateTileXp(['d4'], ['Cyber'], null, { tileType: 'Trait' }), 3);     // Cyber stays 2
+    });
+
+    it('treats the same crit as Crit and as Shield as two functions, not duplicates', () => {
+        // boxing cesti (p.39): Crit: DOWN + Shield: DOWN on one weapon.
+        assert.equal(engine.estimateTileXp(['d6'], ['DOWN', 'Shield: DOWN']), 7);         // 3 + 2 + 2
+        assert.equal(engine.estimateTileXp(['d6'], ['DOWN', 'DOWN']), 9);                 // 3 + 2 + 4 duplicate
+        assert.equal(engine.estimateTileXp(['d6'], ['Shield: DOWN', 'Shield: DOWN']), 9); // 3 + 2 + 4 duplicate
     });
 
     it('adds weapon template extra XP for Far weapons', () => {
@@ -1076,5 +1104,54 @@ describe('tileTagList', () => {
         assert.deepEqual(tileTagList({ tags: null }), []);
         assert.deepEqual(tileTagList({ tags: '' }), []);
         assert.deepEqual(tileTagList(null), []);
+    });
+});
+
+describe('v5.02 exotic tag-limit exemptions and templates', () => {
+    it('exempts Cyber Core spend tags and the Titan family from the tag limit', () => {
+        const result = engine.calculateTagLimit(['d4'], ['Antivenin', 'Titan', 'Kill Shot', 'Keen']);
+        assert.equal(result.count, 1); // only Keen counts
+        assert.equal(result.valid, true);
+    });
+
+    it('treats Crowd tags as Range tags for the tag limit', () => {
+        const result = engine.calculateTagLimit(['d4'], ['Crowd 5', 'Keen']);
+        assert.equal(result.count, 1);
+        assert.equal(result.valid, true);
+    });
+
+    it('includes the Kick weapon template (Melee/Touch, Athletics, Throw)', () => {
+        const kick = getWeaponTemplateById('kick');
+        assert.equal(kick.category, 'Melee');
+        assert.equal(kick.range, 'Touch');
+        assert.equal(kick.skill, 'Athletics');
+        assert.deepEqual(kick.startingTags, ['Throw']);
+    });
+});
+
+describe('getTileShieldCrits / getDefenseShieldSources', () => {
+    it('reads shield crits from prefixed tags, including the multi-crit form', () => {
+        const tile = { type: 'Gear', tags: ['Shield: JOLT', 'Shield: BREAK KO BLEED', 'Keen', 'DOWN'] };
+        assert.deepEqual(getTileShieldCrits(tile), ['jolt', 'break', 'ko', 'bleed']);
+    });
+
+    it('returns no shield crits for BREAK-marked gear', () => {
+        const tile = { type: 'Gear', gearBroken: true, tags: ['Shield: JOLT'] };
+        assert.deepEqual(getTileShieldCrits(tile), []);
+    });
+
+    it('classifies armor vs weapon sources and skips unavailable gear', () => {
+        const tiles = [
+            { id: 'a', name: 'jacket', type: 'Gear', armorType: { material: 'Soft', coverage: 'Open' }, tags: ['Shield: JOLT'] },
+            { id: 'b', name: 'cesti', type: 'Gear', gearSubtype: 'Weapon', tags: ['Shield: DOWN'] },
+            { id: 'c', name: 'buried', type: 'Gear', isBuried: true, tags: ['Shield: KO'] },
+            { id: 'd', name: 'burnt', type: 'Gear', isBurnt: true, tags: ['Shield: KO'] },
+            { id: 'e', name: 'plain', type: 'Gear', tags: ['Keen'] }
+        ];
+        const sources = getDefenseShieldSources(tiles);
+        assert.deepEqual(
+            sources.map(source => [source.tileId, source.kind, source.crits]),
+            [['a', 'armor', ['jolt']], ['b', 'weapon', ['down']]]
+        );
     });
 });

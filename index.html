@@ -675,7 +675,7 @@
                             <option value="">-- Select Tag --</option>
                             <optgroup label="Mechanics">
                                 <option value="Chain">Chain (Select to specify tile)</option>
-                                <option value="World">World (free chain; specify tile)</option>
+                                <option value="World">World (chains Homeworld; specify tile) [+3]</option>
                             </optgroup>
                             <optgroup label="Shadow">
                                 <option value="Day">Day (Qi; hourly Rising)</option>
@@ -721,7 +721,36 @@
                                 <option value="BLEED">BLEED (called tiles are burned) [+4]</option>
                                 <option value="WOUND">WOUND (all checks at -3) [+4]</option>
                             </optgroup>
+                            <optgroup label="Uncommon Crits (Stick until removed)">
+                                <option value="BREAK">BREAK (reduces gear by ▟) [+2]</option>
+                                <option value="FEAR">FEAR (target pools lose a die) [+3]</option>
+                                <option value="GOAD">GOAD (target must burn for actions) [+3]</option>
+                                <option value="HOLD">HOLD (target cannot Walk or Run) [+3]</option>
+                                <option value="REVEAL">REVEAL (find or expose) [+3]</option>
+                                <option value="VOW">VOW (target cannot oppose dealer) [+3]</option>
+                                <option value="KO">KO (target is unconscious) [+4]</option>
+                                <option value="POISON">POISON (burn 3 res or 1 tile / turn) [+4]</option>
+                                <option value="AFIRE">AFIRE (1 HP / Setting action, spreads) [+4]</option>
+                            </optgroup>
+                            <optgroup label="Shield Tags (Block a matching inbound Crit)">
+                                <option value="Shield: DOWN">Shield: DOWN [+2]</option>
+                                <option value="Shield: JOLT">Shield: JOLT [+2]</option>
+                                <option value="Shield: BREAK">Shield: BREAK [+2]</option>
+                                <option value="Shield: SLOW">Shield: SLOW [+3]</option>
+                                <option value="Shield: PAIN">Shield: PAIN [+3]</option>
+                                <option value="Shield: FEAR">Shield: FEAR [+3]</option>
+                                <option value="Shield: GOAD">Shield: GOAD [+3]</option>
+                                <option value="Shield: HOLD">Shield: HOLD [+3]</option>
+                                <option value="Shield: REVEAL">Shield: REVEAL [+3]</option>
+                                <option value="Shield: VOW">Shield: VOW [+3]</option>
+                                <option value="Shield: BLEED">Shield: BLEED [+4]</option>
+                                <option value="Shield: WOUND">Shield: WOUND [+4]</option>
+                                <option value="Shield: KO">Shield: KO [+4]</option>
+                                <option value="Shield: POISON">Shield: POISON [+4]</option>
+                                <option value="Shield: AFIRE">Shield: AFIRE [+4]</option>
+                            </optgroup>
                             <optgroup label="Other">
+                                <option value="Sticky">Sticky (effect lasts 1 minute after call) [+4]</option>
                                 <option value="Custom">Custom...</option>
                             </optgroup>
                         </select>
@@ -907,7 +936,7 @@
                                 <option value="" data-xp="0">-- Select --</option>
                                 <option value="Custom" data-xp="0">Custom...</option>
                                 <optgroup label="Spell Crits & Tags">
-                                    <option value="World" data-xp="0">World (free chain; specify tile)</option>
+                                    <option value="World" data-xp="3">World (chains Homeworld; specify tile)</option>
                                     <option value="2 XP Crit/Tag" data-xp="2">2 XP Crit/Tag (+2🗱)</option>
                                     <option value="3 XP Crit" data-xp="3">3 XP Crit (+3🗱)</option>
                                     <option value="4 XP Crit/Tag" data-xp="4">4 XP Crit/Tag (+4🗱)</option>
@@ -1299,7 +1328,8 @@
                 <p>When creating a Gear tile, choose a <strong>Gear Subtype</strong> to reveal focused fields for weapons, armor, ammo, or custom gear.</p>
                 <ul style="padding-left: 1.2rem;">
                     <li><strong>Weapons</strong> can use templates grouped by Melee, Near, Far, and Burst. Templates fill range, skill, and starting tags.</li>
-                    <li><strong>Armor Soak</strong> in the header totals active armor coverage plus Ironclad soak from armor dice. Buried, burned, and BREAK-marked armor is ignored.</li>
+                    <li><strong>Armor Soak</strong> in the header totals active armor coverage plus Ironclad soak from armor dice. Buried, burned, and BREAK-marked armor is ignored. Per the rules, armor Soak applies only when the armor tile is called; the defense panel adds called armor automatically.</li>
+                    <li><strong>Shield Tags</strong> on gear (e.g. <em>Shield: JOLT</em>) each block one matching inbound Crit after Grit fails. Armor shields apply automatically in the defense panel; weapon shields are opt-in because the weapon must be ready as a defense.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

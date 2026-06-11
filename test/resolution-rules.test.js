@@ -12,7 +12,9 @@ import {
     getResolutionBonusTotals,
     calculateAssignedTotals,
     calculateResolutionPlusUsage,
-    getHealingAssignments
+    getHealingAssignments,
+    applyShieldsToCrits,
+    parseCritList
 } from '../js/resolution-rules.js';
 
 // Roll factory: roll[i] gets implicit id=String(i) so tests can build
@@ -344,5 +346,36 @@ describe('static maps', () => {
         // Action mode is NOT in this map - that's how the UI knows to skip
         // plus accounting.
         assert.equal(RESOLUTION_PLUS_BUCKETS.action, undefined);
+    });
+});
+
+describe('parseCritList', () => {
+    it('splits free text into lowercased crit names', () => {
+        assert.deepEqual(parseCritList('BLEED, DOWN'), ['bleed', 'down']);
+        assert.deepEqual(parseCritList(' jolt;KO / Fear '), ['jolt', 'ko', 'fear']);
+        assert.deepEqual(parseCritList(''), []);
+        assert.deepEqual(parseCritList(null), []);
+    });
+});
+
+describe('applyShieldsToCrits', () => {
+    it('blocks matching crits one-for-one and passes the rest', () => {
+        const { blocked, remaining } = applyShieldsToCrits(['jolt', 'down'], ['jolt']);
+        assert.deepEqual(blocked, ['jolt']);
+        assert.deepEqual(remaining, ['down']);
+    });
+
+    it('consumes one shield per blocked crit', () => {
+        const { blocked, remaining } = applyShieldsToCrits(['jolt', 'jolt'], ['jolt']);
+        assert.deepEqual(blocked, ['jolt']);
+        assert.deepEqual(remaining, ['jolt']);
+    });
+
+    it('matches case-insensitively and handles empty inputs', () => {
+        const { blocked, remaining } = applyShieldsToCrits(['JOLT'], ['jolt']);
+        assert.deepEqual(blocked, ['JOLT']);
+        assert.deepEqual(remaining, []);
+        assert.deepEqual(applyShieldsToCrits([], ['jolt']).blocked, []);
+        assert.deepEqual(applyShieldsToCrits(['down'], []).remaining, ['down']);
     });
 });

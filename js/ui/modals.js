@@ -656,7 +656,8 @@ export function init(deps) {
         const { xp, unknownTags } = poolEngine.estimateTileXpDetails(diceArray, currentFormTags, getFormArmorType(), {
             weapon: getFormWeapon(),
             exoticSkill: getFormExoticSkill(),
-            boxes: getFormBoxes()
+            boxes: getFormBoxes(),
+            tileType: document.getElementById('tile-type')?.value
         });
         els.tileXp.value = xp;
         renderXpEstimateNote(unknownTags);

@@ -119,6 +119,7 @@ export const WEAPON_TEMPLATES = [
     { id: 'knife', name: 'Knife', category: 'Melee', range: 'Touch', skill: 'Knuckles', startingTags: ['Little'] },
     { id: 'small-improvised', name: 'Small Improvised', category: 'Melee', range: 'Touch', skill: 'Craft', startingTags: ['Ambush'] },
     { id: 'sap-short-mace', name: 'Sap / Short Mace', category: 'Melee', range: 'Touch', skill: 'Wiles', startingTags: ['Ambush'] },
+    { id: 'kick', name: 'Kick', category: 'Melee', range: 'Touch', skill: 'Athletics', startingTags: ['Throw'] },
     { id: 'short-blade', name: 'Short Blade', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Fast'] },
     { id: 'long-blade', name: 'Long Blade', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Sharp'] },
     { id: 'axe-foil', name: 'Axe / Foil', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Piercing'] },
@@ -250,7 +251,21 @@ const ARCANE_SACRIFICE_ALIASES = {
     drains: 'drain'
 };
 const FLAW_TAGS = new Set([...F_FLAW_TAGS, ...X_FLAW_TAGS, ...ARCANE_FLAW_TAGS, 'hitch']);
-const EXOTIC_TAGS = new Set(['bestial', 'celestial', 'cyber']);
+// Cyber Core spend tags (glossary type X) and the Titan family are Exotic:
+// "Exotic tags do not count against tag limits for tiles."
+const CYBER_CORE_TAGS = new Set([
+    'antivenin', 'boost', 'breathless', 'charged', 'enhanced', 'fireproof',
+    'machine', 'plated', 'reticle', 'sleepless', 'spacewalk', 'tether',
+    'unborn', 'wired', 'zenith'
+]);
+// Titan ability tags (p.69). Costs are not in the v5.02 glossary; the app
+// assumes 2 XP each (matching the Cyber Core spend tags) until clarified.
+const TITAN_TAGS = new Set([
+    'titan', 'action hero', 'coup de grace', 'ground zero', 'interception',
+    'kill shot', 'pull punch', 'shake off', 'sterner stuff', 'turn them',
+    'under cover', 'zero in'
+]);
+const EXOTIC_TAGS = new Set(['bestial', 'celestial', 'cyber', ...CYBER_CORE_TAGS, ...TITAN_TAGS]);
 
 const TAG_XP_CATALOG = new Map(Object.entries({
     agile: 2,
@@ -291,10 +306,23 @@ const TAG_XP_CATALOG = new Map(Object.entries({
     sharp: 2,
     sleepless: 2,
     spacewalk: 2,
+    sticky: 4,
     sustain: -3,
     sweep: 2,
     tether: 4,
     throw: 2,
+    titan: 3,
+    'action hero': 2,
+    'coup de grace': 2,
+    'ground zero': 2,
+    interception: 2,
+    'kill shot': 2,
+    'pull punch': 2,
+    'shake off': 2,
+    'sterner stuff': 2,
+    'turn them': 2,
+    'under cover': 2,
+    'zero in': 2,
     tough: 2,
     trap: 2,
     unborn: 4,
@@ -377,6 +405,19 @@ const RANGE_DURATION_XP = new Map(Object.entries({
     rite: -2,
     sustain: -3
 }));
+
+// Crowd range tags (Space and Time table, pp.51/79): Crowd column is +3 on
+// the row value. Listed steps are 1, 2, 5, 10, 50, 100, 500, 1000; unlisted
+// counts price at the next step up.
+const CROWD_XP_STEPS = [[1, 1], [2, 2], [5, 3], [10, 4], [50, 5], [100, 6], [500, 7], [1000, 8]];
+
+function getCrowdXp(baseTag) {
+    const match = String(baseTag || '').match(/^crowd\s*(\d+)$/);
+    if (!match) return null;
+    const count = parseInt(match[1], 10);
+    const step = CROWD_XP_STEPS.find(([max]) => count <= max);
+    return step ? step[1] : 8;
+}
 
 // Armor base XP (page 29): material + coverage. Hard armor discounts Detail tags by 1 XP.
 export const ARMOR_MATERIALS = new Set(['Soft', 'Hard']);
@@ -692,6 +733,12 @@ function getDuplicateKey(tag) {
     const normalized = normalizeTagForXp(getTagName(tag));
     const baseTag = getMechanicalBaseTag(normalized);
     if (baseTag === 'world') return '';
+    // The same crit name as Crit and as Shield is two different functions on
+    // one tile (boxing cesti, p.39), not a duplicate. Bare crit names (the
+    // tag picker's convention) are Crit-side.
+    if (CRIT_SHIELD_XP.has(baseTag)) {
+        return /^shield\s*:/i.test(normalized) ? `shield:${baseTag}` : `crit:${baseTag}`;
+    }
     return baseTag || normalized;
 }
 
@@ -748,6 +795,44 @@ export function calculateArmorSoak(tiles = []) {
     return calculateArmorSoakDetails(tiles).total;
 }
 
+/**
+ * Crit names a tile's Shield tags can block. Tags are written either one per
+ * tag ("Shield: JOLT") or several after one prefix ("Shield: BREAK KO BLEED",
+ * jousting plate mail p.40); both forms are split into individual names.
+ * Lowercased; not filtered to the known crit list so GM-approved custom
+ * crits can be shielded too.
+ */
+export function getTileShieldCrits(tile) {
+    return activeTileTagList(tile)
+        .map(stripExemptSuffix)
+        .filter(tag => /^shield\s*:/i.test(tag))
+        .flatMap(tag => tag.replace(/^shield\s*:\s*/i, '').toLowerCase().split(/[\s,]+/))
+        .filter(Boolean);
+}
+
+/**
+ * Gear tiles whose Shield tags can protect the defender (p.39). Buried,
+ * burned, and BREAK-marked gear is skipped. `kind` distinguishes armor
+ * (applies when the tile is called/worn) from weapons (parry - the weapon
+ * must be ready and useable as a defense, GM adjudicated).
+ */
+export function getDefenseShieldSources(tiles = []) {
+    const sources = [];
+
+    (tiles || []).forEach(tile => {
+        if (!tile || tile.isBuried || tile.isBurnt || isGearTagsBroken(tile)) return;
+        const crits = getTileShieldCrits(tile);
+        if (crits.length === 0) return;
+
+        const kind = tile.armorType
+            ? 'armor'
+            : (tile.weapon || tile.gearSubtype === 'Weapon') ? 'weapon' : 'gear';
+        sources.push({ tileId: tile.id, tileName: tile.name || 'Gear', kind, crits });
+    });
+
+    return sources;
+}
+
 function getArcaneSacrificeCostTags(tile) {
     if (isGearTagsBroken(tile)) return [];
     const tags = activeTileTagList(tile);
@@ -791,7 +876,7 @@ export class PoolEngine {
             return { name, counts: false, reason: 'World tags do not count' };
         }
 
-        if (/^(range|duration)\s*:/i.test(normalized) || RANGE_DURATION_XP.has(baseTag)) {
+        if (/^(range|duration)\s*:/i.test(normalized) || RANGE_DURATION_XP.has(baseTag) || getCrowdXp(baseTag) !== null) {
             return { name, counts: false, reason: 'Range/Duration tags do not count' };
         }
 
@@ -899,7 +984,9 @@ export class PoolEngine {
         const baseTag = getMechanicalBaseTag(t);
 
         if (!t) return { xp: 0, recognized: true, category: 'blank' };
-        if (baseTag === 'world') return { xp: 0, recognized: true, category: 'world' };
+        // World Build tag (p.63): "A tile with the 3 XP World Build tag chains
+        // your Homeworld tile."
+        if (baseTag === 'world') return { xp: 3, recognized: true, category: 'world' };
         if (baseTag === 'hitch') {
             const match = t.match(/hitch\s*(\d+)/i);
             const value = match ? Math.min(6, Math.max(1, parseInt(match[1], 10) || 1)) : 3;
@@ -915,6 +1002,10 @@ export class PoolEngine {
         }
         if (RANGE_DURATION_XP.has(baseTag)) {
             return { xp: RANGE_DURATION_XP.get(baseTag), recognized: true, category: 'rangeDuration' };
+        }
+        const crowdXp = getCrowdXp(baseTag);
+        if (crowdXp !== null) {
+            return { xp: crowdXp, recognized: true, category: 'rangeDuration' };
         }
         if (/^(range|duration)\s*:/i.test(t)) {
             return { xp: 2, recognized: true, category: 'rangeDuration' };
@@ -966,6 +1057,13 @@ export class PoolEngine {
             const t = normalizeTagForXp(tag);
             const tagRule = this.classifyTagForXp(tag);
             let tagXp = tagRule.xp;
+
+            // Bestial / Celestial are 2 XP on Skill tiles but 4 XP when added
+            // to a Trait, Story, or Gear tile (glossary "X 2/4", pp.61-63).
+            const baseTag = getMechanicalBaseTag(t);
+            if (options.tileType && options.tileType !== 'Skill' && (baseTag === 'bestial' || baseTag === 'celestial')) {
+                tagXp += 2;
+            }
 
             const duplicateKey = getDuplicateKey(tag);
             const previousCopies = seenTags.get(duplicateKey) || 0;

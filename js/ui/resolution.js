@@ -1,4 +1,4 @@
-import { escapeHtml } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import {
@@ -10,7 +10,9 @@ import {
     getResolutionBonusTotals,
     calculateAssignedTotals,
     calculateResolutionPlusUsage,
-    getHealingAssignments
+    getHealingAssignments,
+    applyShieldsToCrits,
+    parseCritList
 } from '../resolution-rules.js';
 
 let dataManager;
@@ -48,6 +50,12 @@ export function init(deps = {}) {
             return;
         }
 
+        if (e.target.classList.contains('defense-shield-toggle')) {
+            uiState.defenseShieldSelections[e.target.dataset.tileId] = e.target.checked;
+            renderResolutionDetails();
+            return;
+        }
+
         if (e.target.classList.contains('resolution-extra')) {
             renderResolutionDetails();
         }
@@ -66,6 +74,65 @@ export function init(deps = {}) {
 
 export function getResolutionExtraValue(id) {
     return document.getElementById(id)?.value ?? '';
+}
+
+function isShieldSourceActive(source) {
+    const stored = uiState.defenseShieldSelections[source.tileId];
+    return stored === undefined ? source.kind === 'armor' : Boolean(stored);
+}
+
+function getActiveDefenseShields() {
+    const sources = getDefenseShieldSources(dataManager?.state?.tiles || []);
+    const active = sources.filter(isShieldSourceActive);
+    return {
+        sources,
+        active,
+        crits: active.flatMap(source => source.crits)
+    };
+}
+
+// Base soak from armor tiles called into this roll (p.42: "If it is part of
+// armor, the Soak is applied only if the tile is called"). Ironclad soak is
+// deliberately excluded - it already flows through the called tile's opt-in
+// tag bonuses, and adding it here would double count.
+function getCalledArmorSoak(result) {
+    const calledIds = new Set(result?.calledTileIds || []);
+    const sources = (dataManager?.state?.tiles || [])
+        .filter(tile => calledIds.has(tile.id) && tile.armorType && !tile.isBuried && !tile.isBurnt && !isGearTagsBroken(tile))
+        .map(tile => ({
+            tileName: tile.name || 'Armor',
+            soak: ARMOR_COVERAGE_SOAK[tile.armorType.coverage] || 0
+        }))
+        .filter(source => source.soak > 0);
+
+    return {
+        sources,
+        total: sources.reduce((sum, source) => sum + source.soak, 0)
+    };
+}
+
+function renderDefenseShieldPanel() {
+    const { sources } = getActiveDefenseShields();
+    if (sources.length === 0) return '';
+
+    const rows = sources.map(source => {
+        const checked = isShieldSourceActive(source) ? ' checked' : '';
+        const critList = source.crits.map(crit => crit.toUpperCase()).join(', ');
+        const hint = source.kind === 'armor' ? 'armor' : `${source.kind} - must be ready as a defense`;
+        return `
+            <label class="resolution-field" style="justify-content: start; gap: 0.5rem;">
+                <input type="checkbox" class="defense-shield-toggle" data-tile-id="${escapeHtml(source.tileId)}"${checked}>
+                <span><strong>${escapeHtml(source.tileName)}</strong> shields ${escapeHtml(critList)} <small>(${escapeHtml(hint)})</small></span>
+            </label>
+        `;
+    }).join('');
+
+    return `
+        <div class="defense-shield-panel" style="margin-top: 0.5rem;">
+            <label>Shield Tags</label>
+            ${rows}
+        </div>
+    `;
 }
 
 export function getResolutionNumber(id) {
@@ -153,6 +220,7 @@ export function renderResolutionExtraFields() {
                     <input id="incoming-crits" class="resolution-extra" type="text" value="${escapeHtml(getResolutionExtraValue('incoming-crits'))}" placeholder="e.g. BLEED, DOWN">
                 </div>
             </div>
+            ${renderDefenseShieldPanel()}
         `;
     }
 
@@ -336,14 +404,18 @@ export function calculateResolutionSummary(result) {
         const evasionTotal = (totals.evasion || 0) + bonuses.evasion;
         const gritTotal = (totals.grit || 0) + bonuses.grit;
         const otherSoak = getResolutionNumber('defense-soak') || 0;
-        const soakTotal = otherSoak + bonuses.soak;
+        const calledArmor = getCalledArmorSoak(result);
+        const soakTotal = otherSoak + bonuses.soak + calledArmor.total;
         const incomingAttack = getResolutionNumber('incoming-attack');
         const incomingImpact = getResolutionNumber('incoming-impact') || 0;
-        const incomingCrits = getResolutionText('incoming-crits');
+        const incomingCrits = parseCritList(getResolutionText('incoming-crits'));
+        const armorSoakText = calledArmor.sources.length
+            ? ` + ${calledArmor.total} called armor (${calledArmor.sources.map(source => source.tileName).join(', ')})`
+            : '';
         const lines = [
             `<p><strong>Evasion:</strong> ${evasionTotal} (${totals.evasion || 0} dice + ${bonuses.evasion} bonus)</p>`,
             `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice + ${bonuses.grit} bonus)</p>`,
-            `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus)</p>`,
+            `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus${escapeHtml(armorSoakText)})</p>`,
             `<p><strong>Pluses Used:</strong> ${plusUsage.used}/${plusUsage.budget}</p>`
         ];
 
@@ -355,10 +427,21 @@ export function calculateResolutionSummary(result) {
 
             if (!missed) {
                 const hpLoss = Math.max(0, incomingImpact - soakTotal);
-                const critsApply = incomingCrits && hpLoss > gritTotal;
+                const critsApply = incomingCrits.length > 0 && hpLoss > gritTotal;
                 lines.push(`<p><strong>After Soak:</strong> ${hpLoss} HP (${incomingImpact} impact - ${soakTotal} soak).</p>`);
                 lines.push(`<p><strong>Grit Check:</strong> ${gritTotal} grit ${hpLoss > gritTotal ? 'does not prevent crits' : 'prevents crits'}.</p>`);
-                if (incomingCrits) lines.push(`<p><strong>Crits:</strong> ${escapeHtml(incomingCrits)} ${critsApply ? 'apply' : 'do not apply'}.</p>`);
+                if (critsApply) {
+                    const shields = getActiveDefenseShields();
+                    const { blocked, remaining } = applyShieldsToCrits(incomingCrits, shields.crits);
+                    if (blocked.length > 0) {
+                        lines.push(`<p><strong>Shields Block:</strong> ${escapeHtml(blocked.map(crit => crit.toUpperCase()).join(', '))}.</p>`);
+                    }
+                    lines.push(remaining.length > 0
+                        ? `<p class="resolution-warning"><strong>Crits That Land:</strong> ${escapeHtml(remaining.map(crit => crit.toUpperCase()).join(', '))}.</p>`
+                        : '<p class="resolution-success"><strong>Crits:</strong> all blocked by Shield tags.</p>');
+                } else if (incomingCrits.length > 0) {
+                    lines.push(`<p><strong>Crits:</strong> ${escapeHtml(incomingCrits.map(crit => crit.toUpperCase()).join(', '))} do not apply.</p>`);
+                }
             }
         }
 

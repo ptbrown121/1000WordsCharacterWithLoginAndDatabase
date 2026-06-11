@@ -11,6 +11,8 @@ export function renderArmorSoak(tiles = []) {
         if (source.ironcladSoak > 0) parts.push(`Ironclad +${source.ironcladSoak}`);
         return `${parts.join(', ')} = +${source.total}`;
     });
-    els.armorSoakDetail.textContent = armorDetails.length ? armorDetails.join('; ') : 'No active armor';
+    els.armorSoakDetail.textContent = armorDetails.length
+        ? `${armorDetails.join('; ')} — applies when the armor tile is called`
+        : 'No active armor';
     els.armorSoakDetail.title = els.armorSoakDetail.textContent;
 }

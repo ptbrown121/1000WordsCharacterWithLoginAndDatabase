@@ -57,7 +57,8 @@ export function buildRulesReviewItems(state, poolEngine) {
             const estimate = poolEngine.estimateTileXpDetails(dice, tileTagList(tile), tile.armorType, {
                 weapon: tile.weapon,
                 exoticSkill: tile.exoticSkill,
-                boxes: tile.boxes
+                boxes: tile.boxes,
+                tileType: tile.type
             }).xp;
             const stored = parseInt(tile.xpCost, 10) || 0;
             if (stored !== estimate) {

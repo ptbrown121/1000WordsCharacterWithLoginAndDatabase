@@ -74,6 +74,35 @@ export const RESOLUTION_PLUS_BUCKETS = {
     healing: new Set(['diagnosis', 'heal_energy', 'heal_health', 'heal_reflex'])
 };
 
+// Free-text crit list ("BLEED, DOWN") -> lowercased crit names.
+export function parseCritList(text) {
+    return String(text || '')
+        .split(/[\s,;/]+/)
+        .map(part => part.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+// Shield tags block matching inbound Crits one-for-one after Grit fails
+// (p.39: "each Shield tag blocks a matching inbound Crit"). Each shield is
+// consumed by the crit it blocks, so two inbound JOLTs need two JOLT shields.
+export function applyShieldsToCrits(incomingCrits = [], shieldCrits = []) {
+    const available = shieldCrits.map(crit => String(crit).toLowerCase());
+    const blocked = [];
+    const remaining = [];
+
+    incomingCrits.forEach(crit => {
+        const index = available.indexOf(String(crit).toLowerCase());
+        if (index === -1) {
+            remaining.push(crit);
+            return;
+        }
+        available.splice(index, 1);
+        blocked.push(crit);
+    });
+
+    return { blocked, remaining };
+}
+
 // Stable id for a roll within a result. Prefers the roll's own id, falls
 // back to its index so unsorted rolls and sorted rolls agree on identity.
 export function getRollId(roll, index) {
