@@ -125,6 +125,18 @@ export const els = {
     valCore: document.getElementById('val-core'),
     coreAbilities: document.getElementById('core-abilities'),
 
+    strangerPanel: document.getElementById('stranger-panel'),
+    strangerSummary: document.getElementById('stranger-summary'),
+    btnStrangerToggle: document.getElementById('btn-stranger-toggle'),
+    strangerPanelBody: document.getElementById('stranger-panel-body'),
+    strangerFormSection: document.getElementById('stranger-form-section'),
+    strangerFormSelect: document.getElementById('stranger-form-select'),
+    strangerFormDetail: document.getElementById('stranger-form-detail'),
+    strangerCelestialSection: document.getElementById('stranger-celestial-section'),
+    celestialAspectSelect: document.getElementById('celestial-aspect-select'),
+    celestialAspectDetail: document.getElementById('celestial-aspect-detail'),
+    strangerBestialNote: document.getElementById('stranger-bestial-note'),
+
     titanPanel: document.getElementById('titan-panel'),
     titanDisplay: document.getElementById('titan-display'),
     btnTitanToggle: document.getElementById('btn-titan-toggle'),

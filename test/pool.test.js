@@ -17,6 +17,12 @@ import {
     calculateTitanMax,
     getTitanAbilities,
     getTileBoxes,
+    calculateBestialTileCount,
+    calculateCelestialRank,
+    getCelestialAspectSummary,
+    getTileWhileForms,
+    getCharacterForms,
+    applyFormToTiles,
     calculateHitchRebateTotal,
     calculateArmorSoak,
     calculateArmorSoakDetails,
@@ -1369,5 +1375,99 @@ describe('special identity tiles (Homeworld p.63, Titan Identity p.69)', () => {
         const maxes = engine.calculateResourceMaxes([tile]);
         assert.equal(maxes.hp, 2);
         assert.equal(maxes.en, 1);
+    });
+});
+
+describe('Stranger: Bestial resources and pricing (v5.02 p.61)', () => {
+    it('adds +1 to the chosen resource per typed Bestial tag', () => {
+        const tiles = [
+            { id: '1', name: 'tail', type: 'Trait', dice: ['d4'], tags: ['Bestial: HP'], colors: ['Red', 'Orange'] },
+            { id: '2', name: 'claws', type: 'Gear', dice: ['d4'], tags: ['Bestial: RX'], colors: ['Red', 'Purple'] },
+            { id: '3', name: 'untyped', type: 'Trait', dice: ['d4'], tags: ['Bestial'], colors: ['Green', 'Green'] },
+            { id: '4', name: 'buried', type: 'Trait', isBuried: true, dice: ['d4'], tags: ['Bestial: EN'], colors: ['Green', 'Green'] }
+        ];
+        const maxes = engine.calculateResourceMaxes(tiles);
+        // Boxes: hp 3 (Red, Orange, Red), rx 1 (Purple), en 2 (Green x2)
+        // + Bestial: HP (+1 hp) + Bestial: RX (+1 rx); untyped and buried add nothing.
+        assert.equal(maxes.hp, 4);
+        assert.equal(maxes.rx, 2);
+        assert.equal(maxes.en, 2);
+    });
+
+    it('prices typed Bestial tags like plain Bestial (2 on Skill, 4 elsewhere) and exempts them from the limit', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial: HP'], null, { tileType: 'Skill' }), 3);  // 1 + 2
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial: HP'], null, { tileType: 'Trait' }), 5);  // 1 + 4
+        const limit = engine.calculateTagLimit(['d4'], ['Bestial: HP', 'Keen']);
+        assert.equal(limit.count, 1); // only Keen
+    });
+
+    it('makes the exotic skill tile\'s own first exotic tag free (covered by base XP)', () => {
+        const bestialSkill = { id: 'bestial', system: 'Stranger', specialty: 'Bestial', label: 'Stranger: Bestial', baseXp: 2 };
+        // d4 (1) + base 2 + first Bestial tag free = 3 (matches Violet's "sense Cyber 3 XP" pattern).
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial: HP'], null, { tileType: 'Skill', exoticSkill: bestialSkill }), 3);
+        // A second copy still pays (2 base + 2 duplicate).
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial: HP', 'Bestial: EN'], null, { tileType: 'Skill', exoticSkill: bestialSkill }), 7);
+        // Unrelated exotic skill does not give the tag away.
+        const cyberSkill = { id: 'cyber', system: 'Cyber', specialty: 'Cyber', label: 'Cyber', baseXp: 2 };
+        assert.equal(engine.estimateTileXp(['d4'], ['Bestial: HP'], null, { tileType: 'Skill', exoticSkill: cyberSkill }), 5);
+    });
+
+    it('counts Bestial tiles including exotic Bestial skills', () => {
+        const tiles = [
+            { id: '1', name: 'flight', type: 'Skill', exoticSkill: { id: 'bestial', system: 'Stranger', specialty: 'Bestial', label: 'Stranger: Bestial', baseXp: 2 }, dice: ['d4'], tags: '' },
+            { id: '2', name: 'tail', type: 'Trait', dice: ['d4'], tags: ['Bestial: HP'] },
+            { id: '3', name: 'plain', type: 'Trait', dice: ['d4'], tags: '' }
+        ];
+        assert.equal(calculateBestialTileCount(tiles), 2);
+    });
+});
+
+describe('Stranger: While X forms (v5.02 p.62)', () => {
+    const wolfTile = { id: '1', name: 'feral maw', type: 'Gear', dice: ['d4'], tags: ['While Werewolf'], isBuried: true };
+    const humanTile = { id: '2', name: 'day job', type: 'Story', dice: ['d4'], tags: ['Flaw: While Human'], isBuried: false };
+    const plainTile = { id: '3', name: 'sword', type: 'Gear', dice: ['d6'], tags: ['Keen'], isBuried: false };
+
+    it('extracts form names preserving display case', () => {
+        assert.deepEqual(getTileWhileForms(wolfTile), ['Werewolf']);
+        assert.deepEqual(getTileWhileForms(humanTile), ['Human']);
+        assert.deepEqual(getTileWhileForms(plainTile), []);
+        assert.deepEqual(getCharacterForms([wolfTile, humanTile, plainTile]), ['Werewolf', 'Human']);
+    });
+
+    it('buries and unburies While tiles to match the chosen form', () => {
+        const tiles = [
+            { ...wolfTile, isBuried: true },
+            { ...humanTile, isBuried: false },
+            { ...plainTile, isBuried: false }
+        ];
+        const changed = applyFormToTiles(tiles, 'werewolf');
+        assert.deepEqual(changed.map(t => t.id).sort(), ['1', '2']);
+        assert.equal(tiles[0].isBuried, false); // wolf tile active
+        assert.equal(tiles[1].isBuried, true);  // human tile buried
+        assert.equal(tiles[2].isBuried, false); // untouched
+
+        applyFormToTiles(tiles, '');
+        assert.equal(tiles[0].isBuried, true);
+        assert.equal(tiles[1].isBuried, true);
+        assert.equal(tiles[2].isBuried, false);
+    });
+});
+
+describe('Stranger: Celestial rank (v5.02 p.63)', () => {
+    it('counts unburied Celestial tiles for the rank', () => {
+        const tiles = [
+            { id: '1', name: 'dreaming', type: 'Skill', exoticSkill: { id: 'celestial', system: 'Stranger', specialty: 'Celestial', label: 'Stranger: Celestial', baseXp: 2 }, dice: ['d6'], tags: '' },
+            { id: '2', name: 'alien ooze', type: 'Story', dice: ['d8'], tags: ['Celestial'] },
+            { id: '3', name: 'buried', type: 'Story', isBuried: true, dice: ['d4'], tags: ['Celestial'] }
+        ];
+        assert.equal(calculateCelestialRank(tiles), 2);
+    });
+
+    it('summarizes the aspect from the rank table', () => {
+        assert.match(getCelestialAspectSummary(3, 'aural'), /Aural 3.*Medium/);
+        assert.match(getCelestialAspectSummary(3, 'astral'), /Astral 3.*6 hours/);
+        assert.match(getCelestialAspectSummary(9, 'astral'), /Astral 7.*1 month/); // clamped to 7
+        assert.match(getCelestialAspectSummary(2, ''), /pick an Aural or Astral/i);
+        assert.equal(getCelestialAspectSummary(0, 'aural'), '');
     });
 });

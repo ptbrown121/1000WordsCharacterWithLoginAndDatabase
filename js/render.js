@@ -8,6 +8,7 @@ import { renderTempBadge, updateShadowMax } from './ui/vitals.js';
 import { renderCondition } from './ui/condition.js';
 import { renderCore } from './ui/core.js';
 import { renderTitan } from './ui/titan.js';
+import { renderStranger } from './ui/stranger.js';
 import { renderJournal } from './ui/journal.js';
 import { renderRosterSelect } from './ui/roster.js';
 import { renderRulesReview } from './ui/rulesReview.js';
@@ -59,6 +60,7 @@ export function renderAll() {
     renderCondition();
     renderCore();
     renderTitan();
+    renderStranger();
     renderJournal();
     renderRosterSelect();
     renderRulesReview();

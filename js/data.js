@@ -231,6 +231,8 @@ export const DEFAULT_STATE = {
     titanTemp: 0,
     titanPerm: 0,
     titanHV: 0,  // signed Heroism (+) / Villainy (-) score; H cancels V
+    currentForm: '',      // active While X form name ('' = no form)
+    celestialAspect: '',  // '' | 'aural' | 'astral' (p.63)
     aberration: 0,
     legacyShadowWarning: false,
     gmOverride: false,
@@ -289,6 +291,8 @@ export function normalizeStateForShadowRules(state) {
     state.titanTemp = normalizeNumber(state.titanTemp, 0);
     state.titanPerm = normalizeNumber(state.titanPerm, 0);
     state.titanHV = normalizeNumber(state.titanHV, 0);
+    state.currentForm = typeof state.currentForm === 'string' ? state.currentForm : '';
+    state.celestialAspect = ['aural', 'astral'].includes(state.celestialAspect) ? state.celestialAspect : '';
     if (!Array.isArray(state.tiles)) state.tiles = [];
     state.tiles.forEach(normalizeTileMetadata);
     return state;

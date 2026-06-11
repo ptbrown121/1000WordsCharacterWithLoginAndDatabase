@@ -484,6 +484,13 @@ function getPendingTileTag() {
         } else {
             reason = `${selVal} needs a linked tile name.`;
         }
+    } else if (selVal === 'While') {
+        const form = els.tagCustomInput.value.trim();
+        if (form) {
+            finalTag = `While ${form}`;
+        } else {
+            reason = 'While needs a form name (e.g. Werewolf).';
+        }
     } else if (selVal === 'Motorized') {
         const stat = document.getElementById('tag-motorized-stat').value;
         if (stat) {
@@ -605,9 +612,9 @@ export function init(deps) {
         const val = e.target.value;
         const motorizedStat = document.getElementById('tag-motorized-stat');
         const hitchValue = document.getElementById('tag-hitch-value');
-        if (val === 'Custom' || val === 'Chain' || val === 'World') {
+        if (val === 'Custom' || val === 'Chain' || val === 'World' || val === 'While') {
             els.tagCustomInput.style.display = 'inline-block';
-            els.tagCustomInput.placeholder = val === 'Custom' ? 'Custom Tag Name' : 'Tile Name to Link';
+            els.tagCustomInput.placeholder = val === 'Custom' ? 'Custom Tag Name' : val === 'While' ? 'Form name (e.g. Werewolf)' : 'Tile Name to Link';
             els.tagCustomInput.focus();
             motorizedStat.style.display = 'none';
             hitchValue.style.display = 'none';

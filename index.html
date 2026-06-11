@@ -294,6 +294,35 @@
                     <div id="core-abilities" style="margin-top: 0.5rem;"></div>
                 </div>
             </div>
+            <div id="stranger-panel" class="shadow-panel" hidden>
+                <div class="shadow-panel-header">
+                    <div>
+                        <h3>Stranger</h3>
+                        <div id="stranger-summary"></div>
+                    </div>
+                    <div class="shadow-panel-actions">
+                        <button type="button" id="btn-stranger-toggle" class="btn btn-outline" aria-expanded="false">Show</button>
+                    </div>
+                </div>
+                <div id="stranger-panel-body" class="shadow-panel-body" hidden>
+                    <div id="stranger-form-section" style="display: none;">
+                        <label for="stranger-form-select">Current Form (While X tiles)</label>
+                        <select id="stranger-form-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                        </select>
+                        <small id="stranger-form-detail" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                    </div>
+                    <div id="stranger-celestial-section" style="display: none; margin-top: 0.5rem;">
+                        <label for="celestial-aspect-select">Celestial Aspect</label>
+                        <select id="celestial-aspect-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                            <option value="">-- Pick Aural or Astral --</option>
+                            <option value="aural">Aural (projected senses)</option>
+                            <option value="astral">Astral (out-of-body time)</option>
+                        </select>
+                        <small id="celestial-aspect-detail" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                    </div>
+                    <small id="stranger-bestial-note" style="display: none; margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                </div>
+            </div>
             <div id="titan-panel" class="shadow-panel" hidden>
                 <div class="shadow-panel-header">
                     <div>
@@ -793,6 +822,14 @@
                                 <option value="Sealed">Sealed (air reservoir for ▟ turns)</option>
                                 <option value="Adamant">Adamant (soaks 1 BREAK)</option>
                             </optgroup>
+                            <optgroup label="Exotic / Stranger (limit-exempt)">
+                                <option value="Bestial: HP">Bestial: HP (+1 Health; 2 XP on Skill, 4 elsewhere)</option>
+                                <option value="Bestial: EN">Bestial: EN (+1 Energy; 2 XP on Skill, 4 elsewhere)</option>
+                                <option value="Bestial: RX">Bestial: RX (+1 Reflex; 2 XP on Skill, 4 elsewhere)</option>
+                                <option value="Celestial">Celestial (2 XP on Skill, 4 elsewhere)</option>
+                                <option value="Cyber">Cyber (+1 Core) [+2]</option>
+                                <option value="Titan">Titan (+1 Titan) [+3]</option>
+                            </optgroup>
                             <optgroup label="Flaws">
                                 <option value="Old">Old (-3 grit)</option>
                                 <option value="Primitive">Primitive (-3 damage)</option>
@@ -802,6 +839,7 @@
                                 <option value="Hitch">Hitch</option>
                                 <option value="Bulky">Bulky (-3 Walk)</option>
                                 <option value="Heavy">Heavy (Spend 1 EN on call)</option>
+                                <option value="While">While X (tile buried outside form X) [-4]</option>
                             </optgroup>
                             <optgroup label="Fast Crits (Apply once, then fade)">
                                 <option value="DOWN">DOWN (target loses next action) [+2]</option>
@@ -1431,6 +1469,8 @@
                     <li><strong>Core panel</strong> (appears for characters with Cyber tiles): each unburied Cyber-tagged tile grants 1 Core. Current Core adds to Grit automatically in defense resolution. Spend buttons list the Core abilities your tags grant (Wired, Machine, Reticle, ...); Reticle appears in the Press tracker to skip the counter rise for 1 Core. Rest restores all Core.</li>
                     <li><strong>Titan panel</strong> (appears for characters with Titan tags, 3 XP each on any tile): each tag grants 1 Titan. When a Titan tile is in a virtual roll, dice below their ▟ reroll automatically (manual rolls get a reminder). In the results panel, spend 1 Titan for +1 Add or to maximize a die — without a Titan tile in the check, only Grit/Impact dice can be maximized. Ability spends record their Heroism/Villainy automatically; the GM trades the H/V score for Titan points at story beats. Rest does <em>not</em> restore Titan.</li>
                     <li><strong>Special Identity tiles</strong>: mark a tile as Titan Identity (Gear/Story) or Homeworld (Story) to give it a third color box that counts toward pools and call colors. Titan Identity tiles take unlimited Build/Shield/Detail tags at -1 XP each (Crits still count and cost full price).</li>
+                    <li><strong>Stranger panel</strong> (appears for Bestial/Celestial/While X characters): pick the current form to bury/unbury all <em>While X</em> tiles at once; choose a Celestial Aural or Astral aspect to see your projected-sense range or out-of-body time (rank = count of Celestial tiles); Bestial tiles each grant +1 to a chosen resource via <em>Bestial: HP/EN/RX</em> tags, and Pace equals Walk. The skill tile's own exotic tag is free (covered by its +2 base).</li>
+                    <li><strong>Stranger skills</strong>: Bestial — Flight, Instinct, Shape; Celestial — Dreaming, Kinesis, Network (each 2 XP before the d4, with the exotic tag included). Space-setting skills at normal cost, no exotic tag: Adapt, Dogfight, Gunner, Hardsuit, Navigate, Psinger, Vibro, Xenology, Zappers.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

@@ -736,6 +736,9 @@ function getMechanicalBaseTag(normalizedTag) {
     if (withoutPrefix.startsWith('hitch')) return 'hitch';
     if (withoutPrefix.startsWith('motorized')) return 'motorized';
     if (withoutPrefix.startsWith('while ')) return 'while x';
+    // "Bestial: HP" stores the chosen +1 resource on the tag (p.61).
+    if (withoutPrefix.startsWith('bestial')) return 'bestial';
+    if (withoutPrefix.startsWith('celestial')) return 'celestial';
     return withoutPrefix;
 }
 
@@ -868,6 +871,97 @@ export function getCoreAbilities(tiles = []) {
     });
 
     return Array.from(abilities.values()).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+// ---------------------------------------------------------------------------
+// Stranger helpers (pp.61-63): Bestial resource points, While X forms, and
+// Celestial Aural/Astral ranks.
+// ---------------------------------------------------------------------------
+
+export function tileHasBestialTag(tile) {
+    if (tile?.exoticSkill?.specialty === 'Bestial') return true;
+    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'bestial');
+}
+
+export function tileHasCelestialTag(tile) {
+    if (tile?.exoticSkill?.specialty === 'Celestial') return true;
+    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'celestial');
+}
+
+export function calculateBestialTileCount(tiles = []) {
+    return (tiles || []).filter(tile => tile && !tile.isBuried && tileHasBestialTag(tile)).length;
+}
+
+// "Count tiles with Celestial for the Aural / Astral rank" (p.63).
+export function calculateCelestialRank(tiles = []) {
+    return (tiles || []).filter(tile => tile && !tile.isBuried && tileHasCelestialTag(tile)).length;
+}
+
+// Aural rank reads the Linear column (projected senses, forward arc);
+// Astral rank reads the Time column (time apart from the body). The table
+// leaves Linear blank at ranks 1 and 6.
+export const CELESTIAL_RANK_TABLE = {
+    1: { linear: 'Reach', time: '15 minutes' },
+    2: { linear: 'Short', time: '1 hour' },
+    3: { linear: 'Medium', time: '6 hours' },
+    4: { linear: 'Visual', time: '1 day' },
+    5: { linear: 'Long', time: '3 days' },
+    6: { linear: 'Long', time: '10 days' },
+    7: { linear: 'Extreme', time: '1 month' }
+};
+
+export function getCelestialAspectSummary(rank, aspect) {
+    const clamped = Math.min(7, Math.max(0, parseInt(rank, 10) || 0));
+    if (clamped <= 0) return '';
+    const row = CELESTIAL_RANK_TABLE[clamped];
+    if (aspect === 'aural') return `Aural ${clamped}: project senses to ${row.linear} range (forward arc).`;
+    if (aspect === 'astral') return `Astral ${clamped}: stay apart from the body up to ${row.time} (even if the body has died).`;
+    return `Celestial rank ${clamped}: pick an Aural or Astral aspect.`;
+}
+
+// "While X" form tags (p.62): the tile is in play while the character wears
+// form X and buried otherwise. Form names keep their original casing for
+// display; matching is case-insensitive. Raw tags (not activeTileTagList)
+// are used so a BREAK-marked gear tile still binds to its form.
+export function getTileWhileForms(tile) {
+    return tileTagList(tile)
+        .map(stripExemptSuffix)
+        .map(tag => tag.replace(/^(build|detail|flaw)\s*:\s*/i, ''))
+        .filter(tag => /^while\s+/i.test(tag))
+        .map(tag => tag.replace(/^while\s+/i, '').trim())
+        .filter(Boolean);
+}
+
+export function getCharacterForms(tiles = []) {
+    const forms = new Map();
+    (tiles || []).forEach(tile => getTileWhileForms(tile).forEach(form => {
+        const key = form.toLowerCase();
+        if (!forms.has(key)) forms.set(key, form);
+    }));
+    return Array.from(forms.values());
+}
+
+/**
+ * Bury/unbury every While X tile to match the chosen form. An empty form
+ * buries all While tiles (no form active). Tiles without While tags are
+ * untouched. Mutates the tiles in place; returns the tiles whose buried
+ * state changed so callers can persist and report.
+ */
+export function applyFormToTiles(tiles = [], formName = '') {
+    const target = String(formName || '').trim().toLowerCase();
+    const changed = [];
+
+    (tiles || []).forEach(tile => {
+        const forms = getTileWhileForms(tile).map(form => form.toLowerCase());
+        if (forms.length === 0) return;
+        const shouldBury = target === '' || !forms.includes(target);
+        if (Boolean(tile.isBuried) !== shouldBury) {
+            tile.isBuried = shouldBury;
+            changed.push(tile);
+        }
+    });
+
+    return changed;
 }
 
 // Titan ability tags (p.69): "Spend 1 Titan to..." `hv` is the Heroism (+)
@@ -1209,6 +1303,8 @@ export class PoolEngine {
         const unknownTags = [];
         const seenTags = new Map();
 
+        const exoticSpecialty = (options.exoticSkill?.specialty || '').toLowerCase();
+
         tagsArray.forEach(tag => {
             const t = normalizeTagForXp(tag);
             const tagRule = this.classifyTagForXp(tag);
@@ -1225,6 +1321,13 @@ export class PoolEngine {
             const previousCopies = seenTags.get(duplicateKey) || 0;
             seenTags.set(duplicateKey, previousCopies + 1);
             if (duplicateKey) tagXp += previousCopies * 2;
+
+            // Exotic skill tiles "start with the Bestial/Celestial/Cyber
+            // Exotic tag" (pp.61-64): the skill's own exotic tag is covered
+            // by its +2 base XP, so its first copy is free here.
+            if (exoticSpecialty && baseTag === exoticSpecialty && previousCopies === 0) {
+                tagXp = 0;
+            }
 
             if (isHardArmor && tagRule.hardArmorFlawEligible) {
                 tagXp -= 1;
@@ -1288,6 +1391,19 @@ export class PoolEngine {
             tags.forEach(tag => {
                 const resource = RESOURCE_TAGS[tag];
                 if (resource) maxes[resource] += tileSteps;
+            });
+
+            // Bestial (p.61): "For each tile with the Bestial tag, add an
+            // extra point to one Resource." The chosen pool is fixed when
+            // bought, stored on the tag as "Bestial: HP|EN|RX". Untyped
+            // Bestial tags grant nothing until a resource is chosen (the
+            // rules review flags them).
+            activeTileTagList(tile).forEach(tag => {
+                const normalized = normalizeTagForXp(tag);
+                if (getMechanicalBaseTag(normalized) !== 'bestial') return;
+                const match = stripMechanicalPrefix(normalized).match(/^bestial\s*:?\s*(\S+)/);
+                const resource = normalizeResourceKey(match?.[1]);
+                if (resource) maxes[resource] += 1;
             });
         });
 

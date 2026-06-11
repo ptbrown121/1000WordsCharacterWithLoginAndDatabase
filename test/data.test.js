@@ -296,3 +296,15 @@ describe('special identity tile normalization (v5.02 PR 6)', () => {
         assert.equal(defaults.titanHV, 0);
     });
 });
+
+describe('Stranger state normalization (v5.02 PR 7)', () => {
+    it('normalizes currentForm and celestialAspect', () => {
+        const state = normalizeStateForShadowRules({ stats: {}, tiles: [], currentForm: 'Werewolf', celestialAspect: 'aural' });
+        assert.equal(state.currentForm, 'Werewolf');
+        assert.equal(state.celestialAspect, 'aural');
+
+        const bad = normalizeStateForShadowRules({ stats: {}, tiles: [], currentForm: 7, celestialAspect: 'nonsense' });
+        assert.equal(bad.currentForm, '');
+        assert.equal(bad.celestialAspect, '');
+    });
+});

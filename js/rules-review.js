@@ -1,4 +1,8 @@
-import { activeTileTagList, calculateHitchRebateTotal, getExoticSkillBaseXp, isHitchedTile, tileTagList, validateShadowTags } from './pool.js';
+import { activeTileTagList, calculateHitchRebateTotal, getExoticSkillBaseXp, isHitchedTile, tileHasBestialTag, tileTagList, validateShadowTags } from './pool.js';
+
+function hasBestialResourceChoice(tile) {
+    return tileTagList(tile).some(tag => /^(?:build\s*:|detail\s*:)?\s*bestial\s*:?\s*(hp|health|en|energy|rx|reflex)/i.test(String(tag).trim()));
+}
 
 function statXpTotal(state, poolEngine) {
     return poolEngine.calculateStatXp(state.stats || {});
@@ -103,6 +107,14 @@ export function buildRulesReviewItems(state, poolEngine) {
                 message: `${tile.name}: ${issue.message}`
             });
         });
+
+        if (tileHasBestialTag(tile) && !hasBestialResourceChoice(tile)) {
+            items.push({
+                severity: 'low',
+                category: 'Stranger',
+                message: `${tile.name}: Bestial tiles add +1 to one resource. Add a "Bestial: HP/EN/RX" tag to choose it.`
+            });
+        }
 
         if (getExoticSkillBaseXp(tile.exoticSkill) > 0) {
             items.push({
