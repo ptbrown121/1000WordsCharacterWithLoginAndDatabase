@@ -127,15 +127,25 @@ function dispatchAppEvent(name, detail) {
     window.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
+// Special identity tiles (Homeworld p.63, Titan Identity p.69) carry a
+// third color box; all other tiles stay capped at two.
+function normalizeSpecialIdentity(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'titan-identity' || normalized === 'titan identity') return 'titan-identity';
+    if (normalized === 'homeworld') return 'homeworld';
+    return null;
+}
+
 function normalizeTileMetadata(tile) {
     if (!tile || typeof tile !== 'object') return;
 
     if (tile.isBurnt === undefined) tile.isBurnt = false;
     if (tile.isBuried === undefined) tile.isBuried = false;
+    tile.specialIdentity = normalizeSpecialIdentity(tile.specialIdentity);
     const rawBoxes = Array.isArray(tile.boxes) && tile.boxes.length > 0
         ? tile.boxes.map(normalizeTileBox).filter(Boolean)
         : boxesFromLegacyColors(tile.colors || []);
-    tile.boxes = rawBoxes.slice(0, 2);
+    tile.boxes = rawBoxes.slice(0, tile.specialIdentity ? 3 : 2);
     tile.colors = colorsFromBoxes(tile.boxes);
     tile.exoticSkill = tile.type === 'Skill' ? normalizeStoredExoticSkill(tile.exoticSkill) : null;
     tile.gearBroken = tile.type === 'Gear' ? Boolean(tile.gearBroken || tile.isGearBroken) : false;
@@ -217,6 +227,10 @@ export const DEFAULT_STATE = {
     core: 0,     // current Cyber Core; max derives from Cyber-tagged tiles
     coreTemp: 0,
     corePerm: 0,
+    titan: 0,    // current Titan; max derives from Titan tags on tiles
+    titanTemp: 0,
+    titanPerm: 0,
+    titanHV: 0,  // signed Heroism (+) / Villainy (-) score; H cancels V
     aberration: 0,
     legacyShadowWarning: false,
     gmOverride: false,
@@ -271,6 +285,10 @@ export function normalizeStateForShadowRules(state) {
     state.core = Math.max(0, normalizeNumber(state.core, 0));
     state.coreTemp = normalizeNumber(state.coreTemp, 0);
     state.corePerm = normalizeNumber(state.corePerm, 0);
+    state.titan = Math.max(0, normalizeNumber(state.titan, 0));
+    state.titanTemp = normalizeNumber(state.titanTemp, 0);
+    state.titanPerm = normalizeNumber(state.titanPerm, 0);
+    state.titanHV = normalizeNumber(state.titanHV, 0);
     if (!Array.isArray(state.tiles)) state.tiles = [];
     state.tiles.forEach(normalizeTileMetadata);
     return state;

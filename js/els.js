@@ -125,6 +125,14 @@ export const els = {
     valCore: document.getElementById('val-core'),
     coreAbilities: document.getElementById('core-abilities'),
 
+    titanPanel: document.getElementById('titan-panel'),
+    titanDisplay: document.getElementById('titan-display'),
+    btnTitanToggle: document.getElementById('btn-titan-toggle'),
+    titanPanelBody: document.getElementById('titan-panel-body'),
+    valTitan: document.getElementById('val-titan'),
+    titanHvTracker: document.getElementById('titan-hv-tracker'),
+    titanAbilities: document.getElementById('titan-abilities'),
+
     statusConditionsDisplay: document.getElementById('status-conditions-display'),
     btnConditionToggle: document.getElementById('btn-condition-toggle'),
     conditionPanelBody: document.getElementById('condition-panel-body'),

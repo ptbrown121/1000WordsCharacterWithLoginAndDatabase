@@ -585,6 +585,9 @@ export function updatePoolPreview() {
         if ((res.dieStepEffects || []).length > 0) {
             addsText += ` | Aberrant dice: ${res.dieStepEffects.map(effect => `${effect.from}->${effect.to}`).join(', ')}`;
         }
+        if (res.titanActive) {
+            addsText += ' | Titan: dice below their ▟ reroll';
+        }
         els.poolAddsDisplay.innerText = addsText;
     }
 
@@ -631,7 +634,13 @@ export function executeVirtualRoll() {
     }
     if (!applyResourceCosts(res.resourceCosts || [])) return;
 
-    const rolled = poolEngine.rollPool(res.dice);
+    let rolled = poolEngine.rollPool(res.dice);
+    let titanRerolls = [];
+    if (res.titanActive) {
+        const titanResult = poolEngine.applyTitanRerolls(rolled);
+        rolled = titanResult.rolls;
+        titanRerolls = titanResult.rerolls;
+    }
     const result = poolEngine.calculateOptimalTotal(rolled, res.adds, { haywireThreshold: res.haywireThreshold });
     const appliedTagBonuses = getSelectedTagBonuses(res.tagBonuses || []);
     result.adds = res.adds;
@@ -640,6 +649,8 @@ export function executeVirtualRoll() {
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
     result.freebieUsed = Boolean(res.freebieDie);
+    result.titanActive = Boolean(res.titanActive);
+    result.titanRerolls = titanRerolls;
     finalizeRoll(result, res, 'virtual', colors);
 }
 
@@ -687,6 +698,11 @@ export function executeManualCalculate() {
     result.appliedTagBonuses = appliedTagBonuses;
     result.ammoOptions = getAmmoResolutionOptions(res.calledTileIds || []);
     result.freebieUsed = Boolean(res.freebieDie);
+    // Manual mode: the player rolls physical dice, so Titan rerolls happen
+    // at the table; the results panel reminds them.
+    result.titanActive = Boolean(res.titanActive);
+    result.titanRerolls = [];
+    result.titanManualReminder = Boolean(res.titanActive);
     finalizeRoll(result, res, 'manual', colors);
 }
 

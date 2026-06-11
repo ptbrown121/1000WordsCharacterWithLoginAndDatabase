@@ -1,4 +1,5 @@
-import { ARMOR_COVERAGE_SOAK, calculateCoreMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken } from '../pool.js';
+import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
@@ -74,6 +75,14 @@ export function init(deps = {}) {
     els.resolutionControls.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-roll-freebie')) {
             rollPostRollFreebie();
+            return;
+        }
+        if (e.target.classList.contains('btn-titan-add')) {
+            spendTitanOnAdd();
+            return;
+        }
+        if (e.target.classList.contains('btn-titan-maximize')) {
+            spendTitanOnMaximize();
             return;
         }
         if (!e.target.classList.contains('btn-resolve-ammo')) return;
@@ -354,6 +363,100 @@ function renderFreebiePanel(result) {
     `;
 }
 
+// Titan spends on the current roll (p.69): 1 Titan buys an extra Add, or
+// maximizes a die. When no Titan tile was used in the check, only dice
+// assigned to Grit or Impact may be maximized.
+function getTitanEffectiveMaxValue() {
+    if (!dataManager) return 0;
+    return getEffectiveMax(dataManager.state, 'titan', calculateTitanMax(dataManager.state.tiles || []));
+}
+
+function spendOneTitan(reason) {
+    const state = dataManager.state;
+    const current = parseInt(state.titan, 10) || 0;
+    if (current <= 0 && !state.gmOverride) {
+        alert('No Titan available to spend.');
+        return false;
+    }
+    if (!confirm(`Spend 1 Titan to ${reason}?`)) return false;
+    state.titan = Math.max(0, current - 1);
+    dataManager.saveState();
+    if (renderAll) renderAll();
+    return true;
+}
+
+function recalculateRollTotals(result) {
+    const recalculated = poolEngine.calculateOptimalTotal(result.originalRolls || [], result.adds ?? 2, {
+        haywireThreshold: result.haywireThreshold || 1
+    });
+    Object.assign(result, recalculated);
+}
+
+function spendTitanOnAdd() {
+    const result = uiState.lastRollResult;
+    if (!result || !poolEngine) return;
+    if (!spendOneTitan('gain +1 Add')) return;
+    result.adds = (result.adds ?? 2) + 1;
+    recalculateRollTotals(result);
+    renderResolution();
+}
+
+function getTitanMaximizeCandidates(result) {
+    return (result.originalRolls || [])
+        .map((roll, index) => {
+            const rollId = getRollId(roll, index);
+            return {
+                roll,
+                rollId,
+                assignment: uiState.currentResolutionAssignments[rollId] || 'unused',
+                faces: parseInt(String(roll.die || '').replace('d', ''), 10) || 0
+            };
+        })
+        .filter(entry => entry.faces > 0 && entry.roll.val < entry.faces)
+        .filter(entry => result.titanActive || ['grit', 'impact'].includes(entry.assignment));
+}
+
+function spendTitanOnMaximize() {
+    const result = uiState.lastRollResult;
+    if (!result || !poolEngine) return;
+
+    const rollId = document.getElementById('titan-maximize-die')?.value || '';
+    const candidate = getTitanMaximizeCandidates(result).find(entry => entry.rollId === rollId);
+    if (!candidate) return;
+    if (!spendOneTitan(`maximize the ${candidate.roll.die} (${candidate.roll.val} -> ${candidate.faces})`)) return;
+
+    candidate.roll.val = candidate.faces;
+    recalculateRollTotals(result);
+    renderResolution();
+}
+
+function renderTitanResolutionPanel(result) {
+    if (!poolEngine || getTitanEffectiveMaxValue() <= 0) return '';
+    const current = parseInt(dataManager.state.titan, 10) || 0;
+    const candidates = getTitanMaximizeCandidates(result);
+    const options = candidates.map(entry =>
+        `<option value="${escapeHtml(entry.rollId)}">${escapeHtml(entry.roll.die)} rolled ${entry.roll.val} (${escapeHtml(entry.assignment)})</option>`
+    ).join('');
+    const restriction = result.titanActive
+        ? 'Titan tile used: any die may be maximized.'
+        : 'No Titan tile in this check: only dice assigned to Grit or Impact may be maximized.';
+
+    return `
+        <div class="freebie-resolution-panel" style="margin-top: 0.5rem;">
+            <h3>Titan (${current} available)</h3>
+            <p class="hint-text">${restriction} Titan can also be spent as Core or Shadow (1:1) if those pools exist.</p>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-outline btn-titan-add" type="button"${current <= 0 ? ' disabled' : ''}>+1 Add (1 Titan)</button>
+                <select id="titan-maximize-die">
+                    <option value="">-- Choose die --</option>
+                    ${options}
+                </select>
+                <button class="btn btn-outline btn-titan-maximize" type="button"${current <= 0 || candidates.length === 0 ? ' disabled' : ''}>Maximize (1 Titan)</button>
+            </div>
+        </div>
+    `;
+}
+
 function rollPostRollFreebie() {
     const result = uiState.lastRollResult;
     if (!result || result.freebieUsed || !poolEngine) return;
@@ -614,6 +717,11 @@ export function renderResolutionDetails() {
     if (result.woundPenalty > 0) {
         notices.push(`<div class="result-notice">WOUND: -${result.woundPenalty} applied to this check's totals (all checks at -3 per active WOUND).</div>`);
     }
+    if ((result.titanRerolls || []).length > 0) {
+        notices.push(`<div class="result-notice">Titan reroll: ${result.titanRerolls.map(r => `${escapeHtml(r.die)} ${r.from}→${r.to}`).join(', ')}.</div>`);
+    } else if (result.titanActive && result.titanManualReminder) {
+        notices.push('<div class="result-notice">Titan active: reroll any physical die that rolled below its ▟ (d6 on 1, d8 on 1-2, ...) and enter the new values.</div>');
+    }
     const chainCost = getChainMaxedDieCost(result);
     if (chainCost.maxedCount > 0) {
         notices.push(`<div class="result-notice">Chain cost: ${chainCost.maxedCount} maxed chain ${chainCost.maxedCount === 1 ? 'die' : 'dice'} — spend ${chainCost.maxedCount} resource point${chainCost.maxedCount === 1 ? '' : 's'} (EN, RX, or HP; player's choice).</div>`);
@@ -656,6 +764,7 @@ export function renderResolution() {
         </div>
         ${renderAmmoResolution(result)}
         ${renderFreebiePanel(result)}
+        ${renderTitanResolutionPanel(result)}
         ${warningHtml}
     `;
 

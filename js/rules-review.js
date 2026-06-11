@@ -58,7 +58,8 @@ export function buildRulesReviewItems(state, poolEngine) {
                 weapon: tile.weapon,
                 exoticSkill: tile.exoticSkill,
                 boxes: tile.boxes,
-                tileType: tile.type
+                tileType: tile.type,
+                specialIdentity: tile.specialIdentity
             }).xp;
             const stored = parseInt(tile.xpCost, 10) || 0;
             if (stored !== estimate) {
@@ -70,7 +71,7 @@ export function buildRulesReviewItems(state, poolEngine) {
             }
         }
 
-        const tagLimit = poolEngine.calculateTagLimit(dice, tileTagList(tile));
+        const tagLimit = poolEngine.calculateTagLimit(dice, tileTagList(tile), { specialIdentity: tile.specialIdentity });
         if (!tagLimit.valid) {
             items.push({
                 severity: 'high',

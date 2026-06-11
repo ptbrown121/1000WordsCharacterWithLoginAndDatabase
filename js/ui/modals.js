@@ -159,6 +159,21 @@ function isShadowBoxValue(value) {
     return value === 'Qi' || value === 'Id';
 }
 
+function getFormSpecialIdentity() {
+    return document.getElementById('tile-special-identity')?.value || null;
+}
+
+// Special identity tiles (Titan Identity / Homeworld) gain a third box;
+// show or hide the Box 3 column and keep the picker label honest.
+function syncSpecialIdentityVisibility() {
+    const specialIdentity = getFormSpecialIdentity();
+    const boxRow = document.querySelector('.tile-box-row[data-box-index="2"]');
+    const label = document.getElementById('tile-box-editor-label');
+    if (boxRow) boxRow.style.display = specialIdentity ? '' : 'none';
+    if (label) label.textContent = specialIdentity ? 'Tile Boxes (Pick 3)' : 'Tile Boxes (Pick 2)';
+    if (!specialIdentity) setTileBoxValue(2, '');
+}
+
 function syncTileBoxResourceVisibility() {
     document.querySelectorAll('.tile-box-type').forEach(typeSelect => {
         const index = typeSelect.dataset.boxIndex;
@@ -248,7 +263,7 @@ function getFormBoxes() {
 }
 
 function setFormBoxes(boxes = []) {
-    const normalized = serializeTileBoxes(boxes);
+    const normalized = serializeTileBoxes(boxes, 3);
     document.querySelectorAll('.tile-box-type').forEach(typeSelect => {
         const index = parseInt(typeSelect.dataset.boxIndex, 10);
         const box = normalized[index] || null;
@@ -386,7 +401,7 @@ function applyWeaponTemplate(templateId) {
     }
 }
 
-export function renderTagLimitStatus(el, diceStr, tagsArray) {
+export function renderTagLimitStatus(el, diceStr, tagsArray, limitOptions = {}) {
     if (!el) return null;
 
     el.classList.remove('valid', 'invalid');
@@ -394,7 +409,7 @@ export function renderTagLimitStatus(el, diceStr, tagsArray) {
     const isAmmo = document.getElementById('tile-type')?.value === 'Gear'
         && document.getElementById('gear-subtype')?.value === 'Ammo';
     if (isAmmo && !diceStr.trim()) {
-        const tagLimit = poolEngine.calculateTagLimit([], tagsArray);
+        const tagLimit = poolEngine.calculateTagLimit([], tagsArray, limitOptions);
         el.textContent = `Ammo has no dice. Countable tags: ${tagLimit.count}/0.`;
         el.classList.add(tagLimit.valid ? 'valid' : 'invalid');
         return tagLimit;
@@ -412,7 +427,7 @@ export function renderTagLimitStatus(el, diceStr, tagsArray) {
         return null;
     }
 
-    const tagLimit = poolEngine.calculateTagLimit(dice, tagsArray);
+    const tagLimit = poolEngine.calculateTagLimit(dice, tagsArray, limitOptions);
     el.textContent = formatTagLimitStatus(tagLimit);
     el.classList.add(tagLimit.valid ? 'valid' : 'invalid');
     return tagLimit;
@@ -420,7 +435,9 @@ export function renderTagLimitStatus(el, diceStr, tagsArray) {
 
 export function renderTileTagLimitStatus() {
     syncTileDiceButtons();
-    return renderTagLimitStatus(els.tileTagLimitStatus, els.tileDice.value, currentFormTags);
+    return renderTagLimitStatus(els.tileTagLimitStatus, els.tileDice.value, currentFormTags, {
+        specialIdentity: getFormSpecialIdentity()
+    });
 }
 
 export function renderXpEstimateNote(unknownTags = []) {
@@ -623,6 +640,10 @@ export function init(deps) {
         addTileDie(button.dataset.die);
     });
     document.getElementById('tile-type').addEventListener('change', syncTileTypeSections);
+    document.getElementById('tile-special-identity').addEventListener('change', () => {
+        syncSpecialIdentityVisibility();
+        renderTileTagLimitStatus();
+    });
     document.getElementById('gear-subtype').addEventListener('change', syncTileTypeSections);
     document.getElementById('tile-exotic-skill').addEventListener('change', (e) => {
         if (e.target.value.startsWith('arcana-')) {
@@ -657,7 +678,8 @@ export function init(deps) {
             weapon: getFormWeapon(),
             exoticSkill: getFormExoticSkill(),
             boxes: getFormBoxes(),
-            tileType: document.getElementById('tile-type')?.value
+            tileType: document.getElementById('tile-type')?.value,
+            specialIdentity: getFormSpecialIdentity()
         });
         els.tileXp.value = xp;
         renderXpEstimateNote(unknownTags);
@@ -728,6 +750,7 @@ export function openModal(tile = null) {
         gearBroken.checked = !!tile.gearBroken;
         document.getElementById('tile-is-spellcast').checked = !!tile.isSpellcastSkill;
         exoticSkill.value = tile.exoticSkill?.id || '';
+        document.getElementById('tile-special-identity').value = tile.specialIdentity || '';
         document.getElementById('tile-name').value = tile.name;
         document.getElementById('tile-description').value = tile.description || '';
         document.getElementById('tile-dice').value = (tile.dice || []).join(', ');
@@ -761,14 +784,16 @@ export function openModal(tile = null) {
         gearBroken.checked = false;
         document.getElementById('tile-is-spellcast').checked = false;
         exoticSkill.value = '';
+        document.getElementById('tile-special-identity').value = '';
         document.getElementById('tile-description').value = '';
         setFormBoxes([]);
         els.tileXp.value = 0;
         els.btnDelete.style.display = 'none';
     }
-    
+
     renderWeaponTemplatePreview(weaponTemplate.value);
     syncTileTypeSections();
+    syncSpecialIdentityVisibility();
     renderFormTags();
     resetTileModalScroll();
 }
@@ -826,16 +851,26 @@ export async function saveTileFromForm() {
     const gearSubtype = getFormGearSubtype();
     const isAmmo = type === 'Gear' && gearSubtype === 'Ammo';
     const gearBroken = type === 'Gear' && document.getElementById('gear-broken').checked;
-    
+    const specialIdentity = getFormSpecialIdentity();
+
     const boxes = getFormBoxes();
     const checkedColors = getTileColorsFromBoxes(boxes);
+    const requiredBoxes = specialIdentity ? 3 : 2;
 
-    if (!isAmmo && boxes.length !== 2) {
-        alert('Please select exactly 2 tile boxes.');
+    if (!isAmmo && boxes.length !== requiredBoxes) {
+        alert(`Please select exactly ${requiredBoxes} tile boxes${specialIdentity ? ' (special identity tiles gain a third box)' : ''}.`);
         return;
     }
     if (isAmmo && ![0, 2].includes(boxes.length)) {
         alert('Ammo can have no boxes or exactly 2 boxes.');
+        return;
+    }
+    if (specialIdentity === 'homeworld' && type !== 'Story') {
+        alert('Homeworld is a Story tile (p.63).');
+        return;
+    }
+    if (specialIdentity === 'titan-identity' && !['Gear', 'Story'].includes(type)) {
+        alert('Titan Identity is a Gear or Story tile (p.69).');
         return;
     }
     const missingShadowResource = boxes.find(box => box.type === 'shadow' && !box.resource);
@@ -854,7 +889,7 @@ export async function saveTileFromForm() {
         return;
     }
 
-    const tagLimit = poolEngine.calculateTagLimit(diceArray, currentFormTags);
+    const tagLimit = poolEngine.calculateTagLimit(diceArray, currentFormTags, { specialIdentity });
     renderTileTagLimitStatus();
     if (!tagLimit.valid) {
         alert(tagLimitErrorMessage('This tile', tagLimit));
@@ -883,6 +918,7 @@ export async function saveTileFromForm() {
         ammo,
         armorType,
         gearBroken,
+        specialIdentity,
         isBurnt: existingTile?.isBurnt || false,
         isBuried: existingTile?.isBuried || false
     };

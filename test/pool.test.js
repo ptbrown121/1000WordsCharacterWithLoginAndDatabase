@@ -14,6 +14,9 @@ import {
     getDefenseShieldSources,
     calculateCoreMax,
     getCoreAbilities,
+    calculateTitanMax,
+    getTitanAbilities,
+    getTileBoxes,
     calculateHitchRebateTotal,
     calculateArmorSoak,
     calculateArmorSoakDetails,
@@ -1273,5 +1276,98 @@ describe('Cyber Core pool (v5.02 p.64)', () => {
         const wired = abilities.find(a => a.id === 'wired');
         assert.equal(wired.effect, 'Reduce BLEED');
         assert.deepEqual(wired.sources, ['chassis', 'optics']);
+    });
+});
+
+describe('Titan subsystem (v5.02 p.69)', () => {
+    it('counts Titan tag instances on unburied tiles, stacking duplicates', () => {
+        const tiles = [
+            { id: '1', name: 'cape', type: 'Gear', dice: ['d6'], tags: ['Titan', 'Titan'] },
+            { id: '2', name: 'fists', type: 'Gear', dice: ['d4'], tags: ['Titan', 'Keen'] },
+            { id: '3', name: 'buried', type: 'Gear', isBuried: true, dice: ['d4'], tags: ['Titan'] },
+            { id: '4', name: 'plain', type: 'Skill', dice: ['d6'], tags: '' }
+        ];
+        assert.equal(calculateTitanMax(tiles), 3);
+        assert.equal(calculateTitanMax([]), 0);
+    });
+
+    it('collects Titan abilities with H/V markers and sources', () => {
+        const tiles = [
+            { id: '1', name: 'cape', type: 'Gear', dice: ['d6'], tags: ['Zero In', 'Pull Punch'] },
+            { id: '2', name: 'mask', type: 'Gear', dice: ['d4'], tags: ['Interception'] }
+        ];
+        const abilities = getTitanAbilities(tiles);
+        assert.deepEqual(abilities.map(a => a.id), ['interception', 'pull punch', 'zero in']);
+        assert.equal(abilities.find(a => a.id === 'zero in').hv, -2);
+        assert.equal(abilities.find(a => a.id === 'pull punch').hv, 1);
+        assert.equal(abilities.find(a => a.id === 'interception').hv, null);
+        assert.deepEqual(abilities.find(a => a.id === 'zero in').sources, ['cape']);
+    });
+
+    it('rerolls dice below their own die steps once, keeping the new value', () => {
+        const rolled = [
+            { source: 'a', die: 'd6', val: 1 },  // below 2 steps -> reroll
+            { source: 'b', die: 'd8', val: 2 },  // below 3 steps -> reroll
+            { source: 'c', die: 'd8', val: 3 },  // at 3 steps -> keep
+            { source: 'd', die: 'd4', val: 1 }   // d4 is 1 step; 1 >= 1 -> keep
+        ];
+        const { rolls, rerolls } = engine.applyTitanRerolls(rolled, () => 5);
+        assert.deepEqual(rolls.map(r => r.val), [5, 5, 3, 1]);
+        assert.deepEqual(rerolls.map(r => [r.die, r.from, r.to]), [['d6', 1, 5], ['d8', 2, 5]]);
+    });
+
+    it('flags titanActive in compilePool when a used tile has the Titan tag', () => {
+        const stats = { BODY: 'd6' };
+        const titanTile = { id: '1', name: 'cape', colors: ['Red'], dice: ['d6'], tags: ['Titan'] };
+        const plainTile = { id: '2', name: 'sword', colors: ['Red'], dice: ['d6'], tags: '' };
+        assert.equal(engine.compilePool(['Red'], stats, titanTile, [], [titanTile], []).titanActive, true);
+        assert.equal(engine.compilePool(['Red'], stats, plainTile, [], [plainTile], []).titanActive, false);
+    });
+});
+
+describe('special identity tiles (Homeworld p.63, Titan Identity p.69)', () => {
+    it('allows a third box only on special identity tiles', () => {
+        const boxes = [
+            { type: 'color', color: 'Red' },
+            { type: 'color', color: 'Blue' },
+            { type: 'color', color: 'Yellow' }
+        ];
+        assert.equal(getTileBoxes({ boxes }).length, 2);
+        assert.equal(getTileBoxes({ boxes, specialIdentity: 'titan-identity' }).length, 3);
+        assert.equal(getTileBoxes({ boxes, specialIdentity: 'homeworld' }).length, 3);
+    });
+
+    it('exempts Build/Shield/Detail tags from the tag limit on Titan Identity tiles', () => {
+        const tags = ['Tough', 'Shield: JOLT', 'Expert', 'DOWN'];
+        const normal = engine.calculateTagLimit(['d4'], tags);
+        assert.equal(normal.count, 4);
+        const identity = engine.calculateTagLimit(['d4'], tags, { specialIdentity: 'titan-identity' });
+        assert.equal(identity.count, 1); // only the DOWN crit counts
+        assert.equal(identity.valid, true);
+    });
+
+    it('discounts Build/Shield/Detail tags by 1 XP on Titan Identity tiles, not Crits', () => {
+        // d6 (3) + Tough (2-1) + Shield: JOLT (2-1) + DOWN crit (2) = 7
+        assert.equal(
+            engine.estimateTileXp(['d6'], ['Tough', 'Shield: JOLT', 'DOWN'], null, { specialIdentity: 'titan-identity' }),
+            7
+        );
+        // Without the identity: 3 + 2 + 2 + 2 = 9
+        assert.equal(engine.estimateTileXp(['d6'], ['Tough', 'Shield: JOLT', 'DOWN']), 9);
+    });
+
+    it('counts a third resource box toward pools', () => {
+        const tile = {
+            id: '1', name: 'costume', type: 'Gear', dice: ['d4'], tags: '',
+            specialIdentity: 'titan-identity',
+            boxes: [
+                { type: 'color', color: 'Red' },
+                { type: 'color', color: 'Red' },
+                { type: 'color', color: 'Green' }
+            ]
+        };
+        const maxes = engine.calculateResourceMaxes([tile]);
+        assert.equal(maxes.hp, 2);
+        assert.equal(maxes.en, 1);
     });
 });

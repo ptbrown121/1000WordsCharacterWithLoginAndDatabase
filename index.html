@@ -294,6 +294,26 @@
                     <div id="core-abilities" style="margin-top: 0.5rem;"></div>
                 </div>
             </div>
+            <div id="titan-panel" class="shadow-panel" hidden>
+                <div class="shadow-panel-header">
+                    <div>
+                        <h3>Titan</h3>
+                        <div id="titan-display">0 / 0</div>
+                    </div>
+                    <div class="shadow-panel-actions">
+                        <button type="button" id="btn-titan-toggle" class="btn btn-outline" aria-expanded="false">Show</button>
+                    </div>
+                </div>
+                <div id="titan-panel-body" class="shadow-panel-body" hidden>
+                    <label>
+                        Current Titan
+                        <input type="number" id="val-titan" value="0" min="0">
+                    </label>
+                    <div id="titan-hv-tracker" style="margin-top: 0.5rem;"></div>
+                    <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Each Titan tag (3 XP, any tile) grants 1 Titan. When a Titan tile is used, dice below their ▟ reroll automatically. Spend Titan in the results panel for an Add or a maximized die; Titan can also be spent as Core or Shadow (1:1) if those pools exist. Recovery is through acts of Heroism or Villainy — Rest does not restore Titan.</small>
+                    <div id="titan-abilities" style="margin-top: 0.5rem;"></div>
+                </div>
+            </div>
             <div id="condition-panel" class="shadow-panel">
                 <div class="shadow-panel-header">
                     <div>
@@ -644,7 +664,16 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Tile Boxes (Pick 2)</label>
+                    <label>Special Identity (optional)</label>
+                    <select id="tile-special-identity" style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem;">
+                        <option value="">None</option>
+                        <option value="titan-identity">Titan Identity (Gear/Story: 3rd box; Build/Shield/Detail tags -1 XP, unlimited)</option>
+                        <option value="homeworld">Homeworld (Story: 3rd box; chained by World tags)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label id="tile-box-editor-label">Tile Boxes (Pick 2)</label>
                     <div id="tile-box-editor" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem;">
                         <div class="tile-box-row" data-box-index="0" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.75rem;">
                             <label style="font-weight: normal; font-size: 0.85rem;">Box 1</label>
@@ -688,8 +717,29 @@
                                 <option value="rx">Reflex</option>
                             </select>
                         </div>
+                        <div class="tile-box-row" data-box-index="2" style="display: none; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.75rem;">
+                            <label style="font-weight: normal; font-size: 0.85rem;">Box 3 (Special Identity)</label>
+                            <input type="hidden" class="tile-box-type" data-box-index="2">
+                            <div class="tile-box-button-grid" data-box-index="2" aria-label="Choose Box 3 color">
+                                <button type="button" class="tile-box-option" data-box-index="2" data-value="">None</button>
+                                <button type="button" class="tile-box-option tile-box-option-red" data-box-index="2" data-value="Red">Red</button>
+                                <button type="button" class="tile-box-option tile-box-option-orange" data-box-index="2" data-value="Orange">Orange</button>
+                                <button type="button" class="tile-box-option tile-box-option-yellow" data-box-index="2" data-value="Yellow">Yellow</button>
+                                <button type="button" class="tile-box-option tile-box-option-green" data-box-index="2" data-value="Green">Green</button>
+                                <button type="button" class="tile-box-option tile-box-option-blue" data-box-index="2" data-value="Blue">Blue</button>
+                                <button type="button" class="tile-box-option tile-box-option-purple" data-box-index="2" data-value="Purple">Purple</button>
+                                <button type="button" class="tile-box-option tile-box-option-qi" data-box-index="2" data-value="Qi">Qi +2</button>
+                                <button type="button" class="tile-box-option tile-box-option-id" data-box-index="2" data-value="Id">Id +2</button>
+                            </div>
+                            <select class="tile-box-resource" data-box-index="2" style="display: none; width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                                <option value="">-- Normal resource --</option>
+                                <option value="hp">Health</option>
+                                <option value="en">Energy</option>
+                                <option value="rx">Reflex</option>
+                            </select>
+                        </div>
                     </div>
-                    <small style="display: block; margin-top: 0.4rem; color: var(--text-secondary); font-size: 0.8rem;">Qi and Id boxes each add one chosen normal resource plus one Shadow. Checks may use Qi tiles or Id tiles, but not both.</small>
+                    <small style="display: block; margin-top: 0.4rem; color: var(--text-secondary); font-size: 0.8rem;">Qi and Id boxes each add one chosen normal resource plus one Shadow. Checks may use Qi tiles or Id tiles, but not both. Titan Identity and Homeworld tiles gain a third box.</small>
                 </div>
 
                 <div class="form-group">
@@ -1379,6 +1429,8 @@
                     <li><strong>Condition panel</strong>: status badges appear automatically when a pool hits 0 (Fatigued / Cornered / Riven and their combinations). Track Crits with the +/- counters — active WOUNDs automatically apply -3 per WOUND to every check, and active JOLTs are flagged in defense resolution. Rest clears tracked crits.</li>
                     <li><strong>Press tracker</strong>: Press Move (1 RX) or Press Action (2 RX); every Press or Haywire raises later Press costs by 1. Toggle repeat (-1), Fast weapon (-1), or Recoil (+1) before pressing. Reset when the fight ends.</li>
                     <li><strong>Core panel</strong> (appears for characters with Cyber tiles): each unburied Cyber-tagged tile grants 1 Core. Current Core adds to Grit automatically in defense resolution. Spend buttons list the Core abilities your tags grant (Wired, Machine, Reticle, ...); Reticle appears in the Press tracker to skip the counter rise for 1 Core. Rest restores all Core.</li>
+                    <li><strong>Titan panel</strong> (appears for characters with Titan tags, 3 XP each on any tile): each tag grants 1 Titan. When a Titan tile is in a virtual roll, dice below their ▟ reroll automatically (manual rolls get a reminder). In the results panel, spend 1 Titan for +1 Add or to maximize a die — without a Titan tile in the check, only Grit/Impact dice can be maximized. Ability spends record their Heroism/Villainy automatically; the GM trades the H/V score for Titan points at story beats. Rest does <em>not</em> restore Titan.</li>
+                    <li><strong>Special Identity tiles</strong>: mark a tile as Titan Identity (Gear/Story) or Homeworld (Story) to give it a third color box that counts toward pools and call colors. Titan Identity tiles take unlimited Build/Shield/Detail tags at -1 XP each (Crits still count and cost full price).</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

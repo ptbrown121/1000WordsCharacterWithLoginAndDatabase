@@ -484,26 +484,41 @@ function normalizeTileBox(box) {
     return null;
 }
 
+// Special identity tiles gain a third color box: the Celestial Homeworld
+// Story tile (p.63) and the Titan Identity Gear/Story tile (p.69).
+export function normalizeSpecialIdentity(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'titan-identity' || normalized === 'titan identity') return 'titan-identity';
+    if (normalized === 'homeworld') return 'homeworld';
+    return null;
+}
+
+export function getTileBoxLimit(tile) {
+    return normalizeSpecialIdentity(tile?.specialIdentity) ? 3 : 2;
+}
+
 export function getTileBoxes(tile) {
     if (!tile) return [];
 
     if (Array.isArray(tile.boxes) && tile.boxes.length > 0) {
-        return tile.boxes.map(normalizeTileBox).filter(Boolean).slice(0, 2);
+        return tile.boxes.map(normalizeTileBox).filter(Boolean).slice(0, getTileBoxLimit(tile));
     }
 
     return (tile.colors || []).map(color => {
         const shadowKind = normalizeShadowKind(color);
         if (shadowKind) return { type: 'shadow', kind: shadowKind, resource: '' };
         return NORMAL_COLORS.includes(color) ? { type: 'color', color } : null;
-    }).filter(Boolean).slice(0, 2);
+    }).filter(Boolean).slice(0, getTileBoxLimit(tile));
 }
 
-export function serializeTileBoxes(boxes = []) {
-    return boxes.map(normalizeTileBox).filter(Boolean).slice(0, 2);
+export function serializeTileBoxes(boxes = [], maxBoxes = 2) {
+    return boxes.map(normalizeTileBox).filter(Boolean).slice(0, maxBoxes);
 }
 
 export function getTileColorsFromBoxes(boxes = []) {
-    return serializeTileBoxes(boxes).map(box => box.type === 'shadow' ? box.kind : box.color);
+    // Cap 3 covers special identity tiles; ordinary tiles never carry more
+    // than 2 boxes by the time they reach here.
+    return serializeTileBoxes(boxes, 3).map(box => box.type === 'shadow' ? box.kind : box.color);
 }
 
 export function getTileNormalCallColors(tile) {
@@ -855,6 +870,70 @@ export function getCoreAbilities(tiles = []) {
     return Array.from(abilities.values()).sort((a, b) => a.id.localeCompare(b.id));
 }
 
+// Titan ability tags (p.69): "Spend 1 Titan to..." `hv` is the Heroism (+)
+// or Villainy (-) score the act earns; null means the player chooses the
+// direction (Interception, Turn Them). Shake Off and Sterner Stuff reference
+// "shock boxes", which v5.02 does not define - they stay descriptive until
+// the GM rules on them.
+export const TITAN_ABILITIES = {
+    'action hero': { effect: 'Reset your Press counter to 0', hv: 0 },
+    boost: { effect: 'Add max Titan to a chosen stat for this check', hv: 0 },
+    'coup de grace': { effect: 'Kill a helpless target', hv: -2 },
+    'ground zero': { effect: 'Move to any spot in the combat', hv: 0 },
+    interception: { effect: 'Take a hit for an ally in Reach (H), or an ally in Reach takes a hit for you (V)', hv: null },
+    'kill shot': { effect: 'Your next attack is Lethal', hv: -1 },
+    'pull punch': { effect: 'All Crits on your next attack are KO', hv: 1 },
+    'shake off': { effect: 'Clear each box containing fewer shock than current Titan pool (shock boxes pending GM ruling)', hv: 0 },
+    'sterner stuff': { effect: 'Filling Lethal shock boxes this round does not inflict WOUNDs (pending GM ruling)', hv: 0 },
+    'turn them': { effect: 'Make a freebie social attack to deal a VOW - switch sides (H or V)', hv: null },
+    'under cover': { effect: 'Rescue a helpless target', hv: 2 },
+    'zero in': { effect: 'Assign 1 die to Attack; the attack hits', hv: -2 }
+};
+
+export function tileHasTitanTag(tile) {
+    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'titan');
+}
+
+// "Each Titan tag adds 1 point to the Titan resource pool" (p.69) - counted
+// per tag instance, so duplicated Titan tags stack.
+export function calculateTitanMax(tiles = []) {
+    return (tiles || []).reduce((sum, tile) => {
+        if (!tile || tile.isBuried) return sum;
+        return sum + activeTileTagList(tile)
+            .filter(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'titan')
+            .length;
+    }, 0);
+}
+
+// Titan spend abilities granted by the character's tags, deduped with
+// granting tile names, mirroring getCoreAbilities.
+export function getTitanAbilities(tiles = []) {
+    const abilities = new Map();
+
+    (tiles || []).forEach(tile => {
+        if (!tile || tile.isBuried) return;
+        activeTileTagList(tile).forEach(tag => {
+            const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
+            const ability = TITAN_ABILITIES[baseTag];
+            if (!ability) return;
+            if (!abilities.has(baseTag)) {
+                abilities.set(baseTag, {
+                    id: baseTag,
+                    label: baseTag.replace(/(^|\s)\w/g, ch => ch.toUpperCase()),
+                    effect: ability.effect,
+                    hv: ability.hv,
+                    sources: []
+                });
+            }
+            const sources = abilities.get(baseTag).sources;
+            const name = tile.name || 'Tile';
+            if (!sources.includes(name)) sources.push(name);
+        });
+    });
+
+    return Array.from(abilities.values()).sort((a, b) => a.id.localeCompare(b.id));
+}
+
 /**
  * Crit names a tile's Shield tags can block. Tags are written either one per
  * tag ("Shield: JOLT") or several after one prefix ("Shield: BREAK KO BLEED",
@@ -955,9 +1034,23 @@ export class PoolEngine {
         return { name, counts: true, reason: 'Counts against tag limit' };
     }
 
-    calculateTagLimit(diceArray, tagsArray = []) {
+    calculateTagLimit(diceArray, tagsArray = [], { specialIdentity = null } = {}) {
         const limit = this.calculateSteps(diceArray);
-        const details = tagsArray.map(tag => this.classifyTagForLimit(tag));
+        // Titan Identity tiles "can gain any number of Build, Shield, or
+        // Detail tags" (p.69) - only Crit tags still count for them.
+        const isTitanIdentity = normalizeSpecialIdentity(specialIdentity) === 'titan-identity';
+        const isCritSide = (tag) => {
+            const normalized = normalizeTagForXp(getTagName(tag));
+            if (/^shield\s*:/i.test(normalized)) return false;
+            return /^crit\s*:/i.test(normalized) || CRIT_SHIELD_XP.has(getMechanicalBaseTag(normalized));
+        };
+        const details = tagsArray.map(tag => {
+            const detail = this.classifyTagForLimit(tag);
+            if (isTitanIdentity && detail.counts && !isCritSide(tag)) {
+                return { ...detail, counts: false, reason: 'Titan Identity: Build/Shield/Detail tags do not count' };
+            }
+            return detail;
+        });
         const countableTags = details.filter(tag => tag.counts);
         const exemptTags = details.filter(tag => !tag.counts && tag.reason !== 'blank');
         const count = countableTags.length;
@@ -1110,6 +1203,9 @@ export class PoolEngine {
     estimateTileXpDetails(diceArray, tagsArray, armorType = null, options = {}) {
         let xp = this.calculateOptimalXpCost(diceArray);
         const isHardArmor = Boolean(armorType) && armorType.material === 'Hard';
+        // Titan Identity (p.69): Build, Shield, and Detail tags cost -1 XP.
+        const isTitanIdentity = normalizeSpecialIdentity(options.specialIdentity) === 'titan-identity';
+        const TITAN_IDENTITY_CATEGORIES = new Set(['build', 'detail', 'shield', 'tag']);
         const unknownTags = [];
         const seenTags = new Map();
 
@@ -1136,6 +1232,9 @@ export class PoolEngine {
             if (isHardArmor && tagRule.hardArmorDiscountable && tagXp > 0) {
                 tagXp -= 1;
             }
+            if (isTitanIdentity && TITAN_IDENTITY_CATEGORIES.has(tagRule.category) && tagXp > 0) {
+                tagXp -= 1;
+            }
 
             xp += tagXp;
             if (!tagRule.recognized && t.trim()) unknownTags.push(String(tag));
@@ -1157,7 +1256,7 @@ export class PoolEngine {
         }
 
         xp += getExoticSkillBaseXp(options.exoticSkill);
-        xp += serializeTileBoxes(options.boxes || [])
+        xp += serializeTileBoxes(options.boxes || [], 3)
             .filter(box => box.type === 'shadow')
             .length * 2;
 
@@ -1252,6 +1351,7 @@ export class PoolEngine {
             dieStepEffects,
             haywireThreshold: 1,
             freebieDie: null,
+            titanActive: false,
             error: null,
             ...overrides
         });
@@ -1570,6 +1670,10 @@ export class PoolEngine {
             activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'glitch')
         ) ? 2 : 1;
 
+        // Titan (p.69): when a Titan tile is used, dice rolling below their
+        // own ▟ are rerolled, and Titan spends can maximize any pool die.
+        const titanActive = usedTiles.some(tile => tileHasTitanTag(tile));
+
         const netDieStep = getAberrantDieStepNet(aberrantEffects);
         if (netDieStep !== 0) {
             pool = pool.map(dieEntry => {
@@ -1586,7 +1690,25 @@ export class PoolEngine {
             });
         }
 
-        return buildResult({ shadowUse: shadowUse.kind, haywireThreshold, freebieDie });
+        return buildResult({ shadowUse: shadowUse.kind, haywireThreshold, freebieDie, titanActive });
+    }
+
+    /**
+     * Titan reroll (p.69): "reroll any die in the pool that rolls below its
+     * ▟ - e.g., d6s reroll on a 1, d8s reroll on a 1 or 2." Each qualifying
+     * die is rerolled once and the new value kept. `rollFn` is injectable
+     * for tests.
+     */
+    applyTitanRerolls(rolledArray, rollFn = (die) => this.rollDie(die)) {
+        const rerolls = [];
+        const rolls = rolledArray.map(roll => {
+            const steps = DIE_STEPS[roll.die] || 0;
+            if (roll.val >= steps) return roll;
+            const newVal = rollFn(roll.die);
+            rerolls.push({ source: roll.source, die: roll.die, from: roll.val, to: newVal });
+            return { ...roll, val: newVal };
+        });
+        return { rolls, rerolls };
     }
 
     rollDie(dieString) {

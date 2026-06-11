@@ -257,3 +257,42 @@ describe('condition tracking normalization (v5.02 PR 4)', () => {
         assert.equal(defaults.corePerm, 0);
     });
 });
+
+describe('special identity tile normalization (v5.02 PR 6)', () => {
+    it('keeps three boxes on special identity tiles and trims others to two', () => {
+        const threeBoxes = [
+            { type: 'color', color: 'Red' },
+            { type: 'color', color: 'Blue' },
+            { type: 'color', color: 'Yellow' }
+        ];
+        const state = normalizeStateForShadowRules({
+            stats: {},
+            tiles: [
+                { id: '1', name: 'costume', type: 'Gear', dice: ['d4'], tags: [], specialIdentity: 'titan-identity', boxes: threeBoxes },
+                { id: '2', name: 'home', type: 'Story', dice: ['d4'], tags: [], specialIdentity: 'Homeworld', boxes: threeBoxes },
+                { id: '3', name: 'plain', type: 'Skill', dice: ['d4'], tags: [], boxes: threeBoxes },
+                { id: '4', name: 'bogus', type: 'Skill', dice: ['d4'], tags: [], specialIdentity: 'nonsense', boxes: threeBoxes }
+            ]
+        });
+        assert.equal(state.tiles[0].specialIdentity, 'titan-identity');
+        assert.equal(state.tiles[0].boxes.length, 3);
+        assert.equal(state.tiles[1].specialIdentity, 'homeworld');
+        assert.equal(state.tiles[1].boxes.length, 3);
+        assert.equal(state.tiles[2].specialIdentity, null);
+        assert.equal(state.tiles[2].boxes.length, 2);
+        assert.equal(state.tiles[3].specialIdentity, null);
+        assert.equal(state.tiles[3].boxes.length, 2);
+    });
+
+    it('normalizes Titan state fields', () => {
+        const state = normalizeStateForShadowRules({ stats: {}, tiles: [], titan: '-1', titanHV: '-3' });
+        assert.equal(state.titan, 0);
+        assert.equal(state.titanHV, -3);
+
+        const defaults = normalizeStateForShadowRules({ stats: {}, tiles: [] });
+        assert.equal(defaults.titan, 0);
+        assert.equal(defaults.titanTemp, 0);
+        assert.equal(defaults.titanPerm, 0);
+        assert.equal(defaults.titanHV, 0);
+    });
+});
