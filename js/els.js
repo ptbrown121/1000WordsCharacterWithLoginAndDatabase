@@ -145,6 +145,10 @@ export const els = {
     titanHvTracker: document.getElementById('titan-hv-tracker'),
     titanAbilities: document.getElementById('titan-abilities'),
 
+    btnNpcToggle: document.getElementById('btn-npc-toggle'),
+    npcPanelBody: document.getElementById('npc-panel-body'),
+    npcList: document.getElementById('npc-list'),
+
     statusConditionsDisplay: document.getElementById('status-conditions-display'),
     btnConditionToggle: document.getElementById('btn-condition-toggle'),
     conditionPanelBody: document.getElementById('condition-panel-body'),

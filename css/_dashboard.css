@@ -719,3 +719,34 @@
     padding: 0.2rem 0.6rem;
     flex-shrink: 0;
 }
+
+/* NPC tracker cards */
+.npc-card {
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.npc-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.npc-card-header .crit-step {
+    margin-left: auto;
+    font-size: 1.1rem;
+}
+
+.npc-card .btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.npc-note {
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}

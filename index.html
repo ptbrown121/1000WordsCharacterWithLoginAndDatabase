@@ -358,6 +358,43 @@
                     <div id="press-tracker" style="margin-top: 0.75rem;"></div>
                 </div>
             </div>
+            <div id="npc-panel" class="shadow-panel">
+                <div class="shadow-panel-header">
+                    <div>
+                        <h3>NPCs (GM)</h3>
+                        <div id="npc-summary">No NPCs</div>
+                    </div>
+                    <div class="shadow-panel-actions">
+                        <button type="button" id="btn-npc-toggle" class="btn btn-outline" aria-expanded="false">Show</button>
+                    </div>
+                </div>
+                <div id="npc-panel-body" class="shadow-panel-body" hidden>
+                    <small style="display: block; color: var(--text-secondary); font-size: 0.8rem;">Rank is Soak and Grit and adds to Attack (Rank + Skill roll) and Defense (Rank + Charm roll). Might rolls for injury. Budgets: 15 + 6×Rank resource points; 3 + 2×Rank stat die steps. BLEED downgrades a die 1▟; a forced burn drops Rank by 1. NPCs are stored in this browser, not in cloud saves.</small>
+                    <div id="npc-add-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.4rem; margin-top: 0.5rem;">
+                        <input type="text" id="npc-name" placeholder="Name" style="grid-column: span 2; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <select id="npc-rank" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                            <option value="1">Rank 1</option>
+                            <option value="2">Rank 2</option>
+                            <option value="3" selected>Rank 3</option>
+                            <option value="4">Rank 4</option>
+                            <option value="5">Rank 5</option>
+                            <option value="6">Rank 6</option>
+                            <option value="7">Rank 7</option>
+                        </select>
+                        <button type="button" id="btn-npc-example" class="btn btn-outline" style="padding: 0.4rem;" title="Fill the printed example stat block for this Rank">Use Rank example</button>
+                        <input type="text" id="npc-might" placeholder="Might (e.g. d8)" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <input type="text" id="npc-charm" placeholder="Charm (e.g. d8)" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <input type="text" id="npc-skill" placeholder="Skill (e.g. d8)" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <input type="number" id="npc-hp" placeholder="HP" min="0" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <input type="number" id="npc-en" placeholder="EN" min="0" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <input type="number" id="npc-rx" placeholder="RX" min="0" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <input type="text" id="npc-descriptors" placeholder="Descriptors (comma list, up to Rank)" style="grid-column: 1 / -1; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        <small id="npc-budget-note" style="grid-column: 1 / -1; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                        <button type="button" id="btn-npc-add" class="btn btn-action" style="grid-column: 1 / -1; padding: 0.4rem;">Add NPC</button>
+                    </div>
+                    <div id="npc-list" style="margin-top: 0.5rem;"></div>
+                </div>
+            </div>
         </section>
 
         <div class="main-columns">
@@ -1595,6 +1632,7 @@
                     <li><strong>Spell Builder</strong> follows the v5.02 🗱 tables: total XP = 🗱 tally (floored at 0) + dice cost. Ranges run Touch (-2) through Extreme (7); Zones Blam–Blast plus Earshot; Domes Cup–House; Move distances Pace (-1) through Dash (3); and a Crowd metric (1–1000 nearest targets) for spells like Whisper. A spell's granted Chain tag and its "Spell" marker never count against the tag limit.</li>
                     <li><strong>Ammo Builder</strong> (in the Ammo gear section): price up to three lines — position (-3/+0/+3) + trigger (On Any +0, On Each +2, On roll +4) + the X value (1–5, which also picks the function tier) + riders (Tag-on-fly +X, Sticky +2X, Restriction -1, Repeat +4); +4 for more than one tool. Split the total between XP 🞮 and Supply 🞧 (both min 1): higher XP is sustainable, higher Supply is cheap but runs out.</li>
                     <li><strong>Reagents & crafting</strong>: pick a template from the Apothecary's Shelf, Geomancer's Pouch, or field ammo examples to pre-fill an Ammo tile. "Supply" effects (e.g. "heal Supply EN") use the reagent's 🞧 value. Crafting: minimum Test = sum of reagent XP (GM may raise); resolve as an Attack where the Impact die sets the doses — the ammo panel shows the running reagent XP sum.</li>
+                    <li><strong>NPCs (GM panel)</strong>: simplified stat blocks — Rank (= Soak and Grit), Might (injury), Charm (defense), Skill (attack), three pools, and up to Rank descriptors that each spend for a freebie die at Rank ▟. "Set Attack/Defense" rolls Skill+Rank and Charm+Rank once for the fight; forced burn drops Rank by 1. Budgets are advisory: 15+6×Rank resource points, 3+2×Rank stat ▟. NPCs are saved in this browser only.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>
