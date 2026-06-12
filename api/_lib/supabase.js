@@ -35,7 +35,10 @@ export function createUserClient(token) {
 }
 
 export function createServiceClient() {
-    const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
+    // Prefer the new-style secret API key (sb_secret_..., Settings -> API
+    // Keys); the legacy service_role JWT key is deprecated but still
+    // accepted as a fallback during the migration.
+    const serviceKey = env('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
     if (!serviceKey) return null;
     const { url } = getSupabaseConfig();
     return createClient(url, serviceKey, {

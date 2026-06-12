@@ -1,7 +1,9 @@
--- REFERENCE ONLY as of 2026-06-12: schema changes now ship as versioned
--- files in supabase/migrations/ (applied with `supabase db push`). This
--- file is the readable snapshot of the full schema; keep it in sync when
--- adding a migration, or retire it once the migration history stands alone.
+-- Baseline migration: snapshot of supabase/schema.sql as of 2026-06-12.
+-- The live database was built by running schema.sql in the SQL editor;
+-- every statement is idempotent, so applying this against the existing
+-- database is a safe no-op that records the baseline in migration history.
+
+-- Run this in the Supabase SQL editor before enabling cloud saves in Vercel.
 -- Browser code uses only the anon key; all cross-user access is enforced here.
 
 create extension if not exists pgcrypto;
@@ -910,13 +912,3 @@ using (
 -- select id from public.profiles
 -- where email = 'your-gm@example.com'
 -- on conflict (user_id) do nothing;
-
--- ---------------------------------------------------------------------------
--- Scheduled backups (api/cron/backup.js)
--- Private bucket with no storage policies: only the server-side secret key
--- (which bypasses RLS) can read or write it.
--- ---------------------------------------------------------------------------
-
-insert into storage.buckets (id, name, public)
-values ('backups', 'backups', false)
-on conflict (id) do update set public = excluded.public;

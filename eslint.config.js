@@ -17,6 +17,19 @@ export default defineConfig([
     rules: {
       ...sharedRules,
       "no-alert": "warn",
+      // Server-side Supabase keys bypass RLS and must never reach browser
+      // code; Vite would inline them into the public bundle.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/SUPABASE_SECRET|SERVICE_ROLE|sb_secret/]",
+          message: "Server-side Supabase keys must never be referenced in browser code.",
+        },
+        {
+          selector: "Identifier[name=/SUPABASE_SECRET|SERVICE_ROLE/]",
+          message: "Server-side Supabase keys must never be referenced in browser code.",
+        },
+      ],
     },
   },
   {

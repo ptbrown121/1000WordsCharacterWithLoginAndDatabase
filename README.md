@@ -71,6 +71,29 @@ Cloud saves are optional. Without environment variables, the app remains a brows
    - `VITE_SUPABASE_ANON_KEY`
 6. Deploy with Vercel using `npm run build`.
 
+### Schema migrations (Supabase CLI)
+
+As of June 2026, schema changes ship as versioned files in
+`supabase/migrations/` instead of manual SQL-editor runs.
+`supabase/schema.sql` stays as a readable snapshot of the full schema;
+`supabase/migrations/20260612000000_baseline.sql` is that same snapshot
+recorded as the migration baseline (every statement is idempotent, so
+applying it to the existing database changes nothing).
+
+One-time setup on a new machine:
+
+```bash
+supabase login
+supabase link --project-ref <project-ref>   # ref is in the dashboard URL
+supabase db push                            # applies any pending migrations
+supabase migration list                     # local and remote should match
+```
+
+To change the schema: `supabase migration new <name>`, edit the generated
+file in `supabase/migrations/`, then `supabase db push`. Update
+`schema.sql` to match (or retire it once the migration history stands on
+its own).
+
 ### Character creation AI setup
 
 The AI character creation MVP runs through Vercel API routes so model and service-role keys stay server-side.
@@ -78,7 +101,7 @@ The AI character creation MVP runs through Vercel API routes so model and servic
 1. Re-run `supabase/schema.sql` after pulling this version. It adds private campaign AI tables, RLS policies, and a private `campaign-ai-documents` storage bucket.
 2. Add these private environment variables in Vercel:
    - `OPENAI_API_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_SECRET_KEY` — a new-style secret API key (`sb_secret_...`, Supabase Settings → API Keys). The legacy `SUPABASE_SERVICE_ROLE_KEY` is still read as a fallback but Supabase has deprecated it.
    - Optional: `OPENAI_ORCHESTRATOR_MODEL` (defaults to `gpt-5.5`)
    - Optional: `OPENAI_VALIDATOR_MODEL` (defaults to the orchestrator model)
    - Optional: `OPENAI_SCENE_MODEL` (defaults to `gpt-5.4-mini`)
@@ -88,6 +111,20 @@ The AI character creation MVP runs through Vercel API routes so model and servic
 5. Players start the guided AI chat from a cloud character assigned to a campaign. Finalized summaries are saved in Supabase first, then accepted summaries are appended to the character journal. Players can also cancel an unfinished scene or edit a previous response; editing rewinds later AI replies and supersedes any pending summary for that scene.
 
 Without `OPENAI_API_KEY`, the Vercel routes return deterministic local fallback responses. That keeps local UI/database testing possible, but production play should use a real OpenAI key. When a key is configured, model failures (outages, rate limits, truncated output) return an error to the player instead of silently substituting fallback content; nothing is persisted for failed chat turns, and failed runs are recorded in `ai_agent_run_logs` with `status = 'failed'` and an error message. For local AI route testing, run the app through `vercel dev`; plain `npm run dev` serves the Vite client only.
+
+### Scheduled backups and keep-alive
+
+Two Vercel cron jobs (configured in `vercel.json`, the Hobby plan's limit of two) protect the campaign data:
+
+- `/api/cron/keepalive` (daily) runs one trivial query so the Supabase free tier never pauses the project for inactivity between sessions.
+- `/api/cron/backup` (weekly, Mondays) dumps every application table to a gzipped JSON file in the private `backups` storage bucket and keeps the most recent 8. Uploaded campaign files aren't duplicated — storage itself is their backup; their metadata rows are included.
+
+Setup: apply the `backups` bucket migration (`supabase db push`), then add two more private Vercel env vars:
+
+- `SUPABASE_SECRET_KEY` (shared with the AI routes, see above)
+- `CRON_SECRET` — any long random string; Vercel automatically sends it as a bearer token to cron invocations, and the routes reject calls without it.
+
+To restore: download the newest `backup-*.json.gz` from the `backups` bucket (Supabase dashboard → Storage), `gunzip` it, and re-insert the needed rows — each table is stored as an array of row objects under `tables.<name>`. To test the backup by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<your-app>.vercel.app/api/cron/backup`.
 
 ### Roll tracking and free-tier usage
 

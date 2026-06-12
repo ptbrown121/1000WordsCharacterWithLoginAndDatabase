@@ -85,6 +85,16 @@ email round-trip for most players.
 
 ## PR 2 — Supabase CLI migrations baseline
 
+**Status: code/docs done 2026-06-12; user runs `supabase link` +
+`supabase db push` + `supabase migration list` to record the baseline.**
+Docker is not installed locally, so instead of `supabase db pull` (which
+needs a Docker shadow database) the baseline is a copy of the idempotent
+`schema.sql` at `supabase/migrations/20260612000000_baseline.sql` —
+pushing it against the live database is a recorded no-op. Note discovered
+during this PR: the AI routes already use `SUPABASE_SERVICE_ROLE_KEY`
+(README AI setup) — when PR 3 introduces `SUPABASE_SECRET_KEY`, migrate
+the AI routes' env var to the new-style key at the same time.
+
 **Why:** `supabase/schema.sql` is run by hand in the SQL editor; the repo
 and database can drift. Later PRs in this plan change schema and should
 land as migration files.
@@ -111,6 +121,13 @@ avoids it.
 ---
 
 ## PR 3 — Vercel crons: weekly backup + keep-alive
+
+**Status: code done 2026-06-12.** Shipped as planned plus the
+`SUPABASE_SECRET_KEY` switch with legacy `SUPABASE_SERVICE_ROLE_KEY`
+fallback in `createServiceClient()` (covers the AI routes too) and the
+eslint guard. User steps remaining: `supabase db push` (backups bucket
+migration), add `SUPABASE_SECRET_KEY` + `CRON_SECRET` in Vercel, deploy,
+then `curl` the backup route once to verify (command in README).
 
 **Why:** characters are irreplaceable and the Supabase free tier has no
 PITR; free projects also pause after ~a week of inactivity, which would
