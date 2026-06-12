@@ -5,6 +5,11 @@ let dataManager;
 let supabaseClient;
 let renderAll;
 
+// Email a magic link was last sent to this page load. While set (and signed
+// out), the code form is shown so the emailed 6-digit OTP can be typed in —
+// for devices that can't open the link from their own inbox.
+let pendingOtpEmail = '';
+
 // Collapsed/expanded is a per-device UI preference, like the active tab.
 const PANEL_COLLAPSED_KEY = '1000words_cloud_panel_collapsed';
 
@@ -171,6 +176,8 @@ export function applyReadOnlyMode() {
         'btn-auth-send-link',
         'btn-auth-sign-out',
         'auth-email',
+        'auth-code',
+        'btn-auth-verify-code',
         'btn-upload-local',
         'campaign-name-input',
         'btn-create-campaign',
@@ -223,6 +230,7 @@ export function renderCloudControls() {
         els.btnAuthSendLink.disabled = !supabaseClient;
     }
     if (els.btnAuthSignOut) els.btnAuthSignOut.hidden = !dataManager.isSignedIn;
+    if (els.authCodeForm) els.authCodeForm.hidden = Boolean(dataManager.isSignedIn) || !pendingOtpEmail;
     if (els.cloudActions) els.cloudActions.hidden = !dataManager.isSignedIn;
     if (els.campaignPanel) els.campaignPanel.hidden = !dataManager.isSignedIn;
     if (els.campaignSignedOutNote) els.campaignSignedOutNote.hidden = dataManager.isSignedIn;
@@ -249,6 +257,7 @@ async function loadSelectedCampaignMembers() {
 
 async function handleSession(session) {
     if (session?.user) {
+        pendingOtpEmail = '';
         const store = new SupabaseCharacterStore(supabaseClient, session.user);
         await dataManager.connectCloud(store);
         renderAll();
@@ -310,11 +319,37 @@ export async function init(deps) {
                 options: { emailRedirectTo: redirectTo }
             });
             if (error) throw error;
-            dataManager.setCloudStatus('link-sent', 'Magic link sent. Check your email.');
+            pendingOtpEmail = email;
+            dataManager.setCloudStatus('link-sent', 'Email sent. Click the link, or type the 6-digit code from it below.');
         } catch (err) {
             dataManager.setCloudStatus('error', err.message || 'Could not send magic link.');
         } finally {
             setBusy(els.btnAuthSendLink, false, 'Send magic link');
+            renderCloudControls();
+        }
+    });
+
+    // Reading the email on a different device than the one signing in (e.g.
+    // the GM's phone inbox + desktop browser): the magic link only works
+    // where it's clicked, but the OTP code in the same email works anywhere.
+    els.authCodeForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = els.authCode.value.trim();
+        if (!token || !pendingOtpEmail) return;
+        setBusy(els.btnAuthVerifyCode, true, 'Sign in with code');
+        try {
+            const { error } = await supabaseClient.auth.verifyOtp({
+                email: pendingOtpEmail,
+                token,
+                type: 'email'
+            });
+            if (error) throw error;
+            els.authCode.value = '';
+            // Success lands in onAuthStateChange -> handleSession.
+        } catch (err) {
+            dataManager.setCloudStatus('error', err.message || 'Code sign-in failed. Codes expire and are single-use; send a fresh email if needed.');
+        } finally {
+            setBusy(els.btnAuthVerifyCode, false, 'Sign in with code');
             renderCloudControls();
         }
     });
