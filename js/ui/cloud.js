@@ -187,6 +187,10 @@ export function applyReadOnlyMode() {
             // character; a GM browsing a player's read-only sheet still
             // needs to run their NPCs.
             if (node.closest('#npc-panel')) return;
+            // Campaign management is campaign-level, not character-level.
+            // Before the Campaign tab existed this markup sat outside
+            // <main> and was never disabled; keep that behavior.
+            if (node.closest('#campaign-section')) return;
             node.disabled = readOnly;
         });
 
@@ -221,6 +225,7 @@ export function renderCloudControls() {
     if (els.btnAuthSignOut) els.btnAuthSignOut.hidden = !dataManager.isSignedIn;
     if (els.cloudActions) els.cloudActions.hidden = !dataManager.isSignedIn;
     if (els.campaignPanel) els.campaignPanel.hidden = !dataManager.isSignedIn;
+    if (els.campaignSignedOutNote) els.campaignSignedOutNote.hidden = dataManager.isSignedIn;
     if (els.btnUploadLocal) els.btnUploadLocal.hidden = !dataManager.isSignedIn || !dataManager.hasLocalCharacters;
     if (els.campaignNameInput) els.campaignNameInput.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;
     if (els.btnCreateCampaign) els.btnCreateCampaign.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;

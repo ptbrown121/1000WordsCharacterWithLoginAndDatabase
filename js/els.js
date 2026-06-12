@@ -206,6 +206,7 @@ export const els = {
     campaignCodeInput: document.getElementById('campaign-code-input'),
     btnJoinCampaign: document.getElementById('btn-join-campaign'),
     campaignPanel: document.getElementById('campaign-panel'),
+    campaignSignedOutNote: document.getElementById('campaign-signed-out-note'),
     characterCampaignSelect: document.getElementById('character-campaign-select'),
     campaignManageSelect: document.getElementById('campaign-manage-select'),
     campaignMemberList: document.getElementById('campaign-member-list'),

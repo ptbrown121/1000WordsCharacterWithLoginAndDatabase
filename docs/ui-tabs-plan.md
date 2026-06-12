@@ -116,6 +116,23 @@ content that moves to the Campaign tab.
 - Empty-state copy on the Campaign tab when signed out ("Sign in above to use
   campaigns").
 
+**Status: done 2026-06-13.** As planned. Notes:
+- `#cloud-actions` + `#campaign-panel` moved into `#campaign-section` (glass
+  panel, first child of the Campaign tabpanel, above `#gm-section`). The top
+  strip keeps the status row, the Hide/Show collapse (now covering just the
+  auth form), and the readonly banner; its aria-label updated to "Cloud save
+  and sign-in".
+- `#campaign-signed-out-note` shows on the Campaign tab when signed out,
+  toggled in `renderCloudControls`.
+- `applyReadOnlyMode` now skips nodes inside `#campaign-section` (like the
+  existing `#npc-panel` exclusion): campaign management is campaign-level and
+  this markup was never disabled when it lived outside `<main>`. This keeps
+  GM file/AI-note uploads working while viewing a player's read-only sheet.
+- The `.cloud-panel input/select/::placeholder` styling rules were extended to
+  `#campaign-section` so the moved controls keep their appearance.
+- Gates: 331/331 tests, eslint 0 errors (61 accepted warnings), typecheck 0,
+  build clean.
+
 ## PR 3 — Polish
 
 - Tab badges: rules-review issue count on Character; a dot on Story when an AI
