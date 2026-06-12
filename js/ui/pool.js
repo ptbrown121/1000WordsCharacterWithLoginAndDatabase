@@ -331,7 +331,8 @@ function getAmmoResolutionOptions(calledTileIds = []) {
             targetName: tile.ammo.targetName || '',
             currentSupply: parseInt(tile.ammo.currentSupply, 10) || 0,
             supply: Math.max(1, parseInt(tile.ammo.maxSupply, 10) || 1),
-            linked: Boolean(tile.ammo.targetTileId)
+            linked: Boolean(tile.ammo.targetTileId),
+            xpCost: parseInt(tile.xpCost, 10) || 0
         }));
 }
 

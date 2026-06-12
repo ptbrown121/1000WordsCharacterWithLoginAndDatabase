@@ -324,11 +324,20 @@ export function renderAmmoResolution(result) {
         `;
     }).join('');
 
+    // Crafting (pp.74-75): reagents are unlinked Ammo tiles. The minimum
+    // crafting Test is the sum of the reagent XP (the GM may raise it), and
+    // the impact die sets the doses produced.
+    const reagents = options.filter(option => !option.linked);
+    const craftingHint = reagents.length > 0
+        ? `<p class="hint-text">Crafting: minimum Test = sum of reagent XP (these unlinked tiles total ${reagents.reduce((sum, option) => sum + (option.xpCost || 0), 0)} XP; the GM may raise it). Resolve as an Attack — the die assigned to Impact sets the doses produced. "Supply"-keyed effects use each reagent's 🞧 value.</p>`
+        : '';
+
     return `
         <div class="ammo-resolution-panel">
             <h3>Ammo Resolution</h3>
             <p class="hint-text">Assign a spare die to ammo. If the die is below Supply, the ammo is buried/runs out.</p>
             ${rows}
+            ${craftingHint}
         </div>
     `;
 }

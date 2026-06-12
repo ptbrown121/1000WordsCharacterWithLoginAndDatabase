@@ -675,6 +675,80 @@
                             </label>
                         </div>
                         <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Ammo is tracked as gear without dice. It can link to a weapon, replace a flaw such as Reload, and be spent from its card.</small>
+                        <div style="margin-top: 0.5rem;">
+                            <label style="font-weight: normal; font-size: 0.9rem;">Template (field ammo &amp; reagents)</label>
+                            <select id="ammo-reagent-template" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 0.95rem; margin-top: 0.3rem;">
+                                <option value="">-- Build from scratch --</option>
+                            </select>
+                            <small id="ammo-reagent-detail" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                        </div>
+                        <div id="ammo-calculator" style="margin-top: 0.5rem; border-top: 1px solid var(--glass-border); padding-top: 0.5rem;">
+                            <label style="font-weight: normal; font-size: 0.9rem;">Ammo Builder (lines; total splits into XP 🞮 + Supply 🞧)</label>
+                            <div class="ammo-line-row" data-line="0" style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-top: 0.3rem;">
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); width: 4.2rem;">Line 1 (-3)</span>
+                                <select class="ammo-line-trigger" style="padding: 0.3rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                    <option value="">Off</option>
+                                    <option value="on-any">On Any X (+0)</option>
+                                    <option value="on-each">On Each X (+2)</option>
+                                    <option value="on-roll">On roll (+4)</option>
+                                </select>
+                                <select class="ammo-line-x" style="padding: 0.3rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                    <option value="1">X=1</option>
+                                    <option value="2" selected>X=2</option>
+                                    <option value="3">X=3</option>
+                                    <option value="4">X=4</option>
+                                    <option value="5">X=5</option>
+                                </select>
+                                <label class="filter-toggle" title="Tag chosen on the fly rather than fixed: +X"><input type="checkbox" class="ammo-line-tagfly"> Tag-on-fly</label>
+                                <label class="filter-toggle" title="Effect lasts 1 minute (6 turns): +2×X"><input type="checkbox" class="ammo-line-sticky"> Sticky</label>
+                                <label class="filter-toggle" title="Narrow the line's focus: -1"><input type="checkbox" class="ammo-line-restriction"> Restriction</label>
+                                <label class="filter-toggle" title="Do it again now: +4"><input type="checkbox" class="ammo-line-repeat"> Repeat</label>
+                            </div>
+                            <div class="ammo-line-row" data-line="1" style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-top: 0.3rem;">
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); width: 4.2rem;">Line 2 (+0)</span>
+                                <select class="ammo-line-trigger" style="padding: 0.3rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                    <option value="">Off</option>
+                                    <option value="on-any">On Any X (+0)</option>
+                                    <option value="on-each">On Each X (+2)</option>
+                                    <option value="on-roll">On roll (+4)</option>
+                                </select>
+                                <select class="ammo-line-x" style="padding: 0.3rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                    <option value="1">X=1</option>
+                                    <option value="2" selected>X=2</option>
+                                    <option value="3">X=3</option>
+                                    <option value="4">X=4</option>
+                                    <option value="5">X=5</option>
+                                </select>
+                                <label class="filter-toggle" title="Tag chosen on the fly rather than fixed: +X"><input type="checkbox" class="ammo-line-tagfly"> Tag-on-fly</label>
+                                <label class="filter-toggle" title="Effect lasts 1 minute (6 turns): +2×X"><input type="checkbox" class="ammo-line-sticky"> Sticky</label>
+                                <label class="filter-toggle" title="Narrow the line's focus: -1"><input type="checkbox" class="ammo-line-restriction"> Restriction</label>
+                                <label class="filter-toggle" title="Do it again now: +4"><input type="checkbox" class="ammo-line-repeat"> Repeat</label>
+                            </div>
+                            <div class="ammo-line-row" data-line="2" style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-top: 0.3rem;">
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); width: 4.2rem;">Line 3 (+3)</span>
+                                <select class="ammo-line-trigger" style="padding: 0.3rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                    <option value="">Off</option>
+                                    <option value="on-any">On Any X (+0)</option>
+                                    <option value="on-each">On Each X (+2)</option>
+                                    <option value="on-roll">On roll (+4)</option>
+                                </select>
+                                <select class="ammo-line-x" style="padding: 0.3rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                    <option value="1">X=1</option>
+                                    <option value="2" selected>X=2</option>
+                                    <option value="3">X=3</option>
+                                    <option value="4">X=4</option>
+                                    <option value="5">X=5</option>
+                                </select>
+                                <label class="filter-toggle" title="Tag chosen on the fly rather than fixed: +X"><input type="checkbox" class="ammo-line-tagfly"> Tag-on-fly</label>
+                                <label class="filter-toggle" title="Effect lasts 1 minute (6 turns): +2×X"><input type="checkbox" class="ammo-line-sticky"> Sticky</label>
+                                <label class="filter-toggle" title="Narrow the line's focus: -1"><input type="checkbox" class="ammo-line-restriction"> Restriction</label>
+                                <label class="filter-toggle" title="Do it again now: +4"><input type="checkbox" class="ammo-line-repeat"> Repeat</label>
+                            </div>
+                            <label class="filter-toggle" style="margin-top: 0.3rem;" title="The tool definition is free for one tool; more than one tool adds 4"><input type="checkbox" id="ammo-multi-tool"> More than one tool (+4)</label>
+                            <div id="ammo-calc-result" style="margin-top: 0.3rem; font-size: 0.85rem; color: var(--text-secondary);"></div>
+                            <button type="button" id="btn-ammo-apply-split" class="btn btn-outline" style="margin-top: 0.3rem; padding: 0.3rem 0.8rem; display: none;">Apply split to XP &amp; Supply</button>
+                            <small id="ammo-x-functions" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.75rem;"></small>
+                        </div>
                     </div>
                     <div id="armor-base-container" style="display: none; margin-top: 0.5rem;">
                         <label style="font-weight: normal; font-size: 0.9rem;">Armor Base (optional)</label>
@@ -1519,6 +1593,8 @@
                     <li><strong>Hinders</strong> (Gear subtype): nonlethal verbal attacks with a -3 XP rebate. Pick an assault type for guidance — Guile (HOLD, drains Reflex), Menace (FEAR, Reflex), Presence (GOAD, Energy), Reason (REVEAL, finds hidden), Wiles (VOW, Energy) — and add the Range and Crit as tags. Defenders use the same five skills but never the attacker's.</li>
                     <li><strong>Gizmos & Slivers</strong>: a Gizmo (4 XP chained to a skill, 2 XP unchained) converts a spell into a tool with ▟ HP that may BREAK on Haywire; Knacks and Implants graft spells into the body as slivers. Caps: MIND+FOCUS ▟ gizmos, BODY+POWER ▟ slivers — the review strip flags overruns. Gizmos and Implants cannot use Qi/Id; Knacks can.</li>
                     <li><strong>Spell Builder</strong> follows the v5.02 🗱 tables: total XP = 🗱 tally (floored at 0) + dice cost. Ranges run Touch (-2) through Extreme (7); Zones Blam–Blast plus Earshot; Domes Cup–House; Move distances Pace (-1) through Dash (3); and a Crowd metric (1–1000 nearest targets) for spells like Whisper. A spell's granted Chain tag and its "Spell" marker never count against the tag limit.</li>
+                    <li><strong>Ammo Builder</strong> (in the Ammo gear section): price up to three lines — position (-3/+0/+3) + trigger (On Any +0, On Each +2, On roll +4) + the X value (1–5, which also picks the function tier) + riders (Tag-on-fly +X, Sticky +2X, Restriction -1, Repeat +4); +4 for more than one tool. Split the total between XP 🞮 and Supply 🞧 (both min 1): higher XP is sustainable, higher Supply is cheap but runs out.</li>
+                    <li><strong>Reagents & crafting</strong>: pick a template from the Apothecary's Shelf, Geomancer's Pouch, or field ammo examples to pre-fill an Ammo tile. "Supply" effects (e.g. "heal Supply EN") use the reagent's 🞧 value. Crafting: minimum Test = sum of reagent XP (GM may raise); resolve as an Attack where the Impact die sets the doses — the ammo panel shows the running reagent XP sum.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

@@ -17,6 +17,14 @@ import {
     ARMOR_MATERIALS,
     HINDER_TYPES
 } from '../pool.js';
+import {
+    AMMO_FUNCTION_TIERS,
+    calculateAmmoBuildTotal,
+    formatReagentDescription,
+    getReagentTemplateById,
+    getReagentTemplatesBySource,
+    suggestAmmoSplit
+} from '../ammo-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { renderArmorSoak } from './armorSoak.js';
@@ -295,6 +303,113 @@ function renderHinderAssaultDetail() {
     detail.textContent = selected
         ? `${selected.skill} attack; injures ${selected.injures}; suggested tags: Range: ${selected.range === 'any' ? 'any range' : selected.range} and Crit ${selected.crit}. Defenders use Guile/Menace/Presence/Reason/Wiles, but not ${selected.skill}.`
         : 'Hinders are nonlethal verbal attacks that exhaust opponents (-3 XP rebate). Add the suggested Range and Crit as tags.';
+}
+
+function populateReagentTemplates() {
+    const select = document.getElementById('ammo-reagent-template');
+    if (!select || select.dataset.populated === 'true') return;
+
+    getReagentTemplatesBySource().forEach(group => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = group.source;
+        group.templates.forEach(template => {
+            const option = document.createElement('option');
+            option.value = template.id;
+            option.textContent = `${template.name} (${template.xp} XP / Supply ${template.supply})`;
+            optgroup.appendChild(option);
+        });
+        select.appendChild(optgroup);
+    });
+    select.dataset.populated = 'true';
+}
+
+function applyReagentTemplate(templateId) {
+    const detail = document.getElementById('ammo-reagent-detail');
+    const template = getReagentTemplateById(templateId);
+    if (!template) {
+        if (detail) detail.textContent = '';
+        return;
+    }
+
+    document.getElementById('tile-name').value = template.name;
+    document.getElementById('tile-description').value = formatReagentDescription(template);
+    document.getElementById('ammo-max-supply').value = String(template.supply);
+    document.getElementById('ammo-current-supply').value = String(template.supply);
+    document.getElementById('ammo-replaces-tag').value = template.replacesTag || '';
+    els.tileXp.value = template.xp;
+    if (detail) {
+        detail.textContent = `For ${template.use}: ${template.lines.join(' ')} "Supply" effects use the 🞧 value (${template.supply}).`;
+    }
+}
+
+function readAmmoBuilderLines() {
+    return Array.from(document.querySelectorAll('#ammo-calculator .ammo-line-row')).map(row => ({
+        trigger: row.querySelector('.ammo-line-trigger')?.value || '',
+        x: row.querySelector('.ammo-line-x')?.value,
+        tagOnTheFly: Boolean(row.querySelector('.ammo-line-tagfly')?.checked),
+        sticky: Boolean(row.querySelector('.ammo-line-sticky')?.checked),
+        restriction: Boolean(row.querySelector('.ammo-line-restriction')?.checked),
+        repeat: Boolean(row.querySelector('.ammo-line-repeat')?.checked)
+    }));
+}
+
+function recalcAmmoBuilder() {
+    const result = document.getElementById('ammo-calc-result');
+    const applyBtn = document.getElementById('btn-ammo-apply-split');
+    const functionsNote = document.getElementById('ammo-x-functions');
+    if (!result) return;
+
+    const build = calculateAmmoBuildTotal({
+        multiTool: Boolean(document.getElementById('ammo-multi-tool')?.checked),
+        lines: readAmmoBuilderLines()
+    });
+
+    if (build.lineCount === 0) {
+        result.textContent = 'Turn on a line trigger to price this ammo.';
+        if (applyBtn) applyBtn.style.display = 'none';
+        if (functionsNote) functionsNote.textContent = '';
+        return;
+    }
+
+    const split = suggestAmmoSplit(build.total);
+    result.textContent = `Lines: ${build.lineCosts.join(' + ')} → total ${build.total}. Balanced split: ${split.xp} XP 🞮 / Supply ${split.supply} 🞧 (shift points either way; both minimum 1; higher XP = sustainable, higher Supply = cheap but runs out).`;
+    if (applyBtn) applyBtn.style.display = 'inline-block';
+    if (functionsNote) {
+        const usedX = [...new Set(readAmmoBuilderLines().filter(line => line.trigger).map(line => Math.min(5, Math.max(1, parseInt(line.x, 10) || 1))))].sort();
+        functionsNote.textContent = usedX.map(x => `X=${x}: ${AMMO_FUNCTION_TIERS[x]}`).join('  ·  ');
+    }
+}
+
+function applyAmmoSplit() {
+    const build = calculateAmmoBuildTotal({
+        multiTool: Boolean(document.getElementById('ammo-multi-tool')?.checked),
+        lines: readAmmoBuilderLines()
+    });
+    if (build.lineCount === 0) return;
+
+    const split = suggestAmmoSplit(build.total);
+    els.tileXp.value = split.xp;
+    document.getElementById('ammo-max-supply').value = String(split.supply);
+    document.getElementById('ammo-current-supply').value = String(split.supply);
+    recalcAmmoBuilder();
+}
+
+function resetAmmoBuilder() {
+    const templateSelect = document.getElementById('ammo-reagent-template');
+    if (templateSelect) templateSelect.value = '';
+    const detail = document.getElementById('ammo-reagent-detail');
+    if (detail) detail.textContent = '';
+    document.querySelectorAll('#ammo-calculator .ammo-line-row').forEach(row => {
+        row.querySelector('.ammo-line-trigger').value = '';
+        row.querySelector('.ammo-line-x').value = '2';
+        ['.ammo-line-tagfly', '.ammo-line-sticky', '.ammo-line-restriction', '.ammo-line-repeat'].forEach(selector => {
+            const box = row.querySelector(selector);
+            if (box) box.checked = false;
+        });
+    });
+    const multiTool = document.getElementById('ammo-multi-tool');
+    if (multiTool) multiTool.checked = false;
+    recalcAmmoBuilder();
 }
 
 function populateWeaponTemplates() {
@@ -607,6 +722,7 @@ export function init(deps) {
     poolEngine = deps.poolEngine;
     populateWeaponTemplates();
     populateHinderTypes();
+    populateReagentTemplates();
 
     // Info Modal
     els.btnInfo.addEventListener('click', () => els.infoModal.classList.add('active'));
@@ -678,6 +794,11 @@ export function init(deps) {
     });
     document.getElementById('gear-subtype').addEventListener('change', syncTileTypeSections);
     document.getElementById('hinder-assault-type').addEventListener('change', renderHinderAssaultDetail);
+    document.getElementById('ammo-reagent-template').addEventListener('change', (e) => {
+        applyReagentTemplate(e.target.value);
+    });
+    document.getElementById('ammo-calculator').addEventListener('change', recalcAmmoBuilder);
+    document.getElementById('btn-ammo-apply-split').addEventListener('click', applyAmmoSplit);
     document.getElementById('tile-exotic-skill').addEventListener('change', (e) => {
         if (e.target.value.startsWith('arcana-')) {
             document.getElementById('tile-is-spellcast').checked = true;
@@ -828,6 +949,7 @@ export function openModal(tile = null) {
     renderWeaponTemplatePreview(weaponTemplate.value);
     syncTileTypeSections();
     syncSpecialIdentityVisibility();
+    resetAmmoBuilder();
     renderFormTags();
     resetTileModalScroll();
 }
