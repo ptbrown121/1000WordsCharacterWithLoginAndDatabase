@@ -14,6 +14,10 @@ import {
     validateShadowTags
 } from './pool.js';
 
+function hasStickyTag(tile) {
+    return tileTagList(tile).some(tag => parseTag(tag).base === 'sticky');
+}
+
 function hasBestialResourceChoice(tile) {
     // Typed means the +1 resource is chosen ("Bestial: HP"), matching what
     // calculateResourceMaxes actually grants.
@@ -143,6 +147,16 @@ export function buildRulesReviewItems(state, poolEngine) {
                 message: `${tile.name}: ${issue.message}`
             });
         });
+
+        // GM ruling (2026-06-12): Sticky is Ammo-only — an open Sticky
+        // would bypass the spell system's Duration pricing.
+        if (tile.gearSubtype !== 'Ammo' && hasStickyTag(tile)) {
+            items.push({
+                severity: 'medium',
+                category: 'Tags',
+                message: `${tile.name}: the Sticky tag is Ammo-only (GM ruling); use Duration tags for lasting effects.`
+            });
+        }
 
         // Bestial adds +1 to one chosen resource pool (p.61).
         if (tileHasBestialTag(tile) && !hasBestialResourceChoice(tile)) {

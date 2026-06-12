@@ -23,9 +23,13 @@ sheet-wide **GM reviewed** override quiets them. Hard play-legality rules
 enforced.
 
 Interpretive choices made where v5.02 is ambiguous are recorded as numbered
-assumptions in `docs/v5.02-rules-update-plan.md` Part 3 (items 1-15). The
-open GM questions that remain: Titan "shock boxes" (undefined in v5.02) and
-the exact Sticky rider cost reading (+2×X assumed).
+assumptions in `docs/v5.02-rules-update-plan.md` Part 3 (items 1-15). The GM
+answered all open questions on 2026-06-12 (rulings recorded inline in Part 3);
+no GM questions remain open. The two that changed code: Sticky is **Ammo-only**
+(an open Sticky would undermine the magic system), and the Titan "shock
+box"/"Lethal" wording was TORG cross-editing — Shake Off heals 3× current
+Titan in resources, Sterner Stuff soaks a WOUND Crit, Kill Shot turns each
+crit dealt into a WOUND.
 
 ## Project Architecture Summary
 
@@ -53,7 +57,7 @@ the exact Sticky rider cost reading (+2×X assumed).
 | Stat/tile XP cascade ({steps} + {other dice}); d3 free | Implemented + tested |
 | Starting budgets (25 stat / 50 tile XP) and 3▟ starting cap | Advisory review notes |
 | Story Point per stat advance; Story Point per bought Chain tag | Tracked fields + advisory note |
-| Tag catalog incl. Sticky, Titan family, Crowd ranges, World 3 XP, Bestial/Celestial 2/4 | Implemented + tested |
+| Tag catalog incl. Sticky (Ammo-only per GM), Titan family, Crowd ranges, World 3 XP, Bestial/Celestial 2/4 | Implemented + tested |
 | Duplicate tags +2 per copy; Crit vs Shield same-name not duplicates | Implemented + tested |
 | Exotic skill tiles: +2 base, own exotic tag free | Implemented + tested |
 | Special identity tiles (Homeworld, Titan Identity): 3rd box, costume discounts/limits | Implemented + tested |
@@ -84,7 +88,7 @@ the exact Sticky rider cost reading (+2×X assumed).
 | --- | --- |
 | Shadow (Qi/Id boxes, Aberration, abilities, tags) | Implemented (pre-v5.02 test-drive rules, confirmed by v5.02) |
 | Cyber Core (pool from tiles, Grit add, spend abilities, Reticle) | Implemented |
-| Titan (pool, rerolls, spends, H/V economy, Costume) | Implemented (shock boxes pending GM) |
+| Titan (pool, rerolls, spends, H/V economy, Costume) | Implemented (spend effects per GM ruling 2026-06-12) |
 | Stranger (Bestial resources/Pace, While X forms, Celestial ranks) | Implemented |
 | Spells (v5.02 🗱 builder, casting Test data, spell tag-limit exemptions) | Builder implemented; cast-Test *workflow* remains manual |
 | NPCs (Rank, Might/Charm/Skill, budgets, descriptors) | Implemented, GM-side; browser-local or shared per campaign (GM-only) |
@@ -98,5 +102,7 @@ the exact Sticky rider cost reading (+2×X assumed).
 - ~~NPC cloud sync~~: done — a GM can store NPCs in a campaign
   (`campaign_npcs` table, GM-only RLS) via the panel's "Stored in" selector.
 - **BLEED on NPCs** (die downgrade) is a manual edit with a hint.
-- **v5.03**: the author promises more; crafting and Titan shock boxes are
-  the most likely areas to change.
+- **v5.03**: the author promises more; crafting is the most likely area to
+  change (GM 2026-06-12: narrowing focus to **gizmo crafting** next; the
+  Ammo Builder stays because tables use it, potions are unused — keep the
+  reagent data but invest nothing further until the new rules land).

@@ -213,3 +213,22 @@ describe('PR 12 review additions (chains, Hinders)', () => {
         assert.ok(!complete.some(item => item.category === 'Hinder'));
     });
 });
+
+describe('GM rulings (2026-06-12)', () => {
+    it('flags the Sticky tag on non-Ammo tiles only', () => {
+        const state = {
+            xpEarned: 100,
+            storyPointsEarned: 0,
+            stats: {},
+            tiles: [{ id: 'g1', type: 'Gear', name: 'tar bomb', dice: ['d4'], tags: ['Sticky'], xpCost: 5 }]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(items.some(item => item.category === 'Tags' && /Sticky tag is Ammo-only/.test(item.message)));
+
+        const ammo = buildRulesReviewItems({
+            ...state,
+            tiles: [{ id: 'a1', type: 'Gear', gearSubtype: 'Ammo', name: 'tar rounds', dice: [], tags: ['Sticky'], xpCost: 5 }]
+        }, engine);
+        assert.ok(!ammo.some(item => /Sticky tag is Ammo-only/.test(item.message)));
+    });
+});

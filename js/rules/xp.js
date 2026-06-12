@@ -85,7 +85,7 @@ export const TAG_XP_CATALOG = new Map(Object.entries({
     sharp: 2,
     sleepless: 2,
     spacewalk: 2,
-    sticky: 4,
+    sticky: 4, // GM ruling 2026-06-12: Ammo tiles only (rules-review flags it elsewhere)
     sustain: -3,
     sweep: 2,
     tether: 4,
