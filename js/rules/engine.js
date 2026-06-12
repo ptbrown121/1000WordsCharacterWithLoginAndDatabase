@@ -831,8 +831,12 @@ export class PoolEngine {
                         to: adjustedDie,
                         direction: netDieStep > 0 ? 'boosted' : 'suppressed'
                     });
+                    // The pre-push die survives as baseDie so the Freebie UI
+                    // can offer (and price) the die the player actually owns;
+                    // the blast-zone push itself is free.
+                    return { ...dieEntry, die: adjustedDie, baseDie: dieEntry.die };
                 }
-                return { ...dieEntry, die: adjustedDie };
+                return dieEntry;
             });
         }
 
@@ -868,6 +872,7 @@ export class PoolEngine {
         return diceArray.map(dObj => ({
             source: dObj.source,
             die: dObj.die,
+            ...(dObj.baseDie ? { baseDie: dObj.baseDie } : {}),
             val: this.rollDie(dObj.die)
         }));
     }

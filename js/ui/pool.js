@@ -280,29 +280,40 @@ function getSelectedFreebieDie() {
 }
 
 // Refresh the Freebie options from the compiled pool: a freebie must
-// duplicate a die already present, so only those dice are offered. The
-// current selection survives when its die is still in the pool. The
-// hidden select stays the value holder; the buttons mirror it.
+// duplicate a die already present, so only those dice are offered. Inside
+// an Aberrant Blast Zone the offer is the pre-push base die (baseDie) at
+// the base cost — the zone then pushes the copy for free (GM-pending
+// ruling 2026-06-12; may cost more in a later update). The current
+// selection survives when its die is still in the pool. The hidden
+// select stays the value holder; the buttons mirror it.
 function syncFreebieOptions(poolDice = []) {
     const select = els.freebieDieSelect;
     if (!select) return;
 
     const current = select.value;
-    const distinctDice = [...new Set(poolDice
-        .filter(entry => entry.source !== 'Freebie')
-        .map(entry => entry.die))]
+    const poolEntries = poolDice.filter(entry => entry.source !== 'Freebie');
+    const pushedTo = {};
+    poolEntries.forEach(entry => {
+        if (entry.baseDie && entry.baseDie !== entry.die) pushedTo[entry.baseDie] = entry.die;
+    });
+    const distinctDice = [...new Set(poolEntries.map(entry => entry.baseDie || entry.die))]
         .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
 
-    select.innerHTML = '<option value="">None</option>' + distinctDice.map(die => {
+    const labelFor = (die) => {
         const cost = poolEngine.calculateSteps([die]);
-        return `<option value="${escapeHtml(die)}">${escapeHtml(die)} (${cost} EN)</option>`;
-    }).join('');
+        const push = pushedTo[die] ? `→${pushedTo[die]}` : '';
+        return `${die}${push} (${cost} EN)`;
+    };
+
+    select.innerHTML = '<option value="">None</option>' + distinctDice.map(die =>
+        `<option value="${escapeHtml(die)}">${escapeHtml(labelFor(die))}</option>`
+    ).join('');
     select.value = distinctDice.includes(current) ? current : '';
 
     if (els.freebieDieButtons) {
         els.freebieDieButtons.innerHTML = ['', ...distinctDice].map(die => {
             const isActive = die === select.value;
-            const label = die ? `${escapeHtml(die)} (${poolEngine.calculateSteps([die])} EN)` : 'None';
+            const label = die ? escapeHtml(labelFor(die)) : 'None';
             return `<button type="button" class="dice-add-btn freebie-die-btn${isActive ? ' active' : ''}" data-die="${escapeHtml(die)}" aria-pressed="${isActive}">${label}</button>`;
         }).join('');
     }

@@ -701,6 +701,45 @@ describe('compilePool', () => {
         assert.deepEqual(suppressed.dice.map(die => die.die), ['d6', 'd6', 'd8', 'd10']);
     });
 
+    it('tags blast-zone-pushed dice with their base die', () => {
+        const callTile = { id: '1', name: 'Sword', colors: ['Red'], dice: ['d8'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, callTile, [], [callTile], [], {
+            aberrantEffects: { fallen: true }
+        });
+        assert.equal(res.error, null);
+        assert.deepEqual(res.dice.map(die => [die.die, die.baseDie]), [
+            ['d6', undefined], // d6 is never pushed
+            ['d10', 'd8']
+        ]);
+    });
+
+    it('prices a Freebie at the base die inside a blast zone; the push is free', () => {
+        // GM-pending ruling (2026-06-12): pick and pay the die you own
+        // (d8 = 3 EN); Fallen pushes the copy to d10 for free. May cost
+        // more in a later update.
+        const callTile = { id: '1', name: 'Sword', colors: ['Red'], dice: ['d8'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, callTile, [], [callTile], [], {
+            aberrantEffects: { fallen: true },
+            freebieDie: 'd8'
+        });
+        assert.equal(res.error, null);
+        const freebie = res.dice.find(die => die.source === 'Freebie');
+        assert.equal(freebie.die, 'd10');
+        assert.equal(freebie.baseDie, 'd8');
+        assert.deepEqual(
+            res.resourceCosts.filter(cost => cost.reason === 'Freebie').map(cost => cost.amount),
+            [3]
+        );
+
+        // The pushed value itself is not a valid pick: the freebie must
+        // duplicate a die the character actually owns.
+        const pushedPick = engine.compilePool(['Red'], stats, callTile, [], [callTile], [], {
+            aberrantEffects: { fallen: true },
+            freebieDie: 'd10'
+        });
+        assert.match(pushedPick.error, /duplicate a die already in the pool/i);
+    });
+
     it('rejects a burnt call tile', () => {
         const callTile = { id: '1', name: 'Sword', colors: ['Red'], dice: ['d8'], tags: '', isBurnt: true };
         const res = engine.compilePool(['Red'], stats, callTile, [], [callTile], []);

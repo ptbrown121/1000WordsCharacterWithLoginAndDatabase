@@ -369,14 +369,22 @@ export function renderAmmoResolution(result) {
 function renderFreebiePanel(result) {
     if (result.freebieUsed || !poolEngine) return '';
 
-    const distinctDice = [...new Set((result.originalRolls || []).map(roll => roll.die))]
-        .filter(die => /^d\d+$/.test(String(die)))
+    // Offer the pre-push base die (baseDie) at the base cost; an Aberrant
+    // Blast Zone pushes the copy for free, shown as e.g. "d8→d10".
+    const rolls = (result.originalRolls || [])
+        .filter(roll => /^d\d+$/.test(String(roll.baseDie || roll.die)));
+    const pushedTo = {};
+    rolls.forEach(roll => {
+        if (roll.baseDie && roll.baseDie !== roll.die) pushedTo[roll.baseDie] = roll.die;
+    });
+    const distinctDice = [...new Set(rolls.map(roll => roll.baseDie || roll.die))]
         .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
     if (distinctDice.length === 0) return '';
 
     const buttons = distinctDice.map(die => {
         const cost = poolEngine.calculateSteps([die]);
-        return `<button class="btn btn-outline btn-roll-freebie" type="button" data-die="${escapeHtml(die)}">Roll ${escapeHtml(die)} (${cost} EN)</button>`;
+        const push = pushedTo[die] ? `→${pushedTo[die]}` : '';
+        return `<button class="btn btn-outline btn-roll-freebie" type="button" data-die="${escapeHtml(die)}">Roll ${escapeHtml(die)}${escapeHtml(push)} (${cost} EN)</button>`;
     }).join('');
 
     return `
@@ -489,7 +497,11 @@ function rollPostRollFreebie(die) {
     if (!result || result.freebieUsed || !poolEngine) return;
 
     if (!die) return;
-    if (!(result.originalRolls || []).some(roll => roll.die === die)) return;
+    // `die` is the base die; in a blast zone the copy rolls as the pushed
+    // die (match.die) but is still priced at the base.
+    const match = (result.originalRolls || []).find(roll => (roll.baseDie || roll.die) === die);
+    if (!match) return;
+    const rollAs = match.die;
 
     const cost = poolEngine.calculateSteps([die]);
     if (cost > 0 && dataManager) {
@@ -498,13 +510,19 @@ function rollPostRollFreebie(die) {
             alert(`A Freebie ${die} costs ${cost} Energy, but only ${currentEn} is available.`);
             return;
         }
-        if (!confirm(`Spend ${cost} Energy for a Freebie ${die}?`)) return;
+        const pushNote = rollAs !== die ? ` (rolls as ${rollAs} in the blast zone)` : '';
+        if (!confirm(`Spend ${cost} Energy for a Freebie ${die}${pushNote}?`)) return;
         dataManager.state.en = Math.max(0, currentEn - cost);
         dataManager.saveState();
         if (renderAll) renderAll();
     }
 
-    const rolls = [...(result.originalRolls || []), { source: 'Freebie', die, val: poolEngine.rollDie(die) }];
+    const rolls = [...(result.originalRolls || []), {
+        source: 'Freebie',
+        die: rollAs,
+        ...(match.baseDie ? { baseDie: match.baseDie } : {}),
+        val: poolEngine.rollDie(rollAs)
+    }];
     const recalculated = poolEngine.calculateOptimalTotal(rolls, result.adds ?? 2, {
         haywireThreshold: result.haywireThreshold || 1
     });
