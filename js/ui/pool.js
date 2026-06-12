@@ -55,6 +55,16 @@ export function init(deps) {
     els.risenAberrantEffect?.addEventListener('change', updatePoolPreview);
     els.fallenAberrantEffect?.addEventListener('change', updatePoolPreview);
     els.freebieDieSelect?.addEventListener('change', updatePoolPreview);
+    els.freebieDieButtons?.addEventListener('click', (e) => {
+        const button = e.target.closest('.freebie-die-btn');
+        if (!button || !els.freebieDieButtons.contains(button)) return;
+        const die = button.dataset.die || '';
+        const select = els.freebieDieSelect;
+        if (!select) return;
+        // Tapping the active die deselects it, like picking None.
+        select.value = select.value === die ? '' : die;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     els.chainOptions.addEventListener('change', (e) => {
         if (e.target.classList.contains('chain-cb')) {
             const chainId = e.target.dataset.chainId;
@@ -269,9 +279,10 @@ function getSelectedFreebieDie() {
     return els.freebieDieSelect?.value || '';
 }
 
-// Refresh the Freebie select from the compiled pool: a freebie must
+// Refresh the Freebie options from the compiled pool: a freebie must
 // duplicate a die already present, so only those dice are offered. The
-// current selection survives when its die is still in the pool.
+// current selection survives when its die is still in the pool. The
+// hidden select stays the value holder; the buttons mirror it.
 function syncFreebieOptions(poolDice = []) {
     const select = els.freebieDieSelect;
     if (!select) return;
@@ -287,6 +298,14 @@ function syncFreebieOptions(poolDice = []) {
         return `<option value="${escapeHtml(die)}">${escapeHtml(die)} (${cost} EN)</option>`;
     }).join('');
     select.value = distinctDice.includes(current) ? current : '';
+
+    if (els.freebieDieButtons) {
+        els.freebieDieButtons.innerHTML = ['', ...distinctDice].map(die => {
+            const isActive = die === select.value;
+            const label = die ? `${escapeHtml(die)} (${poolEngine.calculateSteps([die])} EN)` : 'None';
+            return `<button type="button" class="dice-add-btn freebie-die-btn${isActive ? ' active' : ''}" data-die="${escapeHtml(die)}" aria-pressed="${isActive}">${label}</button>`;
+        }).join('');
+    }
 }
 
 export function clearCallSelection() {

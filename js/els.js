@@ -121,6 +121,7 @@ export const els = {
     risenAberrantEffect: document.getElementById('risen-aberrant-effect'),
     fallenAberrantEffect: document.getElementById('fallen-aberrant-effect'),
     freebieDieSelect: document.getElementById('freebie-die-select'),
+    freebieDieButtons: document.getElementById('freebie-die-buttons'),
 
     corePanel: document.getElementById('core-panel'),
     coreDisplay: document.getElementById('core-display'),

@@ -74,7 +74,7 @@ export function init(deps = {}) {
 
     els.resolutionControls.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-roll-freebie')) {
-            rollPostRollFreebie();
+            rollPostRollFreebie(e.target.dataset.die || '');
             return;
         }
         if (e.target.classList.contains('btn-titan-add')) {
@@ -374,9 +374,9 @@ function renderFreebiePanel(result) {
         .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
     if (distinctDice.length === 0) return '';
 
-    const options = distinctDice.map(die => {
+    const buttons = distinctDice.map(die => {
         const cost = poolEngine.calculateSteps([die]);
-        return `<option value="${escapeHtml(die)}">${escapeHtml(die)} (${cost} EN)</option>`;
+        return `<button class="btn btn-outline btn-roll-freebie" type="button" data-die="${escapeHtml(die)}">Roll ${escapeHtml(die)} (${cost} EN)</button>`;
     }).join('');
 
     return `
@@ -384,11 +384,7 @@ function renderFreebiePanel(result) {
             <h3>Freebie Die</h3>
             <p class="hint-text">Once per test: spend Energy equal to the die's ▟ to add one more die that duplicates a die already in the pool.</p>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                <select id="freebie-postroll-die">
-                    <option value="">-- Choose die --</option>
-                    ${options}
-                </select>
-                <button class="btn btn-outline btn-roll-freebie" type="button">Roll Freebie</button>
+                ${buttons}
             </div>
         </div>
     `;
@@ -488,11 +484,10 @@ function renderTitanResolutionPanel(result) {
     `;
 }
 
-function rollPostRollFreebie() {
+function rollPostRollFreebie(die) {
     const result = uiState.lastRollResult;
     if (!result || result.freebieUsed || !poolEngine) return;
 
-    const die = document.getElementById('freebie-postroll-die')?.value || '';
     if (!die) return;
     if (!(result.originalRolls || []).some(roll => roll.die === die)) return;
 
