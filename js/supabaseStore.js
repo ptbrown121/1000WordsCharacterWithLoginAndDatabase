@@ -5,6 +5,17 @@ function assertNoError(result) {
     return result.data;
 }
 
+// Thrown when a guarded save finds the row was changed by someone else
+// (another tab or device) after we loaded it. The UI offers reload or
+// overwrite; see the 'cloud-save-conflict' handler in ui/cloud.js.
+export class CloudSaveConflictError extends Error {
+    constructor(message = 'This character changed somewhere else since you loaded it.') {
+        super(message);
+        this.name = 'CloudSaveConflictError';
+        this.isCloudSaveConflict = true;
+    }
+}
+
 function generateInviteCode() {
     const bytes = new Uint8Array(6);
     crypto.getRandomValues(bytes);
@@ -108,18 +119,32 @@ export class SupabaseCharacterStore {
         return { roster: [...ownedRoster, ...gmRoster], campaigns, canCreateCampaign };
     }
 
+    // Returns { state, updatedAt }. updatedAt is the server's timestamp and
+    // is later passed back to saveCharacter as the optimistic-concurrency
+    // guard, so it must always be a value the server itself produced.
     async loadCharacter(id) {
         const row = assertNoError(await this.client
             .from('characters')
-            .select('state')
+            .select('state, updated_at')
             .eq('id', id)
             .single());
-        return normalizeImportedState(row.state) || row.state;
+        return {
+            state: normalizeImportedState(row.state) || row.state,
+            updatedAt: row.updated_at || null
+        };
     }
 
-    async saveCharacter(id, state) {
+    /**
+     * Whole-state save. With `ifUnmodifiedSince` (the updated_at previously
+     * read from the server) the update only matches if nobody else wrote the
+     * row in between; zero matched rows means a concurrent edit and throws
+     * CloudSaveConflictError. Without the guard this is the legacy
+     * last-write-wins save (used for the user's explicit "overwrite" choice).
+     * Returns the new server updated_at.
+     */
+    async saveCharacter(id, state, { ifUnmodifiedSince = null } = {}) {
         const cleanState = normalizeImportedState(JSON.parse(JSON.stringify(state)));
-        assertNoError(await this.client
+        let query = this.client
             .from('characters')
             .update({
                 name: cleanState.name || 'Unnamed',
@@ -127,7 +152,13 @@ export class SupabaseCharacterStore {
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
-            .eq('owner_id', this.user.id));
+            .eq('owner_id', this.user.id);
+        if (ifUnmodifiedSince) query = query.eq('updated_at', ifUnmodifiedSince);
+        const rows = assertNoError(await query.select('updated_at'));
+        if (ifUnmodifiedSince && (!rows || rows.length === 0)) {
+            throw new CloudSaveConflictError();
+        }
+        return rows?.[0]?.updated_at || null;
     }
 
     async createCharacter(name, state, campaignId = null) {

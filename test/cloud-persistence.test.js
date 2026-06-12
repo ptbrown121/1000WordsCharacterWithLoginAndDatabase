@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { DataManager, LocalCharacterStore, cloneDefaultState } from '../js/data.js';
+import { CloudSaveConflictError, SupabaseCharacterStore } from '../js/supabaseStore.js';
 
 class MemoryStorage {
     constructor() {
@@ -45,21 +46,85 @@ class FakeCloudStore {
     }
 
     async loadCharacter(id) {
-        return JSON.parse(JSON.stringify(this.characters.find(character => character.id === id).state));
+        const character = this.characters.find(candidate => candidate.id === id);
+        return {
+            state: JSON.parse(JSON.stringify(character.state)),
+            updatedAt: character.updatedAt || 't-0'
+        };
     }
 
-    async saveCharacter(id, state) {
+    async saveCharacter(id, state, { ifUnmodifiedSince = null } = {}) {
         const character = this.characters.find(candidate => candidate.id === id);
+        if (ifUnmodifiedSince && (character.updatedAt || 't-0') !== ifUnmodifiedSince) {
+            const error = new Error('conflict');
+            error.isCloudSaveConflict = true;
+            throw error;
+        }
         character.state = JSON.parse(JSON.stringify(state));
         character.name = state.name;
+        this.saveCount = (this.saveCount || 0) + 1;
+        character.updatedAt = `t-${this.saveCount}`;
+        return character.updatedAt;
     }
 
     async createCharacter(name, state) {
         const id = `cloud-${this.characters.length + 1}`;
-        this.characters.push({ id, name, state: JSON.parse(JSON.stringify(state)) });
+        this.characters.push({ id, name, state: JSON.parse(JSON.stringify(state)), updatedAt: 't-0' });
         return id;
     }
 }
+
+// Minimal chainable stand-in for the supabase-js query builder, recording
+// the update payload and filters and resolving select() with `rows`.
+function makeUpdateClient(rows) {
+    const calls = { update: null, filters: [], selected: null };
+    const builder = {
+        update(payload) { calls.update = payload; return builder; },
+        eq(column, value) { calls.filters.push([column, value]); return builder; },
+        select(columns) { calls.selected = columns; return Promise.resolve({ data: rows, error: null }); }
+    };
+    return { client: { from: () => builder }, calls };
+}
+
+describe('SupabaseCharacterStore optimistic concurrency', () => {
+    const user = { id: 'user-1', email: 'player@example.com' };
+
+    it('sends the updated_at guard and returns the new server stamp', async () => {
+        const { client, calls } = makeUpdateClient([{ updated_at: '2026-06-12T20:00:00+00:00' }]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        const newStamp = await store.saveCharacter('char-1', cloneDefaultState(), {
+            ifUnmodifiedSince: '2026-06-12T19:00:00+00:00'
+        });
+
+        assert.equal(newStamp, '2026-06-12T20:00:00+00:00');
+        assert.deepEqual(calls.filters, [
+            ['id', 'char-1'],
+            ['owner_id', 'user-1'],
+            ['updated_at', '2026-06-12T19:00:00+00:00']
+        ]);
+    });
+
+    it('throws CloudSaveConflictError when the guarded update matches no rows', async () => {
+        const { client } = makeUpdateClient([]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        await assert.rejects(
+            store.saveCharacter('char-1', cloneDefaultState(), { ifUnmodifiedSince: '2026-06-12T19:00:00+00:00' }),
+            CloudSaveConflictError
+        );
+    });
+
+    it('does not treat zero rows as a conflict when saving unguarded (overwrite path)', async () => {
+        const { client, calls } = makeUpdateClient([]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        const newStamp = await store.saveCharacter('char-1', cloneDefaultState());
+
+        assert.equal(newStamp, null);
+        assert.deepEqual(calls.filters, [['id', 'char-1'], ['owner_id', 'user-1']]);
+    });
+});
 
 describe('LocalCharacterStore', () => {
     it('loads, saves, and preserves local roster state', () => {
@@ -159,6 +224,66 @@ describe('DataManager cloud behavior', () => {
 
         assert.equal(merged, false);
         assert.equal((manager.state.journal || []).length, 0);
+    });
+
+    it('detects a concurrent edit, keeps the remote copy, and supports both resolutions', async () => {
+        const events = [];
+        const previousWindow = globalThis.window;
+        globalThis.window = {
+            dispatchEvent(event) { events.push(event); return true; },
+            addEventListener() {},
+            removeEventListener() {}
+        };
+
+        try {
+            const cloud = new FakeCloudStore();
+            const manager = new DataManager({
+                localStore: new LocalCharacterStore(new MemoryStorage()),
+                cloudStore: cloud,
+                saveDebounceMs: 0
+            });
+            const state = cloneDefaultState();
+            state.name = 'Cloud Hero';
+            cloud.characters.push({ id: 'cloud-1', name: 'Cloud Hero', state: JSON.parse(JSON.stringify(state)), updatedAt: 't-0' });
+
+            manager.activeStorage = 'cloud';
+            manager.cloudRoster = [{ id: 'cloud-1', name: 'Cloud Hero', source: 'cloud', readOnly: false, isMine: true }];
+            manager.roster = manager.cloudRoster;
+            manager.activeCharId = 'cloud-1';
+            manager.state = JSON.parse(JSON.stringify(state));
+            manager.cloudUpdatedAt = 't-0';
+
+            // Another device saves first: the server moves past our t-0.
+            await cloud.saveCharacter('cloud-1', { ...state, name: 'Renamed Elsewhere' });
+
+            // Our guarded save must NOT clobber it, and must raise the event.
+            manager.state.name = 'Local Edit';
+            await manager.queueCloudSave('cloud-1', JSON.parse(JSON.stringify(manager.state)));
+
+            assert.equal(cloud.characters[0].state.name, 'Renamed Elsewhere');
+            const conflict = events.find(event => event.type === 'cloud-save-conflict');
+            assert.ok(conflict, 'expected a cloud-save-conflict event');
+            assert.equal(conflict.detail.charId, 'cloud-1');
+            assert.equal(conflict.detail.state.name, 'Local Edit');
+
+            // Resolution A: reload the newer version.
+            await manager.resolveCloudConflictByReloading('cloud-1');
+            assert.equal(manager.state.name, 'Renamed Elsewhere');
+            assert.equal(manager.cloudUpdatedAt, cloud.characters[0].updatedAt);
+
+            // After reloading, a normal guarded save works again.
+            manager.state.name = 'Post-Reload Edit';
+            await manager.queueCloudSave('cloud-1', JSON.parse(JSON.stringify(manager.state)));
+            assert.equal(cloud.characters[0].state.name, 'Post-Reload Edit');
+
+            // Resolution B: deliberate overwrite ignores the guard.
+            await cloud.saveCharacter('cloud-1', { ...state, name: 'Renamed Again Elsewhere' });
+            await manager.resolveCloudConflictByOverwriting('cloud-1', { ...state, name: 'Forced Local Copy' });
+            assert.equal(cloud.characters[0].state.name, 'Forced Local Copy');
+            assert.equal(manager.cloudUpdatedAt, cloud.characters[0].updatedAt);
+        } finally {
+            globalThis.window = previousWindow;
+        }
     });
 
     it('uploads local characters to cloud without deleting browser saves', async () => {

@@ -430,6 +430,13 @@ export class DataManager {
         this.cloudMessage = cloudStore ? 'Cloud save is available after sign-in.' : 'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable cloud save.';
         this.activeStorage = 'local';
         this.pendingSaveTimer = null;
+        // updated_at of the active cloud character as last read from the
+        // server; sent with saves as the optimistic-concurrency guard.
+        this.cloudUpdatedAt = null;
+        // Cloud saves are chained so a debounced save can never race a
+        // previous save that is still in flight (the guard value must be
+        // read after the previous save has settled).
+        this.cloudSaveChain = Promise.resolve();
         this.localRoster = [];
         this.localActiveCharId = null;
 
@@ -539,15 +546,8 @@ export class DataManager {
         this.setCloudStatus('saving', 'Saving to cloud...');
         const charId = this.activeCharId;
         const state = JSON.parse(JSON.stringify(this.state));
-        this.pendingSaveTimer = setTimeout(async () => {
-            try {
-                await this.cloudStore.saveCharacter(charId, state);
-                await this.refreshCloudRoster({ keepActive: true });
-                this.setCloudStatus('saved', 'Cloud save complete.');
-            } catch (e) {
-                console.error('Failed to save cloud character', e);
-                this.setCloudStatus('error', errorMessage(e, 'Cloud save failed.'));
-            }
+        this.pendingSaveTimer = setTimeout(() => {
+            this.queueCloudSave(charId, state);
         }, this.saveDebounceMs);
     }
 
@@ -556,9 +556,59 @@ export class DataManager {
         clearTimeout(this.pendingSaveTimer);
         this.pendingSaveTimer = null;
         if (!this.canEditActiveCharacter()) return;
-        await this.cloudStore.saveCharacter(this.activeCharId, this.state);
+        await this.queueCloudSave(this.activeCharId, JSON.parse(JSON.stringify(this.state)));
+    }
+
+    // All cloud saves go through this chain so they run one at a time and
+    // each reads the guard value left by the previous save. The guard is
+    // read at run time (not schedule time) for the same reason.
+    queueCloudSave(charId, state) {
+        const run = async () => {
+            const guard = this.activeCharId === charId ? this.cloudUpdatedAt : null;
+            const newUpdatedAt = await this.cloudStore.saveCharacter(charId, state, { ifUnmodifiedSince: guard });
+            if (this.activeCharId === charId && newUpdatedAt) this.cloudUpdatedAt = newUpdatedAt;
+            await this.refreshCloudRoster({ keepActive: true });
+            this.setCloudStatus('saved', 'Cloud save complete.');
+        };
+        this.cloudSaveChain = this.cloudSaveChain
+            .then(run)
+            .catch(e => this.handleCloudSaveError(e, charId, state));
+        return this.cloudSaveChain;
+    }
+
+    handleCloudSaveError(e, charId, state) {
+        if (e?.isCloudSaveConflict) {
+            // The state snapshot rides along so the user can still choose
+            // "overwrite" even if they have switched characters meanwhile.
+            this.setCloudStatus('error', 'This character changed somewhere else.');
+            dispatchAppEvent('cloud-save-conflict', { charId, state });
+            return;
+        }
+        console.error('Failed to save cloud character', e);
+        this.setCloudStatus('error', errorMessage(e, 'Cloud save failed.'));
+    }
+
+    // Conflict resolution, driven by the dialog in ui/cloud.js.
+    async resolveCloudConflictByReloading(charId) {
+        if (!this.cloudStore) return;
         await this.refreshCloudRoster({ keepActive: true });
-        this.setCloudStatus('saved', 'Cloud save complete.');
+        if (this.activeStorage === 'cloud' && this.activeCharId === charId) {
+            const loaded = await this.cloudStore.loadCharacter(charId);
+            this.state = loaded.state;
+            this.cloudUpdatedAt = loaded.updatedAt || null;
+        }
+        this.setCloudStatus('saved', 'Loaded the newer cloud version.');
+    }
+
+    async resolveCloudConflictByOverwriting(charId, stateSnapshot = null) {
+        if (!this.cloudStore) return;
+        const state = stateSnapshot || (this.activeCharId === charId ? this.state : null);
+        if (!state) return;
+        // No guard: the user explicitly chose to replace the newer copy.
+        const updatedAt = await this.cloudStore.saveCharacter(charId, state);
+        if (this.activeCharId === charId && updatedAt) this.cloudUpdatedAt = updatedAt;
+        await this.refreshCloudRoster({ keepActive: true });
+        this.setCloudStatus('saved', 'Cloud copy replaced with this version.');
     }
 
     // Folds journal entries a server route appended into the local state without
@@ -573,6 +623,13 @@ export class DataManager {
         const knownIds = new Set(journal.map(entry => entry?.id).filter(Boolean));
         const added = serverJournal.filter(entry => entry?.id && !knownIds.has(entry.id));
         if (added.length === 0) return false;
+
+        // The server route that produced serverState also wrote the character
+        // row (bumping updated_at), so the optimistic guard we hold is stale
+        // by design, not because of a rival edit. Drop it so the follow-up
+        // save below goes through unguarded; that save intentionally replaces
+        // the server's copy with this merged state.
+        this.cloudUpdatedAt = null;
 
         this.state.journal = [...journal, ...added];
         this.saveState();
@@ -656,7 +713,9 @@ export class DataManager {
             this.activeStorage = 'cloud';
             this.roster = this.cloudRoster;
             this.activeCharId = id;
-            this.state = await this.cloudStore.loadCharacter(id);
+            const loaded = await this.cloudStore.loadCharacter(id);
+            this.state = loaded.state;
+            this.cloudUpdatedAt = loaded.updatedAt || null;
             this.setCloudStatus(cloudEntry.readOnly ? 'read-only' : 'saved', cloudEntry.readOnly ? 'Viewing read-only campaign character.' : 'Cloud character loaded.');
             dispatchAppEvent('readonly-character-change');
             return;
@@ -668,6 +727,7 @@ export class DataManager {
             this.roster = this.localRoster;
             this.activeCharId = id;
             this.localActiveCharId = id;
+            this.cloudUpdatedAt = null;
             this.localStore.saveRoster(this.localRoster, this.localActiveCharId);
             this.state = this.localStore.loadState(this.activeCharId);
             dispatchAppEvent('readonly-character-change');
@@ -681,7 +741,9 @@ export class DataManager {
         if (this.isSignedIn && this.cloudStore) {
             const charId = await this.cloudStore.createCharacter(name, state);
             await this.refreshCloudRoster({ activeCharId: charId });
-            this.state = await this.cloudStore.loadCharacter(charId);
+            const loaded = await this.cloudStore.loadCharacter(charId);
+            this.state = loaded.state;
+            this.cloudUpdatedAt = loaded.updatedAt || null;
             this.setCloudStatus('saved', 'Cloud character created.');
             return charId;
         }
@@ -753,7 +815,9 @@ export class DataManager {
                     const name = newState.name || 'Imported Hero';
                     const charId = await this.cloudStore.createCharacter(name, newState);
                     await this.refreshCloudRoster({ activeCharId: charId });
-                    this.state = await this.cloudStore.loadCharacter(charId);
+                    const loaded = await this.cloudStore.loadCharacter(charId);
+                    this.state = loaded.state;
+                    this.cloudUpdatedAt = loaded.updatedAt || null;
                 } else {
                     const charId = crypto.randomUUID();
                     const name = newState.name || 'Imported Hero';
@@ -813,6 +877,7 @@ export class DataManager {
     async disconnectCloud() {
         await this.flushCloudSave();
         this.cloudUser = null;
+        this.cloudUpdatedAt = null;
         this.cloudRoster = [];
         this.campaigns = [];
         this.campaignMembers = [];

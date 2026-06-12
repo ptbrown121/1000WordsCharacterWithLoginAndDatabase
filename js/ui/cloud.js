@@ -344,6 +344,30 @@ export async function init(deps) {
     window.addEventListener('cloud-status-change', renderCloudControls);
     window.addEventListener('readonly-character-change', renderCloudControls);
 
+    // A guarded save found that another tab or device wrote this character
+    // after we loaded it. The snapshot in the event lets "overwrite" work
+    // even if the user has switched characters since the save was queued.
+    window.addEventListener('cloud-save-conflict', async (event) => {
+        const { charId, state } = event.detail || {};
+        if (!charId) return;
+        const reloadNewer = confirm(
+            'This character was changed in another tab or on another device since you loaded it.\n\n' +
+            'OK: load the newer cloud version (recommended - unsaved edits here are discarded).\n' +
+            'Cancel: overwrite the cloud with this copy.'
+        );
+        try {
+            if (reloadNewer) {
+                await dataManager.resolveCloudConflictByReloading(charId);
+            } else {
+                await dataManager.resolveCloudConflictByOverwriting(charId, state);
+            }
+            renderAll();
+        } catch (err) {
+            dataManager.setCloudStatus('error', err.message || 'Could not resolve the save conflict.');
+        }
+        renderCloudControls();
+    });
+
     const { data } = await supabaseClient.auth.getSession();
     await handleSession(data.session);
 

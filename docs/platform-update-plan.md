@@ -203,6 +203,15 @@ files," not "annotate everything everywhere."
 
 ## PR 5 — Optimistic concurrency on character saves
 
+**Status: done 2026-06-12.** As planned, plus two findings: cloud saves
+are now serialized through a promise chain (`queueCloudSave`) so a
+debounced save can't race an in-flight one and false-conflict against
+itself; and `mergeServerJournalEntries` drops the stale guard because the
+AI accept-summary route legitimately bumps the row server-side. The
+conflict event carries the state snapshot so "overwrite" works even after
+switching characters. 4 new tests (3 store-level guard tests, 1 end-to-end
+conflict flow).
+
 **Why:** cloud saves are whole-state upserts; two tabs (or phone + laptop
 at the table) silently clobber each other. `characters.updated_at` already
 exists and is returned by `listRoster`.
