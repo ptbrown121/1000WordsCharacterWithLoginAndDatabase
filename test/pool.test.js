@@ -1303,11 +1303,11 @@ describe('Titan subsystem (v5.02 p.69)', () => {
 
     it('collects Titan abilities with H/V markers and sources', () => {
         const tiles = [
-            { id: '1', name: 'cape', type: 'Gear', dice: ['d6'], tags: ['Zero In', 'Pull Punch'] },
+            { id: '1', name: 'cape', type: 'Gear', dice: ['d6'], tags: ['Zero In', 'Pull Punch', 'Overpower'] },
             { id: '2', name: 'mask', type: 'Gear', dice: ['d4'], tags: ['Interception'] }
         ];
         const abilities = getTitanAbilities(tiles);
-        assert.deepEqual(abilities.map(a => a.id), ['interception', 'pull punch', 'zero in']);
+        assert.deepEqual(abilities.map(a => a.id), ['interception', 'overpower', 'pull punch', 'zero in']);
         assert.equal(abilities.find(a => a.id === 'zero in').hv, -2);
         assert.equal(abilities.find(a => a.id === 'pull punch').hv, 1);
         assert.equal(abilities.find(a => a.id === 'interception').hv, null);

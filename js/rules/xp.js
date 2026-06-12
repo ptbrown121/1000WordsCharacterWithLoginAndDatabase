@@ -34,12 +34,12 @@ const CYBER_CORE_TAGS = new Set([
     'machine', 'plated', 'reticle', 'sleepless', 'spacewalk', 'tether',
     'unborn', 'wired', 'zenith'
 ]);
-// Titan ability tags (p.69). Costs are not in the v5.02 glossary; the app
-// assumes 2 XP each (matching the Cyber Core spend tags) until clarified.
+// Titan ability tags (p.69). GM confirmed 2026-06-12: all 2 XP. Overpower
+// is the renamed Titan Boost (Boost stays Cyber-only).
 const TITAN_TAGS = new Set([
     'titan', 'action hero', 'coup de grace', 'ground zero', 'interception',
-    'kill shot', 'pull punch', 'shake off', 'sterner stuff', 'turn them',
-    'under cover', 'zero in'
+    'kill shot', 'overpower', 'pull punch', 'shake off', 'sterner stuff',
+    'turn them', 'under cover', 'zero in'
 ]);
 export const EXOTIC_TAGS = new Set(['bestial', 'celestial', 'cyber', ...CYBER_CORE_TAGS, ...TITAN_TAGS]);
 
@@ -96,6 +96,7 @@ export const TAG_XP_CATALOG = new Map(Object.entries({
     'ground zero': 2,
     interception: 2,
     'kill shot': 2,
+    overpower: 2,
     'pull punch': 2,
     'shake off': 2,
     'sterner stuff': 2,

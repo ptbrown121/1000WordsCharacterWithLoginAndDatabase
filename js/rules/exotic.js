@@ -212,16 +212,17 @@ export function applyFormToTiles(tiles = [], formName = '') {
 // Titan ability tags (p.69): "Spend 1 Titan to..." `hv` is the Heroism (+)
 // or Villainy (-) score the act earns; null means the player chooses the
 // direction (Interception, Turn Them). The v5.02 "shock box"/"Lethal"
-// wording was TORG cross-editing; GM ruling 2026-06-12 restated Shake Off,
-// Sterner Stuff, and Kill Shot in 1000 WORDS terms (used below).
+// wording was TORG cross-editing; GM rulings 2026-06-12 restated Shake Off,
+// Sterner Stuff, Kill Shot, and Pull Punch in 1000 WORDS terms (used below)
+// and renamed the Titan Boost to Overpower (Boost stays Cyber-only).
 export const TITAN_ABILITIES = {
     'action hero': { effect: 'Reset your Press counter to 0', hv: 0 },
-    boost: { effect: 'Add max Titan to a chosen stat for this check', hv: 0 },
     'coup de grace': { effect: 'Kill a helpless target', hv: -2 },
     'ground zero': { effect: 'Move to any spot in the combat', hv: 0 },
     interception: { effect: 'Take a hit for an ally in Reach (H), or an ally in Reach takes a hit for you (V)', hv: null },
-    'kill shot': { effect: 'Each Crit your next attack deals becomes a WOUND', hv: -1 },
-    'pull punch': { effect: 'All Crits on your next attack are KO', hv: 1 },
+    'kill shot': { effect: 'Add a WOUND Crit to your attack; all Crits dealt are WOUNDs', hv: -1 },
+    overpower: { effect: 'Add max Titan to a chosen stat for this check', hv: 0 },
+    'pull punch': { effect: 'Add a KO Crit to your attack; all Crits dealt are KOs', hv: 1 },
     'shake off': { effect: 'Heal 3x current Titan in resource points', hv: 0 },
     'sterner stuff': { effect: 'Soak a WOUND Crit', hv: 0 },
     'turn them': { effect: 'Make a freebie social attack to deal a VOW - switch sides (H or V)', hv: null },
