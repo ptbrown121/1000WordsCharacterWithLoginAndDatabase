@@ -658,9 +658,12 @@ export function renderManualInputs() {
     res.dice.forEach((dObj) => {
         const div = document.createElement('div');
         div.className = 'manual-die-input';
+        // baseDie rides along so the manual path's rolls carry it too —
+        // the post-roll Freebie panel prices blast-zone dice from it.
+        const baseDieAttr = dObj.baseDie ? ` data-base-die="${escapeHtml(dObj.baseDie)}"` : '';
         div.innerHTML = `
             <label>${escapeHtml(dObj.source)} - Roll for ${escapeHtml(dObj.die)}:</label>
-            <input type="number" class="manual-val" data-die="${escapeHtml(dObj.die)}" data-source="${escapeHtml(dObj.source)}" min="1" max="${escapeHtml(dObj.die.replace('d',''))}" value="">
+            <input type="number" class="manual-val" data-die="${escapeHtml(dObj.die)}"${baseDieAttr} data-source="${escapeHtml(dObj.source)}" min="1" max="${escapeHtml(dObj.die.replace('d',''))}" value="">
         `;
         els.manualInputsContainer.appendChild(div);
     });
@@ -718,7 +721,12 @@ export function executeManualCalculate() {
         if (isNaN(val) || val < 1 || val > max) {
             hasError = true;
         } else {
-            rolled.push({ source: sourceStr, die: dieStr, val: val });
+            rolled.push({
+                source: sourceStr,
+                die: dieStr,
+                ...(inp.dataset.baseDie ? { baseDie: inp.dataset.baseDie } : {}),
+                val: val
+            });
         }
     });
 

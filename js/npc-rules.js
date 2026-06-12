@@ -18,6 +18,8 @@
 //
 // No DOM access; covered by test/npc-rules.test.js.
 
+import { applyAberrantDieStepEffects } from './rules/shadow.js';
+
 const DIE_STEPS = { d3: 0, d4: 1, d6: 2, d8: 3, d10: 4, d12: 5, d14: 6, d16: 7 };
 const DICE_BY_STEP = Object.fromEntries(Object.entries(DIE_STEPS).map(([die, step]) => [step, die]));
 
@@ -79,21 +81,40 @@ export function reviewNpcBuild(npc = {}) {
     };
 }
 
+// Per-NPC Aberrant Blast Zone flag: '' (outside), 'risen', or 'fallen'.
+export function normalizeNpcBlastZone(value) {
+    const zone = String(value || '').trim().toLowerCase();
+    return zone === 'risen' || zone === 'fallen' ? zone : '';
+}
+
 // NPC rolls sum the stat dice (plus Rank for Attack/Defense). `rollFn` is
 // injectable for tests.
-export function rollNpcStat(diceValue, rollFn) {
-    const dice = parseNpcDice(diceValue);
-    const rolls = dice.map(die => ({ die, val: rollFn(die) }));
+//
+// Blast zones (p.59): an NPC flagged as inside a zone rolls its dice above
+// d6 boosted (Fallen) or suppressed (Risen) 1 ▟, like player pools; pushed
+// rolls keep the owned die as baseDie. Applying zones to NPCs is the user's
+// interim call, pending GM confirmation - see docs/v5.02-rules-update-plan.md.
+export function rollNpcStat(diceValue, rollFn, blastZone = '') {
+    const zone = normalizeNpcBlastZone(blastZone);
+    const effects = { risen: zone === 'risen', fallen: zone === 'fallen' };
+    const rolls = parseNpcDice(diceValue).map(die => {
+        const adjusted = zone ? applyAberrantDieStepEffects(die, effects) : die;
+        return {
+            die: adjusted,
+            ...(adjusted !== die ? { baseDie: die } : {}),
+            val: rollFn(adjusted)
+        };
+    });
     return { rolls, total: rolls.reduce((sum, roll) => sum + roll.val, 0) };
 }
 
 export function rollNpcAttack(npc, rollFn) {
-    const result = rollNpcStat(npc.skill, rollFn);
+    const result = rollNpcStat(npc.skill, rollFn, npc.blastZone);
     return { ...result, total: result.total + Math.max(0, toInt(npc.rank)) };
 }
 
 export function rollNpcDefense(npc, rollFn) {
-    const result = rollNpcStat(npc.charm, rollFn);
+    const result = rollNpcStat(npc.charm, rollFn, npc.blastZone);
     return { ...result, total: result.total + Math.max(0, toInt(npc.rank)) };
 }
 
@@ -121,6 +142,7 @@ export function normalizeNpc(raw = {}) {
         rx: Math.max(0, toInt(raw.rx ?? raw.rxMax)),
         rxMax: Math.max(0, toInt(raw.rxMax)),
         descriptors,
+        blastZone: normalizeNpcBlastZone(raw.blastZone),
         attackStatic: raw.attackStatic === null || raw.attackStatic === undefined ? null : toInt(raw.attackStatic),
         defenseStatic: raw.defenseStatic === null || raw.defenseStatic === undefined ? null : toInt(raw.defenseStatic),
         notes: String(raw.notes || '')

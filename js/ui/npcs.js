@@ -9,6 +9,7 @@ import {
     getDescriptorDie,
     getNpcBudgets,
     normalizeNpc,
+    normalizeNpcBlastZone,
     normalizeNpcList,
     reviewNpcBuild,
     rollNpcAttack,
@@ -141,7 +142,8 @@ function findNpc(id) {
 }
 
 function formatRolls(result) {
-    return result.rolls.map(roll => `${roll.die}:${roll.val}`).join(' ');
+    // Blast-zone-pushed dice show as "d8→d10:7".
+    return result.rolls.map(roll => `${roll.baseDie ? `${roll.baseDie}→` : ''}${roll.die}:${roll.val}`).join(' ');
 }
 
 function renderBudgetNote() {
@@ -260,6 +262,8 @@ function handleNpcAction(npcId, action, payload) {
                 setNpcNote(npc, `Spent "${descriptor.text}": freebie ${getDescriptorDie(npc.rank)} on a check, or another edge.`);
             }
         }
+    } else if (action === 'blast-zone') {
+        npc.blastZone = normalizeNpcBlastZone(payload.zone);
     }
 
     persistNpc(npc);
@@ -299,6 +303,14 @@ function renderNpcCard(npc) {
             <div class="press-tracker-row">${pools}</div>
             <div class="press-tracker-row" style="font-size: 0.85rem;">
                 <span>Might ${escapeHtml(npc.might)} · Charm ${escapeHtml(npc.charm)} · Skill ${escapeHtml(npc.skill)}</span>
+                <label class="filter-toggle" title="Aberrant Blast Zone (p.59): rolls push this NPC's dice above d6 by 1 ▟ (GM-pending ruling)">
+                    Blast zone
+                    <select data-npc-id="${npc.id}" data-action="blast-zone">
+                        <option value="">None</option>
+                        <option value="risen"${npc.blastZone === 'risen' ? ' selected' : ''}>Risen (−1 ▟)</option>
+                        <option value="fallen"${npc.blastZone === 'fallen' ? ' selected' : ''}>Fallen (+1 ▟)</option>
+                    </select>
+                </label>
             </div>
             <div class="press-tracker-row">
                 <button type="button" class="btn btn-outline" data-npc-id="${npc.id}" data-action="set-static" title="Roll Skill + Rank and Charm + Rank once for the fight">Set Attack/Defense</button>
@@ -407,7 +419,8 @@ export function init(deps) {
 
     els.npcList?.addEventListener('click', (e) => {
         const control = e.target.closest('[data-action]');
-        if (!control || control.dataset.action === 'descriptor') return;
+        // Descriptor checkboxes and the blast-zone select act on 'change'.
+        if (!control || ['descriptor', 'blast-zone'].includes(control.dataset.action)) return;
         handleNpcAction(control.dataset.npcId, control.dataset.action, {
             pool: control.dataset.pool,
             step: toInt(control.dataset.step),
@@ -416,9 +429,13 @@ export function init(deps) {
     });
 
     els.npcList?.addEventListener('change', (e) => {
-        const control = e.target.closest('[data-action="descriptor"]');
+        const control = e.target.closest('[data-action]');
         if (!control) return;
-        handleNpcAction(control.dataset.npcId, 'descriptor', { index: toInt(control.dataset.index) });
+        if (control.dataset.action === 'descriptor') {
+            handleNpcAction(control.dataset.npcId, 'descriptor', { index: toInt(control.dataset.index) });
+        } else if (control.dataset.action === 'blast-zone') {
+            handleNpcAction(control.dataset.npcId, 'blast-zone', { zone: control.value });
+        }
     });
 
     renderNpcs();

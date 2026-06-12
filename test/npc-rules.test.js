@@ -6,6 +6,7 @@ import {
     getDescriptorDie,
     getNpcBudgets,
     normalizeNpc,
+    normalizeNpcBlastZone,
     normalizeNpcList,
     parseNpcDice,
     reviewNpcBuild,
@@ -61,6 +62,42 @@ describe('NPC dice and rolls', () => {
         assert.equal(getDescriptorDie(3), 'd8');
         assert.equal(getDescriptorDie(5), 'd12');
         assert.equal(getDescriptorDie(9), 'd16'); // clamped
+    });
+});
+
+// Applying p.59 blast zones to NPC dice is the user's interim call, pending
+// GM confirmation (docs/v5.02-rules-update-plan.md closing section).
+describe('NPC Aberrant Blast Zones (p.59)', () => {
+    it('boosts dice above d6 in a Fallen zone, keeping the owned die as baseDie', () => {
+        const seen = [];
+        const result = rollNpcStat('d4, d6, d8', (die) => { seen.push(die); return 2; }, 'fallen');
+        assert.deepEqual(seen, ['d4', 'd6', 'd10']);
+        assert.deepEqual(
+            result.rolls.map(roll => [roll.die, roll.baseDie]),
+            [['d4', undefined], ['d6', undefined], ['d10', 'd8']]
+        );
+    });
+
+    it('suppresses dice above d6 in a Risen zone, flooring at d6', () => {
+        const seen = [];
+        rollNpcStat('d8, d6', (die) => { seen.push(die); return 1; }, 'risen');
+        assert.deepEqual(seen, ['d6', 'd6']);
+    });
+
+    it('Attack and Defense read the NPC blastZone flag', () => {
+        const npc = { rank: 2, skill: 'd8', charm: 'd8', blastZone: 'fallen' };
+        const attack = rollNpcAttack(npc, () => 5);
+        assert.deepEqual(attack.rolls.map(roll => roll.die), ['d10']);
+        assert.equal(attack.total, 7); // 5 + rank 2
+        assert.deepEqual(rollNpcDefense(npc, () => 5).rolls.map(roll => roll.die), ['d10']);
+    });
+
+    it('normalizes the flag and drops junk values', () => {
+        assert.equal(normalizeNpcBlastZone(' Fallen '), 'fallen');
+        assert.equal(normalizeNpcBlastZone('risen'), 'risen');
+        assert.equal(normalizeNpcBlastZone('weird'), '');
+        assert.equal(normalizeNpc({ name: 'A', blastZone: 'fallen' }).blastZone, 'fallen');
+        assert.equal(normalizeNpc({ name: 'A' }).blastZone, '');
     });
 });
 
