@@ -696,12 +696,13 @@
                 
                 <div class="form-group">
                     <label>Tile Type</label>
-                    <select id="tile-type" class="spell-input" style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem; margin-bottom: 0.5rem;">
-                        <option value="Skill">Skill</option>
-                        <option value="Gear">Gear</option>
-                        <option value="Trait">Trait</option>
-                        <option value="Story">Story</option>
-                    </select>
+                    <input type="hidden" id="tile-type" value="Skill">
+                    <div class="tile-option-grid" data-target="tile-type" aria-label="Choose tile type" style="margin-bottom: 0.5rem;">
+                        <button type="button" class="tile-box-option" data-value="Skill">Skill</button>
+                        <button type="button" class="tile-box-option" data-value="Gear">Gear</button>
+                        <button type="button" class="tile-box-option" data-value="Trait">Trait</button>
+                        <button type="button" class="tile-box-option" data-value="Story">Story</button>
+                    </div>
                     <div id="spellcast-skill-container" style="display: block; margin-top: 0.5rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal; font-size: 0.9rem; cursor: pointer;">
                             <input type="checkbox" id="tile-is-spellcast"> This is a Spellcast Skill
@@ -871,21 +872,22 @@
                         </div>
                     </div>
                     <div id="armor-base-container" style="display: none; margin-top: 0.5rem;">
-                        <label style="font-weight: normal; font-size: 0.9rem;">Armor Base (optional)</label>
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.3rem;">
-                            <select id="armor-material" style="flex: 1; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 0.95rem;">
-                                <option value="">-- Not Armor --</option>
-                                <option value="Soft">Soft (flexible)</option>
-                                <option value="Hard">Hard (rigid; Shield/Detail tags -1 XP)</option>
-                            </select>
-                            <select id="armor-coverage" style="flex: 1; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 0.95rem;">
-                                <option value="">-- Coverage --</option>
-                                <option value="Open">Open (Base Soak +0)</option>
-                                <option value="Full">Full (Base Soak +1)</option>
-                                <option value="Closed">Closed (Base Soak +3)</option>
-                            </select>
+                        <label style="font-weight: normal; font-size: 0.9rem;">Armor Base (optional) — Material</label>
+                        <input type="hidden" id="armor-material">
+                        <div class="tile-option-grid" data-target="armor-material" aria-label="Armor material">
+                            <button type="button" class="tile-box-option" data-value="">Not Armor</button>
+                            <button type="button" class="tile-box-option" data-value="Soft" title="Flexible armor">Soft</button>
+                            <button type="button" class="tile-box-option" data-value="Hard" title="Rigid; Shield/Detail tags -1 XP">Hard</button>
                         </div>
-                        <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">The armor base is the foundation of the armor, not a tag — it does not count against the tag limit.</small>
+                        <label style="font-weight: normal; font-size: 0.9rem; display: block; margin-top: 0.5rem;">Coverage</label>
+                        <input type="hidden" id="armor-coverage">
+                        <div class="tile-option-grid" data-target="armor-coverage" aria-label="Armor coverage">
+                            <button type="button" class="tile-box-option" data-value="">None</button>
+                            <button type="button" class="tile-box-option" data-value="Open" title="Base Soak +0">Open +0</button>
+                            <button type="button" class="tile-box-option" data-value="Full" title="Base Soak +1">Full +1</button>
+                            <button type="button" class="tile-box-option" data-value="Closed" title="Base Soak +3">Closed +3</button>
+                        </div>
+                        <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">The armor base is the foundation of the armor, not a tag — it does not count against the tag limit. Hard armor prices Shield/Detail tags -1 XP.</small>
                     </div>
                 </div>
 
@@ -993,6 +995,7 @@
                 <div class="form-group">
                     <label>Tags</label>
                     <div class="tag-add-controls" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="search" id="tag-search" placeholder="Type to filter tags (e.g. shield, crit, bonus)..." autocomplete="off" aria-label="Filter the tag list" style="width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
                         <div class="tag-add-row" style="display: flex; gap: 0.5rem; width: 100%;">
                             <select id="tag-select" style="flex: 1; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; font-size: 1rem;">
                             <option value="">-- Select Tag --</option>

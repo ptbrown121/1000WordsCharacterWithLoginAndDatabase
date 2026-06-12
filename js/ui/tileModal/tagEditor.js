@@ -33,9 +33,54 @@ export function addMissingTemplateTags(tags) {
     if (changed) renderFormTags();
 }
 
+// Full tag catalog, cloned from the select at init so typing in the search
+// box can rebuild the option list from scratch on every keystroke.
+let masterTagOptions = [];
+
+function applyTagSearchFilter() {
+    const term = (els.tagSearch?.value || '').trim().toLowerCase();
+    const previous = els.tagSelect.value;
+
+    els.tagSelect.innerHTML = '';
+    masterTagOptions.forEach(node => {
+        const clone = node.cloneNode(true);
+        if (clone instanceof HTMLOptGroupElement) {
+            const groupMatches = clone.label.toLowerCase().includes(term);
+            Array.from(clone.children).forEach(option => {
+                const text = `${option.textContent} ${option.value}`.toLowerCase();
+                if (term && !groupMatches && !text.includes(term)) option.remove();
+            });
+            if (clone.children.length > 0) els.tagSelect.appendChild(clone);
+        } else {
+            // The "-- Select Tag --" placeholder always stays.
+            els.tagSelect.appendChild(clone);
+        }
+    });
+
+    // Keep the prior pick if it survived the filter; otherwise clear it and
+    // let the change handler retract any value inputs it had opened.
+    if (previous) {
+        els.tagSelect.value = previous;
+        if (els.tagSelect.value !== previous) {
+            els.tagSelect.value = '';
+            els.tagSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+}
+
+// Modal open clears the filter; form.reset() empties the input but would
+// leave the option list filtered.
+export function resetTagSearch() {
+    if (els.tagSearch) els.tagSearch.value = '';
+    if (masterTagOptions.length) applyTagSearchFilter();
+}
+
 export function initTagEditor(deps) {
     poolEngine = deps.poolEngine;
     syncDiceChips = deps.syncDiceChips;
+
+    masterTagOptions = Array.from(els.tagSelect.children).map(node => node.cloneNode(true));
+    els.tagSearch?.addEventListener('input', applyTagSearchFilter);
 
     els.tagSelect.addEventListener('change', (e) => {
         const val = e.target.value;

@@ -189,6 +189,15 @@
     margin-top: 0.5rem;
 }
 
+/* Button groups backed by a hidden input (Tile Type, Armor Base). auto-fit
+   wraps the buttons on narrow screens instead of overflowing. */
+.tile-option-grid {
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    margin-top: 0.3rem;
+}
+
 .tile-box-option {
     background: rgba(255,255,255,0.06);
     border: 1px solid var(--glass-border);

@@ -41,6 +41,7 @@ import {
     renderFormTags,
     renderTileTagLimitStatus,
     renderXpEstimateNote,
+    resetTagSearch,
     setFormTags
 } from './tagEditor.js';
 import {
@@ -71,6 +72,28 @@ function resetTileModalScroll() {
     });
 }
 
+// Button groups backed by hidden inputs (Tile Type, Armor Base): each
+// .tile-option-grid names its hidden input in data-target. Same pattern as
+// the tile-box color picker.
+function syncTileOptionButtons() {
+    document.querySelectorAll('.tile-option-grid').forEach(grid => {
+        const value = document.getElementById(grid.dataset.target || '')?.value || '';
+        grid.querySelectorAll('.tile-box-option').forEach(button => {
+            const isSelected = (button.dataset.value || '') === value;
+            button.classList.toggle('active', isSelected);
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+    });
+}
+
+function setTileOptionValue(targetId, value) {
+    const input = document.getElementById(targetId);
+    if (!input) return;
+    input.value = value;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    syncTileOptionButtons();
+}
+
 function syncTileTypeSections() {
     const type = document.getElementById('tile-type').value;
     const gearSubtype = document.getElementById('gear-subtype').value || 'Custom';
@@ -94,6 +117,7 @@ function syncTileTypeSections() {
         populateAmmoTargets(dataManager?.state?.tiles || [], document.getElementById('ammo-target').value, document.getElementById('tile-id').value);
         syncAmmoNameFromTarget();
     }
+    syncTileOptionButtons();
     renderTileTagLimitStatus();
 }
 
@@ -199,9 +223,16 @@ export function init(deps) {
             renderRulesReview();
         });
     });
-    document.querySelectorAll('.tile-box-option').forEach(button => {
+    document.querySelectorAll('.tile-box-button-grid .tile-box-option').forEach(button => {
         bindStableTouchButton(button, () => {
             setTileBoxValue(button.dataset.boxIndex, button.dataset.value || '');
+        });
+    });
+    document.querySelectorAll('.tile-option-grid').forEach(grid => {
+        grid.querySelectorAll('.tile-box-option').forEach(button => {
+            bindStableTouchButton(button, () => {
+                setTileOptionValue(grid.dataset.target || '', button.dataset.value || '');
+            });
         });
     });
     document.querySelectorAll('.tile-box-resource').forEach(select => {
@@ -215,6 +246,7 @@ export function openModal(tile = null) {
     setFormBoxes([]);
     setFormTags([]);
     els.tagCustomInput.style.display = 'none';
+    resetTagSearch();
     const hitchValue = document.getElementById('tag-hitch-value');
     if (hitchValue) {
         hitchValue.style.display = 'none';
