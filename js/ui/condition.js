@@ -108,9 +108,19 @@ function renderStatusBadges() {
     els.statusConditionsDisplay.title = conditions.map(c => `${c.label}: ${c.description}`).join('\n');
 }
 
+function clearFastCrits() {
+    if (!dataManager.canEditActiveCharacter()) return;
+    const crits = normalizeActiveCrits(dataManager.state.activeCrits);
+    CRIT_DASHBOARD.filter(crit => crit.kind === 'fast').forEach(crit => delete crits[crit.id]);
+    dataManager.state.activeCrits = crits;
+    dataManager.saveState();
+    renderCondition();
+}
+
 function renderCritsDashboard() {
     if (!els.critsDashboard) return;
     const crits = normalizeActiveCrits(dataManager.state.activeCrits);
+    const hasFastCrits = CRIT_DASHBOARD.some(crit => crit.kind === 'fast' && (crits[crit.id] || 0) > 0);
 
     const groups = [
         { kind: 'fast', label: 'Fast Crits (fade at end of turn)' },
@@ -129,7 +139,10 @@ function renderCritsDashboard() {
                 </span>
             `;
         }).join('');
-        return `<div class="crit-group"><small>${group.label}</small><div class="crit-group-row">${rows}</div></div>`;
+        const endTurn = group.kind === 'fast'
+            ? `<button type="button" class="btn btn-outline" id="btn-clear-fast-crits" title="Fast crits fade at the end of the turn"${hasFastCrits ? '' : ' disabled'}>End turn</button>`
+            : '';
+        return `<div class="crit-group"><small>${group.label}</small><div class="crit-group-row">${rows}${endTurn}</div></div>`;
     }).join('');
 }
 
@@ -187,6 +200,10 @@ export function init(deps) {
         const pressButton = e.target.closest('.btn-press');
         if (pressButton) {
             executePress(pressButton.dataset.pressKind);
+            return;
+        }
+        if (e.target.closest('#btn-clear-fast-crits')) {
+            clearFastCrits();
             return;
         }
         if (e.target.closest('#btn-press-haywire')) {

@@ -13,6 +13,7 @@ import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showResults } from './resolution.js';
 import { renderCards } from './cards.js';
+import { renderCondition } from './condition.js';
 import { renderArmorSoak } from './armorSoak.js';
 import { updateShadowMax } from './vitals.js';
 import { renderRulesReview } from './rulesReview.js';
@@ -153,6 +154,16 @@ function finalizeRoll(result, compiledPool, mode, callColors) {
 
     if (!testRoll) {
         dataManager.recordRollLog(buildRollLog(result, compiledPool, mode, callColors));
+    }
+
+    // A Haywire raises later Press costs just like a Press does (p.37), so
+    // bump the per-fight counter automatically. Test rolls don't count, and
+    // the Condition panel's Reset clears it at the end of the fight.
+    if (result.isHaywire && !testRoll) {
+        dataManager.state.pressCount = (parseInt(dataManager.state.pressCount, 10) || 0) + 1;
+        result.pressCounterBumped = dataManager.state.pressCount;
+        dataManager.saveState();
+        renderCondition();
     }
 
     applyAberrationForShadowUse(compiledPool.shadowUse);

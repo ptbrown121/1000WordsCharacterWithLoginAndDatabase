@@ -57,7 +57,7 @@ export function renderCore() {
     els.coreAbilities.innerHTML = abilities.length
         ? abilities.map(ability => `
             <div class="core-ability-row">
-                <button type="button" class="btn btn-outline btn-core-spend" data-ability="${ability.id}"${current <= 0 ? ' disabled' : ''}>Spend 1</button>
+                <button type="button" class="btn btn-outline btn-core-spend" data-ability="${ability.id}"${current <= 0 && !state.gmOverride ? ' disabled' : ''}>Spend 1</button>
                 <span><strong>${escapeHtml(ability.label)}</strong>: ${escapeHtml(ability.effect)} <small>(${escapeHtml(ability.sources.join(', '))})</small></span>
             </div>
         `).join('')

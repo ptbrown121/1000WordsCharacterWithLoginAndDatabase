@@ -1,4 +1,4 @@
-import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, tileHasMechanicalTag } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, isHitchedTile, tileHasMechanicalTag } from '../pool.js';
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
@@ -88,6 +88,27 @@ export function init(deps = {}) {
         if (!e.target.classList.contains('btn-resolve-ammo')) return;
         resolveAmmo(e.target.dataset.ammoTileId);
     });
+
+    els.resultNotices?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-bleed-burn')) burnCalledTilesForBleed();
+    });
+}
+
+// BLEED one-click: burn the called tiles from the last roll (skipping tiles
+// already burnt and Hitched tiles, which cannot be burned).
+function burnCalledTilesForBleed() {
+    const result = uiState.lastRollResult;
+    if (!result || !dataManager.canEditActiveCharacter()) return;
+    const calledIds = new Set(result.calledTileIds || []);
+    const tiles = (dataManager.state.tiles || [])
+        .filter(tile => calledIds.has(tile.id) && !tile.isBurnt && !isHitchedTile(tile));
+    if (tiles.length === 0) return;
+    tiles.forEach(tile => {
+        tile.isBurnt = true;
+        dataManager.updateTile(tile);
+    });
+    if (renderAll) renderAll();
+    renderResolutionDetails();
 }
 
 export function getResolutionExtraValue(id) {
@@ -720,15 +741,28 @@ export function renderResolutionDetails() {
         notices.push('<div class="result-notice">TEST ROLL: this roll was not saved to campaign history.</div>');
     }
     if (result.isHaywire) {
-        notices.push(result.haywireThreshold === 2
-            ? '<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1 or 2 (Glitch).</div>'
-            : '<div class="result-notice result-notice-haywire">HAYWIRE! More than half the dice rolled 1.</div>');
+        const haywireText = result.haywireThreshold === 2
+            ? 'HAYWIRE! More than half the dice rolled 1 or 2 (Glitch).'
+            : 'HAYWIRE! More than half the dice rolled 1.';
+        const pressText = result.pressCounterBumped
+            ? ` Press counter raised to ${result.pressCounterBumped}.`
+            : '';
+        notices.push(`<div class="result-notice result-notice-haywire">${haywireText}${pressText}</div>`);
     }
     if (result.woundPenalty > 0) {
         notices.push(`<div class="result-notice">WOUND: -${result.woundPenalty} applied to this check's totals (all checks at -3 per active WOUND).</div>`);
     }
     const calledIds = new Set(result.calledTileIds || []);
     const calledTiles = (dataManager?.state?.tiles || []).filter(tile => calledIds.has(tile.id));
+    // BLEED (p.43): called tiles are burned. Hitched tiles cannot be burned.
+    const bleedCount = normalizeActiveCrits(dataManager?.state?.activeCrits).bleed || 0;
+    if (bleedCount > 0 && calledTiles.length > 0) {
+        const bleedable = calledTiles.filter(tile => !tile.isBurnt && !isHitchedTile(tile));
+        if (bleedable.length > 0) {
+            const names = bleedable.map(tile => escapeHtml(tile.name || 'Unnamed tile')).join(', ');
+            notices.push(`<div class="result-notice">BLEED ×${bleedCount}: called tiles are burned — ${names}. <button type="button" class="btn btn-outline btn-bleed-burn">Burn them</button></div>`);
+        }
+    }
     const calledHinder = calledTiles.find(isHinderTile);
     if (calledHinder) {
         notices.push(`<div class="result-notice">Hinder (${escapeHtml(calledHinder.name)}): nonlethal verbal attack — impact drains Energy or Reflex per its assault type, not Health. Defenders resist with Guile/Menace/Presence/Reason/Wiles, but not the attacking skill.</div>`);

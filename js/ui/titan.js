@@ -117,7 +117,7 @@ export function renderTitan() {
             const hvMark = ability.hv === null ? ' [H/V]' : ability.hv > 0 ? ` [H+${ability.hv}]` : ability.hv < 0 ? ` [V+${-ability.hv}]` : '';
             return `
                 <div class="core-ability-row">
-                    <button type="button" class="btn btn-outline btn-titan-spend" data-ability="${ability.id}"${current <= 0 ? ' disabled' : ''}>Spend 1</button>
+                    <button type="button" class="btn btn-outline btn-titan-spend" data-ability="${ability.id}"${current <= 0 && !state.gmOverride ? ' disabled' : ''}>Spend 1</button>
                     <span><strong>${escapeHtml(ability.label)}</strong>${escapeHtml(hvMark)}: ${escapeHtml(ability.effect)} <small>(${escapeHtml(ability.sources.join(', '))})</small></span>
                 </div>
             `;
