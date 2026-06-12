@@ -15,6 +15,21 @@
         overflow-y: auto;
         padding-right: 5px; /* Prevent scrollbar overlap with layout border */
     }
+    /* Collapsed trackers sit side by side as cards; hidden subsystem
+       panels drop out of the grid, so auto-fit fills with whatever the
+       character actually has. */
+    #trackers-section {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    #trackers-section .shadow-panel {
+        margin-top: 0;
+    }
+    /* An expanded panel takes the full row so its body has room. */
+    #trackers-section .shadow-panel:has(.shadow-panel-body:not([hidden])) {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 700px) {
