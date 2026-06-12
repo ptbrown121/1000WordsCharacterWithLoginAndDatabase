@@ -1,0 +1,55 @@
+/* App tabs (UI tabs plan PR 1). The four tabpanels hold whole sections
+   moved verbatim; switching tabs toggles [hidden] only. */
+.app-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.app-tab {
+    font-family: var(--font-main);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex: 1 1 8rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    transition: all 0.2s ease;
+}
+
+.app-tab:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-primary);
+}
+
+.app-tab:focus-visible {
+    color: var(--text-primary);
+    outline: 2px solid #8e2de2;
+    outline-offset: 2px;
+}
+
+.app-tab[aria-selected="true"] {
+    background: linear-gradient(135deg, #4a00e0, #8e2de2);
+    border-color: transparent;
+    color: white;
+}
+
+.tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* The moved sections carried spacing that assumed the old single-scroll
+   layout; the tab panel's flex gap provides it now. */
+.tab-panel .main-columns {
+    margin-top: 0;
+}
+
+#trackers-section .shadow-panel:first-child,
+#gm-section .shadow-panel:first-child {
+    margin-top: 0;
+}
