@@ -1110,6 +1110,17 @@
                                     <option value="BLEED" data-xp="4">BLEED (called tiles are burned) [+4]</option>
                                     <option value="WOUND" data-xp="4">WOUND (all checks at -3) [+4]</option>
                                 </optgroup>
+                                <optgroup label="Uncommon Crits (Stick until removed)">
+                                    <option value="BREAK" data-xp="2">BREAK (reduces gear by ▟) [+2]</option>
+                                    <option value="FEAR" data-xp="3">FEAR (target pools lose a die) [+3]</option>
+                                    <option value="GOAD" data-xp="3">GOAD (target must burn for actions) [+3]</option>
+                                    <option value="HOLD" data-xp="3">HOLD (target cannot Walk or Run) [+3]</option>
+                                    <option value="REVEAL" data-xp="3">REVEAL (find or expose) [+3]</option>
+                                    <option value="VOW" data-xp="3">VOW (target cannot oppose dealer) [+3]</option>
+                                    <option value="KO" data-xp="4">KO (target is unconscious) [+4]</option>
+                                    <option value="POISON" data-xp="4">POISON (burn 3 res or 1 tile / turn) [+4]</option>
+                                    <option value="AFIRE" data-xp="4">AFIRE (1 HP / Setting action, spreads) [+4]</option>
+                                </optgroup>
                                 <optgroup label="Standard Tags (+2 XP)">
                                     <option value="Expert" data-xp="2">Expert</option>
                                     <option value="Keen" data-xp="2">Keen</option>
@@ -1170,7 +1181,10 @@
                                 <option value="-1">Close (-1🗱)</option>
                                 <option value="0" selected>Reach (0🗱)</option>
                                 <option value="2">Short (2🗱)</option>
-                                <option value="4">Long (4🗱)</option>
+                                <option value="3">Medium (3🗱)</option>
+                                <option value="4">Visual (4🗱)</option>
+                                <option value="5">Long (5🗱)</option>
+                                <option value="7">Extreme (7🗱)</option>
                                 <option value="custom">Custom...</option>
                             </select>
                             <div id="spell-range-custom" style="display: none; gap: 0.5rem; margin-top: 0.5rem;">
@@ -1185,6 +1199,7 @@
                                 <option value="0">Blam (0🗱)</option>
                                 <option value="1">Bang (1🗱)</option>
                                 <option value="2">Boom (2🗱)</option>
+                                <option value="3">Earshot (3🗱)</option>
                                 <option value="4">Blast (4🗱)</option>
                                 <option value="custom">Custom...</option>
                             </select>
@@ -1200,6 +1215,8 @@
                                 <option value="2">Cup (2🗱)</option>
                                 <option value="3">Chest (3🗱)</option>
                                 <option value="4">Cart (4🗱)</option>
+                                <option value="5">Room (5🗱)</option>
+                                <option value="8">House (8🗱)</option>
                                 <option value="custom">Custom...</option>
                             </select>
                             <div id="spell-volume-custom" style="display: none; gap: 0.5rem; margin-top: 0.5rem;">
@@ -1211,15 +1228,35 @@
                             <label>Displacement (Move)</label>
                             <select id="spell-displacement" class="spell-input" onchange="document.getElementById('spell-displacement-custom').style.display = this.value === 'custom' ? 'flex' : 'none'" style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem;">
                                 <option value="0" selected>None (0🗱)</option>
-                                <option value="1">Close (1🗱)</option>
-                                <option value="2">Reach (2🗱)</option>
-                                <option value="3">Short (3🗱)</option>
-                                <option value="4">Long (4🗱)</option>
+                                <option value="-1">Pace (-1🗱)</option>
+                                <option value="0">Walk (0🗱)</option>
+                                <option value="1">Throw (1🗱)</option>
+                                <option value="2">Run (2🗱)</option>
+                                <option value="3">Dash (3🗱)</option>
                                 <option value="custom">Custom...</option>
                             </select>
                             <div id="spell-displacement-custom" style="display: none; gap: 0.5rem; margin-top: 0.5rem;">
                                 <input type="text" id="spell-displacement-custom-name" placeholder="Metric" class="spell-input" style="flex: 2; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 4px;">
                                 <input type="number" id="spell-displacement-custom-xp" placeholder="XP" value="0" class="spell-input" style="flex: 1; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 4px;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 140px;">
+                            <label>Crowd (nearest targets)</label>
+                            <select id="spell-crowd" class="spell-input" onchange="document.getElementById('spell-crowd-custom').style.display = this.value === 'custom' ? 'flex' : 'none'" style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem;">
+                                <option value="0" selected>None (0🗱)</option>
+                                <option value="1">Crowd 1 (1🗱)</option>
+                                <option value="2">Crowd 2 (2🗱)</option>
+                                <option value="3">Crowd 5 (3🗱)</option>
+                                <option value="4">Crowd 10 (4🗱)</option>
+                                <option value="5">Crowd 50 (5🗱)</option>
+                                <option value="6">Crowd 100 (6🗱)</option>
+                                <option value="7">Crowd 500 (7🗱)</option>
+                                <option value="8">Crowd 1000 (8🗱)</option>
+                                <option value="custom">Custom...</option>
+                            </select>
+                            <div id="spell-crowd-custom" style="display: none; gap: 0.5rem; margin-top: 0.5rem;">
+                                <input type="text" id="spell-crowd-custom-name" placeholder="Metric" class="spell-input" style="flex: 2; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 4px;">
+                                <input type="number" id="spell-crowd-custom-xp" placeholder="XP" value="0" class="spell-input" style="flex: 1; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 4px;">
                             </div>
                         </div>
                         <div class="form-group" style="flex: 1; min-width: 140px;">
@@ -1481,6 +1518,7 @@
                     <li><strong>Stranger skills</strong>: Bestial — Flight, Instinct, Shape; Celestial — Dreaming, Kinesis, Network (each 2 XP before the d4, with the exotic tag included). Space-setting skills at normal cost, no exotic tag: Adapt, Dogfight, Gunner, Hardsuit, Navigate, Psinger, Vibro, Xenology, Zappers.</li>
                     <li><strong>Hinders</strong> (Gear subtype): nonlethal verbal attacks with a -3 XP rebate. Pick an assault type for guidance — Guile (HOLD, drains Reflex), Menace (FEAR, Reflex), Presence (GOAD, Energy), Reason (REVEAL, finds hidden), Wiles (VOW, Energy) — and add the Range and Crit as tags. Defenders use the same five skills but never the attacker's.</li>
                     <li><strong>Gizmos & Slivers</strong>: a Gizmo (4 XP chained to a skill, 2 XP unchained) converts a spell into a tool with ▟ HP that may BREAK on Haywire; Knacks and Implants graft spells into the body as slivers. Caps: MIND+FOCUS ▟ gizmos, BODY+POWER ▟ slivers — the review strip flags overruns. Gizmos and Implants cannot use Qi/Id; Knacks can.</li>
+                    <li><strong>Spell Builder</strong> follows the v5.02 🗱 tables: total XP = 🗱 tally (floored at 0) + dice cost. Ranges run Touch (-2) through Extreme (7); Zones Blam–Blast plus Earshot; Domes Cup–House; Move distances Pace (-1) through Dash (3); and a Crowd metric (1–1000 nearest targets) for spells like Whisper. A spell's granted Chain tag and its "Spell" marker never count against the tag limit.</li>
                     <li><strong>Template Tag Mode</strong> controls whether a weapon template adds only missing tags or replaces the current tag list.</li>
                     <li><strong>Far weapons</strong> include the extra weapon XP surcharge in the auto-estimate.</li>
                     <li><strong>Ammo</strong> has no dice, does not contribute to resource pools, and cannot be selected for the dice pool.</li>

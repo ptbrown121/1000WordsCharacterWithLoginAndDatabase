@@ -226,7 +226,7 @@ export class SpellBuilder {
         this.resetSpellColorControls();
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
-        ['spell-range', 'spell-area', 'spell-volume', 'spell-displacement', 'spell-duration'].forEach(id => {
+        ['spell-range', 'spell-area', 'spell-volume', 'spell-displacement', 'spell-crowd', 'spell-duration'].forEach(id => {
             const div = document.getElementById(`${id}-custom`);
             if (div) div.style.display = 'none';
         });
@@ -295,6 +295,23 @@ export class SpellBuilder {
                 if (tile.spellState[key] !== undefined) {
                     input.value = tile.spellState[key];
                 }
+            });
+
+            // Legacy metric values whose option no longer exists (e.g. the
+            // pre-v5.02 Displacement "Long" at 4🗱) are preserved as Custom
+            // entries so the spell's XP does not silently shift.
+            ['spell-range', 'spell-area', 'spell-volume', 'spell-displacement', 'spell-crowd', 'spell-duration'].forEach(id => {
+                const saved = tile.spellState[id];
+                if (saved === undefined || saved === 'custom') return;
+                const select = document.getElementById(id);
+                if (!select || String(select.value) === String(saved)) return;
+                const customDiv = document.getElementById(`${id}-custom`);
+                const customXp = document.getElementById(`${id}-custom-xp`);
+                const parsed = parseInt(saved, 10);
+                if (!customDiv || !customXp || !Number.isFinite(parsed)) return;
+                select.value = 'custom';
+                customDiv.style.display = 'flex';
+                customXp.value = parsed;
             });
 
             if (tile.spellState.tagsList) {
@@ -734,6 +751,7 @@ export class SpellBuilder {
         xp += getSelectXP('spell-area');
         xp += getSelectXP('spell-volume');
         xp += getSelectXP('spell-displacement');
+        xp += getSelectXP('spell-crowd');
         xp += getSelectXP('spell-duration');
 
         // Modifiers (number inputs)
@@ -783,6 +801,7 @@ export class SpellBuilder {
         const areaText = getSelectText('spell-area');
         const volumeText = getSelectText('spell-volume');
         const displacementText = getSelectText('spell-displacement');
+        const crowdText = getSelectText('spell-crowd');
         const durationText = getSelectText('spell-duration');
         
         let mods = [];
@@ -799,6 +818,7 @@ export class SpellBuilder {
         if (areaText && areaText !== 'None' && areaText !== 'Single / None') desc += ` Area: ${areaText}.`;
         if (volumeText && volumeText !== 'None' && volumeText !== 'Single / None') desc += ` Volume: ${volumeText}.`;
         if (displacementText && displacementText !== 'None' && displacementText !== 'Single / None') desc += ` Displacement: ${displacementText}.`;
+        if (crowdText && crowdText !== 'None' && crowdText !== 'Single / None') desc += ` Crowd: ${crowdText.replace('Crowd ', '')} nearest targets.`;
         if (durationText && durationText !== 'None' && durationText !== 'Single / None') desc += ` Duration: ${durationText}.`;
         if (this.currentFormTags.length > 0) {
             desc += ` Tags: ${this.currentFormTags.map(t => t.name).join(', ')}.`;
@@ -998,6 +1018,9 @@ export class SpellBuilder {
             'spell-displacement': document.getElementById('spell-displacement').value,
             'spell-displacement-custom-name': document.getElementById('spell-displacement-custom-name').value,
             'spell-displacement-custom-xp': document.getElementById('spell-displacement-custom-xp').value,
+            'spell-crowd': document.getElementById('spell-crowd').value,
+            'spell-crowd-custom-name': document.getElementById('spell-crowd-custom-name').value,
+            'spell-crowd-custom-xp': document.getElementById('spell-crowd-custom-xp').value,
             'spell-duration': document.getElementById('spell-duration').value,
             'spell-duration-custom-name': document.getElementById('spell-duration-custom-name').value,
             'spell-duration-custom-xp': document.getElementById('spell-duration-custom-xp').value,

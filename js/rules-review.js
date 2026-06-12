@@ -88,7 +88,10 @@ export function buildRulesReviewItems(state, poolEngine) {
             }
         }
 
-        const tagLimit = poolEngine.calculateTagLimit(dice, tileTagList(tile), { specialIdentity: tile.specialIdentity });
+        const tagLimit = poolEngine.calculateTagLimit(dice, tileTagList(tile), {
+            specialIdentity: tile.specialIdentity,
+            isSpell: Boolean(tile.isSpell)
+        });
         if (!tagLimit.valid) {
             items.push({
                 severity: 'high',

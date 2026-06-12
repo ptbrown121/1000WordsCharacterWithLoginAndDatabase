@@ -1143,6 +1143,10 @@ export class PoolEngine {
             return { name, counts: false, reason: 'World tags do not count' };
         }
 
+        if (baseTag === 'spell') {
+            return { name, counts: false, reason: 'Spell marker does not count' };
+        }
+
         if (/^(range|duration)\s*:/i.test(normalized) || RANGE_DURATION_XP.has(baseTag) || getCrowdXp(baseTag) !== null) {
             return { name, counts: false, reason: 'Range/Duration tags do not count' };
         }
@@ -1162,7 +1166,7 @@ export class PoolEngine {
         return { name, counts: true, reason: 'Counts against tag limit' };
     }
 
-    calculateTagLimit(diceArray, tagsArray = [], { specialIdentity = null } = {}) {
+    calculateTagLimit(diceArray, tagsArray = [], { specialIdentity = null, isSpell = false } = {}) {
         const limit = this.calculateSteps(diceArray);
         // Titan Identity tiles "can gain any number of Build, Shield, or
         // Detail tags" (p.69) - only Crit tags still count for them.
@@ -1176,6 +1180,12 @@ export class PoolEngine {
             const detail = this.classifyTagForLimit(tag);
             if (isTitanIdentity && detail.counts && !isCritSide(tag)) {
                 return { ...detail, counts: false, reason: 'Titan Identity: Build/Shield/Detail tags do not count' };
+            }
+            // "Each spell tile gains the Chain tag" (p.49) - granted, not
+            // bought, so it does not count against the spell's tag limit
+            // (sample spells like captivate are d4 with Chain + a Crit).
+            if (isSpell && detail.counts && getMechanicalBaseTag(normalizeTagForXp(getTagName(tag))) === 'chain') {
+                return { ...detail, counts: false, reason: 'A spell’s Chain tag is granted and does not count' };
             }
             return detail;
         });
@@ -1268,6 +1278,8 @@ export class PoolEngine {
         // World Build tag (p.63): "A tile with the 3 XP World Build tag chains
         // your Homeworld tile."
         if (baseTag === 'world') return { xp: 3, recognized: true, category: 'world' };
+        // The SpellBuilder's "Spell" marker tag: not a bought tag, 0 XP.
+        if (baseTag === 'spell') return { xp: 0, recognized: true, category: 'marker' };
         if (baseTag === 'hitch') {
             const match = t.match(/hitch\s*(\d+)/i);
             const value = match ? Math.min(6, Math.max(1, parseInt(match[1], 10) || 1)) : 3;

@@ -1522,3 +1522,25 @@ describe('Gizmos and Slivers (v5.02 p.68)', () => {
         assert.equal(countSliverTiles(tiles), 2);
     });
 });
+
+describe('spell tag-limit handling (v5.02 pp.49, 55-57)', () => {
+    it('never counts the Spell marker tag', () => {
+        assert.equal(engine.classifyTagForLimit('Spell').counts, false);
+    });
+
+    it('exempts the granted Chain tag on spell tiles only', () => {
+        // captivate (p.50): d4 spell with Chain Augur + Crit HOLD must be legal.
+        const spellLimit = engine.calculateTagLimit(['d4'], ['Spell', 'Chain Augur', 'HOLD'], { isSpell: true });
+        assert.equal(spellLimit.count, 1); // only HOLD
+        assert.equal(spellLimit.valid, true);
+
+        // On a non-spell tile the Chain tag still counts.
+        const gearLimit = engine.calculateTagLimit(['d4'], ['Chain Augur', 'HOLD']);
+        assert.equal(gearLimit.count, 2);
+        assert.equal(gearLimit.valid, false);
+    });
+
+    it('prices the Spell marker at 0 XP', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Spell']), 1); // just the d4
+    });
+});
