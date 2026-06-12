@@ -9,13 +9,15 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test \"test/**/*.test.js\"",
-    "lint": "eslint \"js/**/*.js\" \"api/**/*.js\" \"test/**/*.js\""
+    "lint": "eslint \"js/**/*.js\" \"api/**/*.js\" \"test/**/*.js\"",
+    "typecheck": "tsc --noEmit -p jsconfig.json"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
     "globals": "^15.15.0",
+    "typescript": "^6.0.3",
     "vite": "^8.0.14"
   },
   "dependencies": {

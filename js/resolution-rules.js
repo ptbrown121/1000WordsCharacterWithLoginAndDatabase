@@ -1,3 +1,4 @@
+// @ts-check
 // Pure rules engine for the post-roll resolution screen.
 //
 // These helpers were previously private functions inside app.js. They have

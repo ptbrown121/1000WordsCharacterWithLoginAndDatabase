@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "target": "es2022",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [],
+    "skipLibCheck": true
+  },
+  "include": ["js/**/*.js"]
+}

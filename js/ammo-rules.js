@@ -1,3 +1,4 @@
+// @ts-check
 // Ammo Builder math and reagent templates (v5.02 pp.72-75).
 //
 // The rulebook flags Crafting as unfinished ("the more developed rules for

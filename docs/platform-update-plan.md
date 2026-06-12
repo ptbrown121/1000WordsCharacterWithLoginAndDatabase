@@ -170,6 +170,13 @@ anon key to a publishable key (`sb_publishable_...`) — same swap in
 
 ## PR 4 — Type-checking via JSDoc + `checkJs`
 
+**Status: done 2026-06-12.** jsconfig (strict minus noImplicitAny),
+`js/types.js` typedefs, `// @ts-check` on the seven pure rules modules
+(pool, status-rules, resolution-rules, npc-rules, ammo-rules,
+rules-review, data) — all findings fixed, `npm run typecheck` added to
+package.json and CI. Findings were nullability/inference nits, no logic
+bugs.
+
 **Why:** the rules engine passes complex shapes (tiles, roll results,
 resolution assignments) through many hands; a checker catches the
 `calledTileIds`-style omissions (the PR 2 v5.02 bug) before tests do. No

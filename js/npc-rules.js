@@ -1,3 +1,4 @@
+// @ts-check
 // NPC rules (v5.02 p.71). NPCs are GM-side: a Rank, three stats
 // (Might/Charm/Skill), and three resource pools (HP/EN/RX).
 //
@@ -107,7 +108,7 @@ export function normalizeNpc(raw = {}) {
         : [];
 
     return {
-        id: String(raw.id || (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `npc-${Date.now()}-${Math.random()}`)),
+        id: String(raw.id || (typeof globalThis.crypto?.randomUUID === 'function' ? crypto.randomUUID() : `npc-${Date.now()}-${Math.random()}`)),
         name: String(raw.name || 'NPC').trim() || 'NPC',
         rank,
         might: parseNpcDice(raw.might).join(', ') || 'd4',

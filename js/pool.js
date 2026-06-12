@@ -1,3 +1,4 @@
+// @ts-check
 import { STAT_COLORS, VALID_DICE } from './data.js';
 
 export const ADVANCEABLE_STATS = ['BODY', 'POWER', 'SOUL', 'FOCUS', 'MIND', 'SPEED'];
@@ -373,14 +374,14 @@ const CRIT_SHIELD_XP = new Map(Object.entries({
 
 // Flaw rebates from the Flaw glossary (p.79); Witch -6 is on the spell
 // Sacrifice table (p.48).
-const FLAW_XP = new Map([
+const FLAW_XP = new Map(/** @type {Array<[string, number]>} */ ([
     ...Array.from(F_FLAW_TAGS, tag => [tag, -2]),
     ...Array.from(X_FLAW_TAGS, tag => [tag, -4]),
     ['drain', -4],
     ['sap', -2],
     ['tire', -3],
     ['witch', -6]
-]);
+]));
 
 // Range / Move / Zone / Dome / Time costs from the Space and Time table
 // (pp.51/79). Rite and Sustain are spell Duration discounts (p.48).
@@ -526,18 +527,19 @@ export function getTileBoxes(tile) {
     if (!tile) return [];
 
     if (Array.isArray(tile.boxes) && tile.boxes.length > 0) {
-        return tile.boxes.map(normalizeTileBox).filter(Boolean).slice(0, getTileBoxLimit(tile));
+        // flatMap instead of filter(Boolean) so the checker knows nulls are gone.
+        return tile.boxes.map(normalizeTileBox).flatMap(box => box ? [box] : []).slice(0, getTileBoxLimit(tile));
     }
 
-    return (tile.colors || []).map(color => {
+    return (tile.colors || []).flatMap(color => {
         const shadowKind = normalizeShadowKind(color);
-        if (shadowKind) return { type: 'shadow', kind: shadowKind, resource: '' };
-        return NORMAL_COLORS.includes(color) ? { type: 'color', color } : null;
-    }).filter(Boolean).slice(0, getTileBoxLimit(tile));
+        if (shadowKind) return [{ type: 'shadow', kind: shadowKind, resource: '' }];
+        return NORMAL_COLORS.includes(color) ? [{ type: 'color', color }] : [];
+    }).slice(0, getTileBoxLimit(tile));
 }
 
 export function serializeTileBoxes(boxes = [], maxBoxes = 2) {
-    return boxes.map(normalizeTileBox).filter(Boolean).slice(0, maxBoxes);
+    return boxes.map(normalizeTileBox).flatMap(box => box ? [box] : []).slice(0, maxBoxes);
 }
 
 export function getTileColorsFromBoxes(boxes = []) {
@@ -645,8 +647,8 @@ export function getShadowTagCounts(tiles = []) {
 // down/up by their count, Terminator widens Neutral by 1 each way, and a
 // rank past max Shadow makes the caster Risen/Fallen Aberrant (p.58).
 export function classifyAberration(aberration = 0, maxShadow = 0, tagCounts = {}) {
-    const value = parseInt(aberration, 10) || 0;
-    const max = Math.max(0, parseInt(maxShadow, 10) || 0);
+    const value = parseInt(String(aberration), 10) || 0;
+    const max = Math.max(0, parseInt(String(maxShadow), 10) || 0);
     const dusk = Math.max(0, parseInt(tagCounts.dusk, 10) || 0);
     const dawn = Math.max(0, parseInt(tagCounts.dawn, 10) || 0);
     const terminator = Math.max(0, parseInt(tagCounts.terminator, 10) || 0);
@@ -664,7 +666,7 @@ export function classifyAberration(aberration = 0, maxShadow = 0, tagCounts = {}
 }
 
 export function formatAberration(aberration = 0, maxShadow = 0, tagCounts = {}) {
-    const value = parseInt(aberration, 10) || 0;
+    const value = parseInt(String(aberration), 10) || 0;
     const states = classifyAberration(value, maxShadow, tagCounts);
     const rank = Math.abs(value);
     const base = value > 0 ? `Rising ${rank}` : value < 0 ? `Falling ${rank}` : 'Neutral 0';
@@ -705,7 +707,7 @@ export function getAvailableShadowAbilities(aberration = 0, maxShadow = 0, tagCo
 }
 
 export function getAberrationRank(aberration = 0) {
-    return Math.abs(parseInt(aberration, 10) || 0);
+    return Math.abs(parseInt(String(aberration), 10) || 0);
 }
 
 // Shadow Build/Detail tags (p.60): Day needs a Qi box, Night an Id box,
@@ -1331,14 +1333,14 @@ export class PoolEngine {
         }
         if (FLAW_XP.has(baseTag)) {
             return {
-                xp: FLAW_XP.get(baseTag),
+                xp: FLAW_XP.get(baseTag) ?? 0,
                 recognized: true,
                 category: 'flaw',
                 hardArmorFlawEligible: F_FLAW_TAGS.has(baseTag)
             };
         }
         if (RANGE_DURATION_XP.has(baseTag)) {
-            return { xp: RANGE_DURATION_XP.get(baseTag), recognized: true, category: 'rangeDuration' };
+            return { xp: RANGE_DURATION_XP.get(baseTag) ?? 0, recognized: true, category: 'rangeDuration' };
         }
         const crowdXp = getCrowdXp(baseTag);
         if (crowdXp !== null) {
@@ -1357,7 +1359,7 @@ export class PoolEngine {
         }
         if (TAG_XP_CATALOG.has(baseTag)) {
             return {
-                xp: TAG_XP_CATALOG.get(baseTag),
+                xp: TAG_XP_CATALOG.get(baseTag) ?? 2,
                 recognized: true,
                 category: EXOTIC_TAGS.has(baseTag) ? 'exotic' : 'tag',
                 hardArmorDiscountable: ARMOR_DETAIL_TAGS.has(baseTag) || /^detail\s*:/i.test(t)
@@ -1384,9 +1386,15 @@ export class PoolEngine {
      *
      * @returns {{ xp: number, unknownTags: string[] }}
      */
+    /**
+     * @param {string[]} diceArray
+     * @param {Array<string|{name: string}>} tagsArray
+     * @param {{material: string, coverage: string}|null} [armorType]
+     * @param {Object} [options]
+     */
     estimateTileXpDetails(diceArray, tagsArray, armorType = null, options = {}) {
         let xp = this.calculateOptimalXpCost(diceArray);
-        const isHardArmor = Boolean(armorType) && armorType.material === 'Hard';
+        const isHardArmor = armorType != null && armorType.material === 'Hard';
         // Titan Identity (p.69): Build, Shield, and Detail tags cost -1 XP.
         const isTitanIdentity = normalizeSpecialIdentity(options.specialIdentity) === 'titan-identity';
         const TITAN_IDENTITY_CATEGORIES = new Set(['build', 'detail', 'shield', 'tag']);
@@ -1618,6 +1626,13 @@ export class PoolEngine {
         });
 
         // Recursive resolution for call tiles and chains
+        /**
+         * @param {any} tile
+         * @param {boolean} isCallTile
+         * @param {Set<string>} visitedIds
+         * @param {string} [chainColor]
+         * @param {{rootName: string, limit: number, count: number}|null} [chainTracker]
+         */
         const resolveTile = (tile, isCallTile, visitedIds, chainColor = '', chainTracker = null) => {
             if (!tile || visitedIds.has(tile.id)) return;
             visitedIds.add(tile.id);

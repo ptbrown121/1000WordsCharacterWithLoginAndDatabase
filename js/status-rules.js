@@ -1,3 +1,4 @@
+// @ts-check
 // Pure rules for character condition tracking (v5.02 pp.37, 42-43).
 //
 // - Status conditions derived from the three resource pools hitting 0.
@@ -61,6 +62,9 @@ export const STATUS_CONDITIONS = [
     { id: 'fatigued', label: 'Fatigued', severity: 'major', description: '0 Energy: cannot initiate actions except movement; can still defend.' }
 ];
 
+/**
+ * @param {{ hp?: number|string, en?: number|string, rx?: number|string }} [pools]
+ */
 export function getStatusConditions({ hp, en, rx } = {}) {
     const hp0 = toInt(hp) <= 0;
     const en0 = toInt(en) <= 0;

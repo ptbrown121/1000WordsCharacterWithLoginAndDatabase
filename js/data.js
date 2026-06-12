@@ -1,3 +1,4 @@
+// @ts-check
 import { normalizeActiveCrits } from './status-rules.js';
 
 // The six stats and their Rosette colors (pp.5-7).
@@ -70,6 +71,12 @@ export function normalizeTileTags(tile) {
         })
         .filter(Boolean)
         .filter(tag => !(isSpell && tag.startsWith('Effect:')));
+}
+
+// Caught values are `unknown` under checkJs; this narrows them to a
+// readable message without assuming every throw is an Error.
+function errorMessage(error, fallback) {
+    return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function normalizeNumber(value, fallback = 0) {
@@ -528,7 +535,7 @@ export class DataManager {
 
     scheduleCloudSave() {
         if (!this.cloudStore || this.activeStorage !== 'cloud') return;
-        clearTimeout(this.pendingSaveTimer);
+        clearTimeout(this.pendingSaveTimer ?? undefined);
         this.setCloudStatus('saving', 'Saving to cloud...');
         const charId = this.activeCharId;
         const state = JSON.parse(JSON.stringify(this.state));
@@ -539,7 +546,7 @@ export class DataManager {
                 this.setCloudStatus('saved', 'Cloud save complete.');
             } catch (e) {
                 console.error('Failed to save cloud character', e);
-                this.setCloudStatus('error', e.message || 'Cloud save failed.');
+                this.setCloudStatus('error', errorMessage(e, 'Cloud save failed.'));
             }
         }, this.saveDebounceMs);
     }
@@ -909,7 +916,7 @@ export class DataManager {
             });
         } catch (e) {
             console.error('Failed to record roll log', e);
-            this.setCloudStatus('error', e.message || 'Roll tracking failed.');
+            this.setCloudStatus('error', errorMessage(e, 'Roll tracking failed.'));
         }
     }
 }
