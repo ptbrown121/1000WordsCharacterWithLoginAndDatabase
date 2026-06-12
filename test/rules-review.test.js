@@ -165,3 +165,51 @@ describe('gizmo and sliver caps (v5.02 p.68)', () => {
         assert.ok(!items.some(item => ['Gizmo', 'Sliver'].includes(item.category)));
     });
 });
+
+describe('PR 12 review additions (chains, Hinders)', () => {
+    it('flags more Chain tags than the tile has die steps', () => {
+        const state = {
+            xpEarned: 100,
+            storyPointsEarned: 5,
+            stats: {},
+            tiles: [{ id: 'c1', type: 'Gear', name: 'overlinked kit', dice: ['d4'], tags: ['Chain A', 'Chain B'], xpCost: 9 }]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(items.some(item => item.category === 'Chain' && /2 Chain tags exceed its 1▟/.test(item.message)));
+    });
+
+    it('advises when bought Chain tags exceed Story Points earned, excluding spells', () => {
+        const state = {
+            xpEarned: 100,
+            storyPointsEarned: 1,
+            stats: {},
+            tiles: [
+                { id: 'c1', type: 'Gear', name: 'kit', dice: ['d8'], tags: ['Chain A', 'Chain B'], xpCost: 14 },
+                { id: 's1', type: 'Gear', name: 'spell', isSpell: true, dice: ['d4'], tags: ['Spell', 'Chain Augur'], xpCost: 1 }
+            ]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(items.some(item => /2 bought Chain tags vs 1 Story Points earned/.test(item.message)));
+
+        const enough = buildRulesReviewItems({ ...state, storyPointsEarned: 2 }, engine);
+        assert.ok(!enough.some(item => /bought Chain tags vs/.test(item.message)));
+    });
+
+    it('nudges Hinders that lack a Range or a crit', () => {
+        const state = {
+            xpEarned: 100,
+            storyPointsEarned: 0,
+            stats: {},
+            tiles: [{ id: 'h1', type: 'Gear', gearSubtype: 'Hinder', name: 'bare quip', dice: ['d6'], tags: [], xpCost: 0 }]
+        };
+        const items = buildRulesReviewItems(state, engine);
+        assert.ok(items.some(item => item.category === 'Hinder' && /Range tag/.test(item.message)));
+        assert.ok(items.some(item => item.category === 'Hinder' && /Special crit/.test(item.message)));
+
+        const complete = buildRulesReviewItems({
+            ...state,
+            tiles: [{ id: 'h1', type: 'Gear', gearSubtype: 'Hinder', name: 'cutting one-liner', dice: ['d6'], tags: ['Range: Earshot', 'GOAD'], xpCost: 6 }]
+        }, engine);
+        assert.ok(!complete.some(item => item.category === 'Hinder'));
+    });
+});

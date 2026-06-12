@@ -36,6 +36,10 @@ function hasArcanaSkill(tile) {
     return tile?.type === 'Skill' && tile.exoticSkill?.system === 'Arcana';
 }
 
+function countChainTags(tile) {
+    return tileTagList(tile).filter(tag => /^chain\s+/i.test(String(tag).trim())).length;
+}
+
 export function buildRulesReviewItems(state, poolEngine) {
     const items = [];
     const tiles = state.tiles || [];
@@ -139,7 +143,53 @@ export function buildRulesReviewItems(state, poolEngine) {
                 message: `${tile.name}: ${tile.exoticSkill.label} metadata is tracked; subsystem effects remain GM-managed.`
             });
         }
+
+        // Chain length limit (p.25): a chain cannot call more tiles than the
+        // tile's ▟. More Chain tags than ▟ will always fail at roll time.
+        const chainCount = countChainTags(tile);
+        const tileSteps = poolEngine.calculateSteps(dice);
+        if (chainCount > tileSteps) {
+            items.push({
+                severity: 'medium',
+                category: 'Chain',
+                message: `${tile.name}: ${chainCount} Chain tags exceed its ${tileSteps}▟ chain limit (p.25).`
+            });
+        }
+
+        // Hinder sanity (p.41): a Hinder works through a Range (Earshot or
+        // Visual) and a Special crit.
+        if (tile.type === 'Gear' && tile.gearSubtype === 'Hinder') {
+            const categories = tileTagList(tile).map(tag => poolEngine.classifyTagForXp(tag).category);
+            if (!categories.includes('rangeDuration')) {
+                items.push({
+                    severity: 'low',
+                    category: 'Hinder',
+                    message: `${tile.name}: Hinders use a Range tag (usually Earshot or Visual).`
+                });
+            }
+            if (!categories.includes('crit')) {
+                items.push({
+                    severity: 'low',
+                    category: 'Hinder',
+                    message: `${tile.name}: Hinders deal a Special crit (HOLD, FEAR, GOAD, REVEAL, or VOW).`
+                });
+            }
+        }
     });
+
+    // Chain pacing (p.25): "For each Story Point earned, a Chain tag can be
+    // gained." Spells gain their Chain for free and are excluded.
+    const boughtChainTags = tiles
+        .filter(tile => !tile.isSpell)
+        .reduce((sum, tile) => sum + countChainTags(tile), 0);
+    const storyPointsEarned = parseInt(state.storyPointsEarned, 10) || 0;
+    if (boughtChainTags > storyPointsEarned) {
+        items.push({
+            severity: 'low',
+            category: 'GM review',
+            message: `${boughtChainTags} bought Chain tags vs ${storyPointsEarned} Story Points earned ("For each Story Point earned, a Chain tag can be gained", p.25).`
+        });
+    }
 
     const arcanaSkills = tiles.filter(hasArcanaSkill);
     arcanaSkills.forEach(skill => {

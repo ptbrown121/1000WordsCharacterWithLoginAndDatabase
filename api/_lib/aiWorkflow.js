@@ -215,6 +215,16 @@ export function transcriptFromMessages(messages = [], limit = MAX_TRANSCRIPT_MES
         .join('\n\n');
 }
 
+// Compact 1000 WORDS v5.02 vocabulary so tile suggestions use real rulebook
+// terms. Kept terse on purpose - it rides every scene/summary prompt.
+export const RULES_PRIMER_V502 = [
+    'Rules vocabulary (1000 WORDS v5.02): tiles are Skill, Trait, Story, or Gear.',
+    'Basic skills: Athletics, Craft, Duel, Evade, Firearms, Guile, Heal, Menace, Knuckles, Lore, Presence, Reason, Stealth, Tinker, Wiles.',
+    'Exotic skills: Arcana (Augur, Forge, Twist); Stranger Bestial (Flight, Instinct, Shape) and Celestial (Dreaming, Kinesis, Network); Cyber (Tools, Sense, Drive). Space settings add Adapt, Dogfight, Gunner, Hardsuit, Navigate, Psinger, Vibro, Xenology, Zappers.',
+    'Gear covers weapons, armor (and shields), tools, spells, Hinders (verbal attacks), and Ammo/reagents. Special Story/Gear tiles: Homeworld (alien heritage) and Titan Identity (costume/cover persona).',
+    'Trait tiles describe appearance, behavior, or demeanor; Story tiles cover heritage, upbringing, career, and turning points (While X tags suit shapeshifter forms; Hitch suits troublesome backstory).'
+].join('\n');
+
 export function buildSceneAgentInput({ character, thread, messages = [], playerMessage, documents = [], settings = null }) {
     const characterState = character?.state || {};
     const characterBrief = [
@@ -238,7 +248,8 @@ export function buildSceneAgentInput({ character, thread, messages = [], playerM
                 'Collaborate warmly with the player to flesh out one concrete backstory scene at a time.',
                 'Ask focused questions, avoid deciding major player choices without consent, and keep the game table tone flexible.',
                 'Set scene_status to ready_for_summary only when there is enough detail for a concise saved scene summary or when the player asks to finalize.',
-                'Suggest possible tiles only as optional ideas; never create mechanical tiles directly.'
+                'Suggest possible tiles only as optional ideas; never create mechanical tiles directly.',
+                RULES_PRIMER_V502
             ].join('\n')
         },
         {
@@ -269,7 +280,8 @@ export function buildSummaryAgentInput({ character, thread, messages = [], docum
             content: [
                 'You are the orchestrator agent for 1000 WORDS character creation.',
                 'Turn the player conversation into a saved backstory scene summary.',
-                'Preserve player agency, separate established facts from speculation, and keep suggested tiles optional.'
+                'Preserve player agency, separate established facts from speculation, and keep suggested tiles optional.',
+                RULES_PRIMER_V502
             ].join('\n')
         },
         {
