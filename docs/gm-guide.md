@@ -88,8 +88,12 @@ The AI may suggest possible Skill, Gear, Trait, or Story tiles, but it does not 
 
 Useful GM-side tools:
 
-- **Campaign characters:** View player characters in read-only mode.
-- **Recent campaign rolls:** Review non-test cloud rolls, including call colors, called tiles, totals, and haywire status.
+- **Campaign characters:** View player characters in read-only mode. While
+  you have a player's sheet open, it updates live as they save changes —
+  useful for watching vitals and burns during combat.
+- **Recent campaign rolls:** Review non-test cloud rolls, including call
+  colors, called tiles, totals, and haywire status. The list updates live
+  as players roll.
 - **NPC tracker:** Build and run NPC stat blocks from the NPCs panel. The
   "Stored in" selector keeps them in this browser or in a campaign you GM;
   campaign NPCs are shared between that campaign's GMs and follow you

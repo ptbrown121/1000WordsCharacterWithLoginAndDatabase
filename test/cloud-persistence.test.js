@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { DataManager, LocalCharacterStore, cloneDefaultState } from '../js/data.js';
+import { DataManager, LocalCharacterStore, cloneDefaultState, shouldApplyRemoteCharacterUpdate } from '../js/data.js';
 import { CloudSaveConflictError, SupabaseCharacterStore } from '../js/supabaseStore.js';
 
 class MemoryStorage {
@@ -123,6 +123,27 @@ describe('SupabaseCharacterStore optimistic concurrency', () => {
 
         assert.equal(newStamp, null);
         assert.deepEqual(calls.filters, [['id', 'char-1'], ['owner_id', 'user-1']]);
+    });
+});
+
+describe('shouldApplyRemoteCharacterUpdate (live sync policy)', () => {
+    const base = { remoteUpdatedAt: 't-2', ownUpdatedAt: 't-1', savePending: false, saveInFlight: false };
+
+    it('applies a genuinely newer remote write when idle', () => {
+        assert.equal(shouldApplyRemoteCharacterUpdate(base), true);
+    });
+
+    it('ignores the realtime echo of our own save', () => {
+        assert.equal(shouldApplyRemoteCharacterUpdate({ ...base, remoteUpdatedAt: 't-1' }), false);
+    });
+
+    it('ignores events without a stamp', () => {
+        assert.equal(shouldApplyRemoteCharacterUpdate({ ...base, remoteUpdatedAt: null }), false);
+    });
+
+    it('defers to the conflict guard while a local save is pending or in flight', () => {
+        assert.equal(shouldApplyRemoteCharacterUpdate({ ...base, savePending: true }), false);
+        assert.equal(shouldApplyRemoteCharacterUpdate({ ...base, saveInFlight: true }), false);
     });
 });
 

@@ -238,6 +238,14 @@ choosing it.
 
 ## PR 6 — Realtime live sync (depends on PR 5)
 
+**Status: code done 2026-06-12.** New `js/ui/liveSync.js`; the apply/skip
+policy is a pure function in data.js (`shouldApplyRemoteCharacterUpdate`,
+tested). Self-origin detection compares the realtime row's updated_at with
+`cloudUpdatedAt` (no clientId column needed); a `cloudSaveInFlight` flag
+covers the echo-before-response race. Tab-hidden unsubscribes, with a
+catch-up reload on resume. User step remaining: `supabase db push` to
+apply the realtime-publication migration, then a two-browser test.
+
 **Why:** turns the conflict problem into a feature: the GM watches a
 player's sheet and the campaign roll log update live during combat.
 

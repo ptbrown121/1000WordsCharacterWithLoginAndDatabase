@@ -920,3 +920,26 @@ using (
 insert into storage.buckets (id, name, public)
 values ('backups', 'backups', false)
 on conflict (id) do update set public = excluded.public;
+
+-- ---------------------------------------------------------------------------
+-- Realtime live sync (js/ui/liveSync.js)
+-- See supabase/migrations/20260613000000_realtime_publication.sql
+-- ---------------------------------------------------------------------------
+
+begin
+    if not exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public' and tablename = 'characters'
+    ) then
+        alter publication supabase_realtime add table public.characters;
+    end if;
+
+    if not exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public' and tablename = 'roll_logs'
+    ) then
+        alter publication supabase_realtime add table public.roll_logs;
+    end if;
+end $$;

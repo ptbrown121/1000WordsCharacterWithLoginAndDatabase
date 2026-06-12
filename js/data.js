@@ -79,6 +79,24 @@ function errorMessage(error, fallback) {
     return error instanceof Error && error.message ? error.message : fallback;
 }
 
+/**
+ * Live-sync policy: should a realtime UPDATE for the active character be
+ * applied by reloading remote state? Pure so it can be tested under node
+ * (ui/liveSync.js itself needs a DOM).
+ *
+ * - No stamp, or a stamp matching what we last wrote/read: our own save
+ *   echoed back through realtime - ignore.
+ * - A queued or in-flight local save means local edits exist: do nothing
+ *   and let the optimistic guard turn the rival write into the conflict
+ *   dialog instead of silently clobbering the local edits.
+ */
+export function shouldApplyRemoteCharacterUpdate({ remoteUpdatedAt, ownUpdatedAt, savePending, saveInFlight }) {
+    if (!remoteUpdatedAt) return false;
+    if (remoteUpdatedAt === ownUpdatedAt) return false;
+    if (savePending || saveInFlight) return false;
+    return true;
+}
+
 function normalizeNumber(value, fallback = 0) {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -437,6 +455,7 @@ export class DataManager {
         // previous save that is still in flight (the guard value must be
         // read after the previous save has settled).
         this.cloudSaveChain = Promise.resolve();
+        this.cloudSaveInFlight = false;
         this.localRoster = [];
         this.localActiveCharId = null;
 
@@ -564,11 +583,18 @@ export class DataManager {
     // read at run time (not schedule time) for the same reason.
     queueCloudSave(charId, state) {
         const run = async () => {
-            const guard = this.activeCharId === charId ? this.cloudUpdatedAt : null;
-            const newUpdatedAt = await this.cloudStore.saveCharacter(charId, state, { ifUnmodifiedSince: guard });
-            if (this.activeCharId === charId && newUpdatedAt) this.cloudUpdatedAt = newUpdatedAt;
-            await this.refreshCloudRoster({ keepActive: true });
-            this.setCloudStatus('saved', 'Cloud save complete.');
+            // cloudSaveInFlight tells live sync to ignore realtime echoes of
+            // this write (and rival writes - the guard handles those).
+            this.cloudSaveInFlight = true;
+            try {
+                const guard = this.activeCharId === charId ? this.cloudUpdatedAt : null;
+                const newUpdatedAt = await this.cloudStore.saveCharacter(charId, state, { ifUnmodifiedSince: guard });
+                if (this.activeCharId === charId && newUpdatedAt) this.cloudUpdatedAt = newUpdatedAt;
+                await this.refreshCloudRoster({ keepActive: true });
+                this.setCloudStatus('saved', 'Cloud save complete.');
+            } finally {
+                this.cloudSaveInFlight = false;
+            }
         };
         this.cloudSaveChain = this.cloudSaveChain
             .then(run)

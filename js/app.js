@@ -19,6 +19,7 @@ import { init as initNotifications } from './ui/notifications.js';
 import { init as initRulesReview } from './ui/rulesReview.js';
 import { init as initCloud } from './ui/cloud.js';
 import { init as initCampaignFiles } from './ui/campaignFiles.js';
+import { init as initLiveSync } from './ui/liveSync.js';
 import { init as initAiCreation } from './ui/aiCreation.js';
 import { createSupabaseBrowserClient } from './supabaseClient.js';
 
@@ -49,5 +50,6 @@ initRulesReview(deps);
 initAiCreation(deps);
 await initCloud(deps);
 initCampaignFiles(deps);
+initLiveSync(deps);
 
 renderAll();
