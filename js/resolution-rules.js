@@ -16,6 +16,10 @@
 //   uiState.currentResolutionMode; that default is removed, callers must
 //   pass the mode explicitly.
 
+// Resolution buckets follow the book's worked examples: attacks split dice
+// between attack and impact (p.26), defenses between evasion and grit
+// (p.27), and medical checks between the diagnosis test and assigned
+// healing dice (p.46).
 export const RESOLUTION_MODES = {
     action: {
         label: 'Action',
@@ -58,6 +62,10 @@ export const RESOLUTION_MODES = {
     }
 };
 
+// Medical treatment difficulties from the Diagnosis table (p.46): a spare
+// die can repair a Resource or Crit whose Test is at or below the check.
+// The ordering mirrors natural healing (p.45): Fast Crits fade first,
+// Wounds need the most care.
 export const HEALING_TARGETS = {
     afire: { label: 'Afire -> Down', difficulty: 4, kind: 'count' },
     heal_energy: { label: 'Energy', difficulty: 6, kind: 'resource' },
@@ -259,7 +267,8 @@ export function calculateAssignedTotals(result, assignments) {
 // Pluses are charged when the user splits dice across both slots in a
 // dual-bucket mode (attack/impact, evasion/grit, healing diagnosis +
 // resource). The first die in each bucket is "free"; every subsequent
-// die in that same bucket consumes one plus from the budget.
+// die in that same bucket consumes one plus from the budget. The player
+// chooses where each Add lands ("The Add can be used anywhere", pp.26-27).
 //
 // Modes without dual buckets (action) return used=0 and budget=adds-1
 // for consistent UI semantics.

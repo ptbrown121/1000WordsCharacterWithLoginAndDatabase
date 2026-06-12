@@ -1,5 +1,6 @@
 import { normalizeActiveCrits } from './status-rules.js';
 
+// The six stats and their Rosette colors (pp.5-7).
 export const STAT_COLORS = {
     'BODY': 'Red',
     'POWER': 'Orange',

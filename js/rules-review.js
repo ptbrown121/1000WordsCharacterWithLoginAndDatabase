@@ -54,6 +54,7 @@ export function buildRulesReviewItems(state, poolEngine) {
         });
     }
 
+    // Starting budgets: 25 XP for stats (p.6) and 50 XP for tiles (p.8).
     if ((parseInt(state.xpEarned, 10) || 0) <= 75 && (statXp > 25 || tileXp > 50)) {
         items.push({
             severity: 'low',
@@ -62,6 +63,7 @@ export function buildRulesReviewItems(state, poolEngine) {
         });
     }
 
+    // "up to 6 XP can be split between tiles with Hitches" (p.20).
     const hitchRebateTotal = calculateHitchRebateTotal(tiles);
     if (hitchRebateTotal > 6) {
         items.push({
@@ -104,6 +106,7 @@ export function buildRulesReviewItems(state, poolEngine) {
             });
         }
 
+        // "They may not start with more than 3▟ on any one tile." (p.8)
         if (!tile.isSpell && dice.some(die => poolEngine.calculateSteps([die]) > 3)) {
             items.push({
                 severity: 'low',
@@ -112,6 +115,7 @@ export function buildRulesReviewItems(state, poolEngine) {
             });
         }
 
+        // Hitch behavior (p.20): 1 EN on call, cannot be burned.
         if (isHitchedTile(tile)) {
             items.push({
                 severity: 'low',
@@ -128,6 +132,7 @@ export function buildRulesReviewItems(state, poolEngine) {
             });
         });
 
+        // Bestial adds +1 to one chosen resource pool (p.61).
         if (tileHasBestialTag(tile) && !hasBestialResourceChoice(tile)) {
             items.push({
                 severity: 'low',
@@ -191,6 +196,7 @@ export function buildRulesReviewItems(state, poolEngine) {
         });
     }
 
+    // "Each Arcana skill tile supports up to ▟ spell tiles." (p.48)
     const arcanaSkills = tiles.filter(hasArcanaSkill);
     arcanaSkills.forEach(skill => {
         const capacity = poolEngine.calculateSteps(skill.dice || []);
@@ -238,6 +244,8 @@ export function buildRulesReviewItems(state, poolEngine) {
         }
     });
 
+    // A spell's granted Chain "can only be chained to an Arcana skill
+    // tile" (p.48).
     tiles.filter(tile => tile.isSpell).forEach(spell => {
         const chainedToArcana = arcanaSkills.some(skill => hasChainTo(spell, skill.name));
         if (!chainedToArcana) {

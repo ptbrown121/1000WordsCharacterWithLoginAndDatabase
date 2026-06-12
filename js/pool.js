@@ -114,6 +114,9 @@ export function tagLimitErrorMessage(subject, tagLimit) {
     return `${subject} has ${tagLimit.count} countable tags, but its dice allow ${tagLimit.limit}. Remove ${tagLimit.overage} countable tag${tagLimit.overage === 1 ? '' : 's'} or increase its dice.${tagsText}`;
 }
 
+// Weapon templates from the equipment lists (pp.30-31): category, range,
+// linked skill, and starting Detail tags. Far weapons cost +2 XP for the
+// first die (the green crosses on the Far table, p.31).
 export const WEAPON_TEMPLATES = [
     { id: 'fist', name: 'Fist / Cestus / Duster', category: 'Melee', range: 'Touch', skill: 'Knuckles', startingTags: ['Fast'] },
     { id: 'knife', name: 'Knife', category: 'Melee', range: 'Touch', skill: 'Knuckles', startingTags: ['Little'] },
@@ -204,6 +207,8 @@ export function getExoticSkillLabel(value) {
     return normalizeExoticSkill(value)?.label || '';
 }
 
+// "+▟" Detail tags and what they improve, from the Build and Detail tags
+// glossary (p.78) and the equipment Detail tag tables (pp.29-31).
 const CONTEXTUAL_TAG_BONUSES = {
     expert: { name: 'Expert', context: 'action check', description: '+▟ to action checks using this tile' },
     keen: { name: 'Keen', context: 'attack', description: '+▟ to attacks using this tile' },
@@ -214,6 +219,8 @@ const CONTEXTUAL_TAG_BONUSES = {
     rugged: { name: 'Rugged', context: 'grit', description: '+▟ to grit' }
 };
 
+// Resource pools (p.11): Health gains 1 point per red or orange box,
+// Energy per green or yellow, Reflex per blue or purple.
 const RESOURCE_COLORS = {
     hp: ['Red', 'Orange'],
     en: ['Green', 'Yellow'],
@@ -225,12 +232,16 @@ const COLOR_RESOURCE = Object.fromEntries(
         .flatMap(([resource, colors]) => colors.map(color => [color, resource]))
 );
 
+// Tough / Vital / Quick add the tile's ▟ to a resource pool (pp.29/78).
 const RESOURCE_TAGS = {
     tough: 'hp',
     vital: 'en',
     quick: 'rx'
 };
 
+// Flaw tags from the Flaw glossary (p.79): F-type flaws rebate 2 XP and
+// X-type (exotic) flaws rebate 4. The Arcane Sacrifice tags (p.48) rebate
+// Sap -2 / Tire -3 / Drain -4 and cost that resource when the spell casts.
 const F_FLAW_TAGS = new Set([
     'bulky', 'fluid', 'heavy', 'inside', 'old', 'primitive', 'rare',
     'recoil', 'reload', 'risky', 'single', 'worn'
@@ -252,7 +263,7 @@ const ARCANE_SACRIFICE_ALIASES = {
 };
 const FLAW_TAGS = new Set([...F_FLAW_TAGS, ...X_FLAW_TAGS, ...ARCANE_FLAW_TAGS, 'hitch']);
 // Cyber Core spend tags (glossary type X) and the Titan family are Exotic:
-// "Exotic tags do not count against tag limits for tiles."
+// "Exotic tags do not count against tag limits for tiles." (pp.61-64)
 const CYBER_CORE_TAGS = new Set([
     'antivenin', 'boost', 'breathless', 'charged', 'enhanced', 'fireproof',
     'machine', 'plated', 'reticle', 'sleepless', 'spacewalk', 'tether',
@@ -267,6 +278,9 @@ const TITAN_TAGS = new Set([
 ]);
 const EXOTIC_TAGS = new Set(['bestial', 'celestial', 'cyber', ...CYBER_CORE_TAGS, ...TITAN_TAGS]);
 
+// Tag XP costs from the Build and Detail tags glossary (p.78); exotic
+// subsystem tags follow their chapters (Stranger pp.61-63, Cyber p.64,
+// Machines p.68, Titan p.69).
 const TAG_XP_CATALOG = new Map(Object.entries({
     agile: 2,
     ambush: 2,
@@ -336,6 +350,9 @@ const TAG_XP_CATALOG = new Map(Object.entries({
     terminator: 2
 }));
 
+// Crit/Shield tag XP from the Crit/Shield tags glossary (p.79). Crit
+// behavior is in Doing Harm: common crits p.38, Shield tags p.39,
+// uncommon crits p.40.
 const CRIT_SHIELD_XP = new Map(Object.entries({
     afire: 4,
     bleed: 4,
@@ -354,6 +371,8 @@ const CRIT_SHIELD_XP = new Map(Object.entries({
     wound: 4
 }));
 
+// Flaw rebates from the Flaw glossary (p.79); Witch -6 is on the spell
+// Sacrifice table (p.48).
 const FLAW_XP = new Map([
     ...Array.from(F_FLAW_TAGS, tag => [tag, -2]),
     ...Array.from(X_FLAW_TAGS, tag => [tag, -4]),
@@ -363,6 +382,8 @@ const FLAW_XP = new Map([
     ['witch', -6]
 ]);
 
+// Range / Move / Zone / Dome / Time costs from the Space and Time table
+// (pp.51/79). Rite and Sustain are spell Duration discounts (p.48).
 const RANGE_DURATION_XP = new Map(Object.entries({
     touch: -2,
     close: -1,
@@ -419,7 +440,9 @@ function getCrowdXp(baseTag) {
     return step ? step[1] : 8;
 }
 
-// Armor base XP (page 29): material + coverage. Hard armor discounts Detail tags by 1 XP.
+// Armor (p.29): base XP = material + coverage, base Soak is Open +0 /
+// Full +1 / Closed +3. Hard armor discounts Shield and Detail tags by 1 XP
+// (and Flaw tags on Hard armor rebate 1 more, p.79).
 export const ARMOR_MATERIALS = new Set(['Soft', 'Hard']);
 export const ARMOR_COVERAGE_SOAK = { Open: 0, Full: 1, Closed: 3 };
 const ARMOR_MATERIAL_XP = { Soft: 0, Hard: 4 };
@@ -430,6 +453,8 @@ const ARMOR_DETAIL_TAGS = new Set([
     'adamant'
 ]);
 
+// Die steps (p.4): a d4 is 1 ▟ and each two-face advance adds 1 ▟. The d3
+// is the free stat baseline (p.6) and counts 0 ▟.
 const DIE_STEPS = {
     d3: 0,
     d4: 1,
@@ -557,6 +582,7 @@ function getTilesShadowUse(tiles = []) {
     return kinds;
 }
 
+// "Any check can either include Qi or Id tiles, not both." (p.58)
 export function validateShadowUseForCheck(tiles = []) {
     const kinds = getTilesShadowUse(tiles);
     if (kinds.has('Qi') && kinds.has('Id')) {
@@ -574,6 +600,8 @@ export function validateShadowUseForCheck(tiles = []) {
     };
 }
 
+// "A check using a Qi tile slides Aberration by 1 rank of Risen. A check
+// using an Id tile slides Aberration by 1 rank of Fallen." (p.58)
 export function adjustAberrationForShadowUse(currentAberration, shadowKind) {
     const current = parseInt(currentAberration, 10) || 0;
     if (shadowKind === 'Qi') return current + 1;
@@ -581,6 +609,8 @@ export function adjustAberrationForShadowUse(currentAberration, shadowKind) {
     return current;
 }
 
+// Aberrant Blast Zones (p.59): near a Risen Aberrant any die higher than
+// d6 is suppressed 1 ▟; near a Fallen Aberrant it is boosted 1 ▟.
 export function getAberrantDieStepNet(effects = {}) {
     return (effects.fallen ? 1 : 0) - (effects.risen ? 1 : 0);
 }
@@ -610,6 +640,10 @@ export function getShadowTagCounts(tiles = []) {
     return counts;
 }
 
+// Aberration thresholds from the Shadow and Aberration diagram (p.60):
+// Rising/Falling open at ±1, the Dusk and Dawn tags move those thresholds
+// down/up by their count, Terminator widens Neutral by 1 each way, and a
+// rank past max Shadow makes the caster Risen/Fallen Aberrant (p.58).
 export function classifyAberration(aberration = 0, maxShadow = 0, tagCounts = {}) {
     const value = parseInt(aberration, 10) || 0;
     const max = Math.max(0, parseInt(maxShadow, 10) || 0);
@@ -638,6 +672,8 @@ export function formatAberration(aberration = 0, maxShadow = 0, tagCounts = {}) 
     return `${base} (${combined})`;
 }
 
+// Shadow spends from the Assets of Rising/Qi and Falling/Id lists and the
+// Aberrant Blast Zones (p.59).
 export const SHADOW_ABILITIES = [
     { id: 'qi-test', side: 'Qi', tier: 'Neutral/Rising', label: 'Spend 1 Shadow to add max Shadow to a test.' },
     { id: 'qi-color', side: 'Qi', tier: 'Neutral/Rising', label: 'Spend 1 Shadow to add a color to a tile for one check.' },
@@ -672,6 +708,8 @@ export function getAberrationRank(aberration = 0) {
     return Math.abs(parseInt(aberration, 10) || 0);
 }
 
+// Shadow Build/Detail tags (p.60): Day needs a Qi box, Night an Id box,
+// and Dawn / Dusk / Terminator need either.
 export function validateShadowTags(tile) {
     const issues = [];
     const hasQi = tileHasShadowKind(tile, 'Qi');
@@ -760,6 +798,9 @@ function getDuplicateKey(tag) {
     return baseTag || normalized;
 }
 
+// The Hitch flaw (p.20; glossary p.79 "F 1-6"): calling a Hitched tile
+// costs 1 EN, the GM can force the call, Hitched tiles cannot be burned,
+// and buying it off takes the XP plus a Story Point.
 export function getHitchValue(tile) {
     const hitchTag = tileTagList(tile).find(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'hitch');
     if (!hitchTag) return 0;
@@ -776,6 +817,7 @@ export function calculateHitchRebateTotal(tiles = []) {
     return tiles.reduce((sum, tile) => sum + getHitchValue(tile), 0);
 }
 
+// Worn armor soak (p.29): base Soak by coverage plus Ironclad's +▟.
 export function calculateArmorSoakDetails(tiles = []) {
     const sources = [];
     let total = 0;
@@ -1167,6 +1209,8 @@ export class PoolEngine {
     }
 
     calculateTagLimit(diceArray, tagsArray = [], { specialIdentity = null, isSpell = false } = {}) {
+        // "a tile can only have 1 tag per ▟. Flaw, Range, or Duration tags
+        // don't count." (p.33) - classifyTagForLimit handles the exemptions.
         const limit = this.calculateSteps(diceArray);
         // Titan Identity tiles "can gain any number of Build, Shield, or
         // Detail tags" (p.69) - only Crit tags still count for them.
@@ -1213,7 +1257,7 @@ export class PoolEngine {
     }
 
     /**
-     * XP cascade (rulebook "System Concept-Dice" chart). Each character starts
+     * XP cascade ("System Concept-Dice" chart, p.6). Each character starts
      * with a free d3 in every stat. Past d3, each advance costs:
      *
      *     XP = {steps on the advanced die} + {count of other dice already on
@@ -1428,6 +1472,10 @@ export class PoolEngine {
         return this.estimateTileXpDetails(diceArray, tagsArray, armorType, options).xp;
     }
 
+    // Resource maxes: each red/orange box adds 1 Health, green/yellow 1
+    // Energy, blue/purple 1 Reflex (p.11). A Qi or Id box adds 1 point to
+    // a chosen normal resource and 1 to the Shadow pool (p.58). Tough /
+    // Vital / Quick add the tile's ▟ (pp.29/78); Bestial adds +1 (p.61).
     calculateResourceMaxes(tiles = []) {
         const maxes = { hp: 0, en: 0, rx: 0, sh: 0 };
 
@@ -1499,7 +1547,7 @@ export class PoolEngine {
      */
     compilePool(callColors, stats, callTile, burnTiles, allTiles, extraDice = [], options = {}) {
         let pool = [];
-        let adds = 2; // Base keep is 2;
+        let adds = 2; // Base keep is 2: "add any two of the dice" (p.23).
         let flatBonus = 0;
         let tagBonuses = [];
         let chainOptions = [];
@@ -1551,7 +1599,8 @@ export class PoolEngine {
             );
         };
 
-        // 1. Add Stat Dice matching the Call Colors
+        // 1. Add Stat Dice matching the Call Colors ("Each stat of matching
+        // color contributes its dice", p.23).
         activeCallColors.forEach(color => {
             if (!color) return;
             // Find stats matching this color
@@ -1597,7 +1646,8 @@ export class PoolEngine {
                 return;
             }
             
-            // Color check
+            // Color check (p.23): the called tile must match at least one of
+            // the call colors (it does not have to match both).
             const matchesCall = activeCallColors.some(c => tileMatchesCallColor(tile, c));
             if (!matchesCall) {
                 if (isCallTile) {
@@ -1636,7 +1686,7 @@ export class PoolEngine {
             // resolution panel can price maxed chain dice (1 resource each).
             tile.dice.forEach(d => pool.push({ source: `${isCallTile ? 'Tile' : 'Chain'} (${tile.name})`, die: d }));
 
-            // Extra add if chained
+            // "The Chain tag also grants an extra Add." (p.25)
             if (!isCallTile) adds += 1;
 
             // Parse tags
@@ -1777,7 +1827,10 @@ export class PoolEngine {
             }
         }
 
-        // 4. Validate and Add Burn Tiles (Burn tiles do NOT trigger tags)
+        // 4. Validate and Add Burn Tiles (p.24): each burned tile adds its
+        // dice plus a bonus Add, and all burns must share one selected color
+        // with the call. Burn tiles do NOT trigger tags. Hitched tiles
+        // cannot be burned (p.20).
         if (burnTiles && burnTiles.length > 0) {
             if (!callTile) {
                 return buildResult({ error: "Select a Call Tile before adding Burn tiles." });
@@ -1906,8 +1959,9 @@ export class PoolEngine {
         const kept = sorted.slice(0, adds);
         const total = kept.reduce((sum, item) => sum + item.val, 0);
 
-        // Haywire detection: more than half of the dice roll 1s. The Glitch
-        // Cyber flaw raises the threshold so 1s AND 2s count (p.65).
+        // Haywire (p.23): "In any pool where more than half of the dice roll
+        // 1s" the check goes haywire. The Glitch Cyber flaw raises the
+        // threshold so 1s AND 2s count (p.65).
         const onesCount = rolledArray.filter(d => d.val <= haywireThreshold).length;
         const isHaywire = onesCount > (rolledArray.length / 2);
 

@@ -12,6 +12,8 @@ import {
 
 const SPELL_NORMAL_COLORS = new Set(['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple']);
 const SPELL_SHADOW_KINDS = new Set(['Qi', 'Id']);
+// Default school colors from the spell chapters: Augur is Blue/Orange
+// (p.49), Forge Green/Red (p.50), Twist Yellow/Purple (p.51).
 const SPELL_DEFAULT_BOXES = {
     Twist: [{ type: 'color', color: 'Yellow' }, { type: 'color', color: 'Purple' }],
     Forge: [{ type: 'color', color: 'Green' }, { type: 'color', color: 'Red' }],
