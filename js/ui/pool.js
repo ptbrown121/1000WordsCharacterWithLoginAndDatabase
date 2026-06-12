@@ -43,6 +43,24 @@ export function init(deps) {
     });
     syncCallColorButtons();
     els.btnClearCall?.addEventListener('click', clearCallSelection);
+    // X buttons on the pool badges (finer-grained than Clear, which wipes
+    // colors and all tiles at once).
+    const handleBadgeClear = (e) => {
+        const button = e.target.closest('.badge-clear');
+        if (!button) return;
+        const tileId = button.dataset.tileId;
+        if (button.dataset.clear === 'call') {
+            uiState.callTile = null;
+        } else if (button.dataset.clear === 'hitch') {
+            uiState.hitchCallTiles = uiState.hitchCallTiles.filter(t => t.id !== tileId);
+        } else if (button.dataset.clear === 'burn') {
+            uiState.burnTiles = uiState.burnTiles.filter(t => t.id !== tileId);
+        }
+        renderCards();
+        updatePoolPreview();
+    };
+    els.callTileZone?.addEventListener('click', handleBadgeClear);
+    els.burnTilesZone?.addEventListener('click', handleBadgeClear);
     els.extraDiceInput.addEventListener('input', () => {
         syncExtraDiceChips();
         updatePoolPreview();
@@ -563,19 +581,26 @@ export function renderTagBonusOptions(tagBonuses = []) {
     });
 }
 
+// X on each pool badge, so a selection can be cleared without scrolling
+// back to its tile in the Mosaic.
+function badgeClearButton(kind, tile) {
+    const label = `Remove ${escapeHtml(tile.name)} from the pool`;
+    return ` <button type="button" class="badge-clear" data-clear="${kind}" data-tile-id="${escapeHtml(tile.id)}" title="${label}" aria-label="${label}">&times;</button>`;
+}
+
 export function updatePoolPreview() {
     const colors = getSelectedCallColors();
 
     // Update Dropzones visually
     const calledBadges = [];
     if (uiState.callTile) {
-        calledBadges.push(`<div class="badge">${escapeHtml(uiState.callTile.name)} (${escapeHtml(uiState.callTile.dice.join(', '))})</div>`);
+        calledBadges.push(`<div class="badge">${escapeHtml(uiState.callTile.name)} (${escapeHtml(uiState.callTile.dice.join(', '))})${badgeClearButton('call', uiState.callTile)}</div>`);
     }
     (uiState.hitchCallTiles || []).forEach(tile => {
-        calledBadges.push(`<div class="badge" style="margin:2px">${escapeHtml(tile.name)} (${escapeHtml(tile.dice.join(', '))}; Hitch)</div>`);
+        calledBadges.push(`<div class="badge" style="margin:2px">${escapeHtml(tile.name)} (${escapeHtml(tile.dice.join(', '))}; Hitch)${badgeClearButton('hitch', tile)}</div>`);
     });
     els.callTileZone.innerHTML = calledBadges.join('');
-    els.burnTilesZone.innerHTML = uiState.burnTiles.map(t => `<div class="badge" style="margin:2px">${escapeHtml(t.name)}</div>`).join('');
+    els.burnTilesZone.innerHTML = uiState.burnTiles.map(t => `<div class="badge" style="margin:2px">${escapeHtml(t.name)}${badgeClearButton('burn', t)}</div>`).join('');
 
     const extraDice = getExtraDice();
     if (extraDice.error) {

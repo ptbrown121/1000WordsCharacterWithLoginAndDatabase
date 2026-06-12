@@ -345,3 +345,21 @@
     text-transform: uppercase;
     font-weight: bold;
 }
+
+/* X on a pool badge: clears that Call/Hitch/Burn pick without finding the
+   tile in the Mosaic. */
+.badge-clear {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    line-height: 1;
+    padding: 0 0.15rem;
+    vertical-align: middle;
+}
+
+.badge-clear:hover {
+    color: #ff6666;
+}
