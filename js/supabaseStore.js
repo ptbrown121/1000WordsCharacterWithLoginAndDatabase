@@ -28,7 +28,7 @@ export class SupabaseCharacterStore {
             .upsert({
                 id: this.user.id,
                 email,
-                display_name: email.split('@')[0] || 'Player',
+                display_name: this.user.user_metadata?.full_name || email.split('@')[0] || 'Player',
                 updated_at: new Date().toISOString()
             }, { onConflict: 'id' }));
     }

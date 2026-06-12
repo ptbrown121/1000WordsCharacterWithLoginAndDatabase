@@ -54,7 +54,7 @@ Cloud saves are optional. Without environment variables, the app remains a brows
 
 1. Create a Supabase project.
 2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. In Supabase Auth, enable email magic links and configure production SMTP before inviting real players.
+3. In Supabase Auth, enable email magic links and configure production SMTP before inviting real players. Optionally enable the Google provider (Auth → Providers, with a Google Cloud OAuth client whose redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`) for one-click sign-in without the email round-trip.
 4. Sign in once with the account that should be allowed to create campaigns, then grant that account campaign-creator access in the Supabase SQL editor:
 
    ```sql

@@ -178,6 +178,10 @@ export function renderCloudControls() {
     }
     if (els.cloudStatusText) els.cloudStatusText.textContent = statusText();
 
+    if (els.btnAuthGoogle) {
+        els.btnAuthGoogle.hidden = Boolean(dataManager.isSignedIn);
+        els.btnAuthGoogle.disabled = !supabaseClient;
+    }
     if (els.authEmail) {
         els.authEmail.hidden = Boolean(dataManager.isSignedIn);
         els.authEmail.disabled = !supabaseClient;
@@ -240,6 +244,24 @@ export async function init(deps) {
     }
 
     dataManager.setCloudStatus('signed-out', 'Sign in to use cloud saves and campaigns.');
+
+    els.btnAuthGoogle?.addEventListener('click', async () => {
+        setBusy(els.btnAuthGoogle, true, 'Sign in with Google');
+        try {
+            const redirectTo = window.location.origin + window.location.pathname;
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo }
+            });
+            if (error) throw error;
+            // On success the browser navigates to Google; the OAuth callback
+            // is absorbed by detectSessionInUrl and lands in handleSession.
+        } catch (err) {
+            dataManager.setCloudStatus('error', err.message || 'Google sign-in failed.');
+            setBusy(els.btnAuthGoogle, false, 'Sign in with Google');
+            renderCloudControls();
+        }
+    });
 
     els.authForm?.addEventListener('submit', async (e) => {
         e.preventDefault();

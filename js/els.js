@@ -193,6 +193,7 @@ export const els = {
     cloudModeLabel: document.getElementById('cloud-mode-label'),
     cloudStatusText: document.getElementById('cloud-status-text'),
     authForm: document.getElementById('auth-form'),
+    btnAuthGoogle: document.getElementById('btn-auth-google'),
     authEmail: document.getElementById('auth-email'),
     btnAuthSendLink: document.getElementById('btn-auth-send-link'),
     btnAuthSignOut: document.getElementById('btn-auth-sign-out'),

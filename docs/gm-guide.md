@@ -17,7 +17,9 @@ Someone with project/admin access needs to do these once before real play:
 
 - Deploy the project on Vercel.
 - Configure Supabase and run `supabase/schema.sql`.
-- Enable email magic links in Supabase Auth.
+- Enable email magic links in Supabase Auth. Optionally enable the Google
+  provider (Supabase Auth → Providers) so players can sign in with one
+  click instead of waiting on email.
 - Add the Vercel environment variables listed in the README.
 - Grant your GM account campaign-creator access with the SQL snippet in the README.
 
