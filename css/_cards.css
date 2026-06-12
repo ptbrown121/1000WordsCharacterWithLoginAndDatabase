@@ -176,6 +176,17 @@
     z-index: 3;
 }
 
+.btn-edit-tile,
+.btn-details {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+}
+
 .btn-bury-tile {
     background: rgba(160, 170, 181, 0.16);
     border-color: rgba(160, 170, 181, 0.8);

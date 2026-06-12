@@ -572,7 +572,13 @@ export function updatePoolPreview() {
     }
 
     if (res.error) {
-        els.poolDiceDisplay.innerHTML = `<span style="color:#ff3333">${escapeHtml(res.error)}</span>`;
+        // An empty Call is the page's default state, not a failure: show
+        // the "pick a color" message as guidance, and save red for errors
+        // in something the player actually entered.
+        const style = colors.length === 0
+            ? 'color: var(--text-secondary); font-style: italic'
+            : 'color:#ff3333';
+        els.poolDiceDisplay.innerHTML = `<span style="${style}">${escapeHtml(res.error)}</span>`;
         els.poolAddsDisplay.innerText = `Adds: --`;
         renderChainOptions(res.chainOptions || []);
         renderTagBonusOptions([]);

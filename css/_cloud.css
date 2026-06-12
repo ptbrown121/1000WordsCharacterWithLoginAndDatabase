@@ -233,3 +233,108 @@ body.readonly-character header {
     font-size: 0.85rem;
     margin: 0;
 }
+
+/* Campaign tab sub-cards (membership, files, AI notes): give each
+   functional group the same card look as the tracker panels. */
+.campaign-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 0.75rem 0.85rem;
+    width: 100%;
+}
+
+.campaign-membership-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.campaign-ai-docs-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.campaign-ai-docs-header {
+    align-items: baseline;
+    display: flex;
+    gap: 0.6rem;
+}
+
+.campaign-ai-docs-header h3 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.campaign-ai-docs-header span {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.campaign-panel label.campaign-ai-field {
+    align-items: stretch;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+    gap: 0.3rem;
+    text-align: left;
+}
+
+#campaign-section textarea {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    padding: 0.4rem 0.6rem;
+    width: 100%;
+}
+
+#campaign-section textarea::placeholder {
+    color: var(--text-secondary);
+}
+
+/* Action buttons sit at the end of their card instead of stretching
+   into full-width bars (the section is a column flexbox). */
+#btn-campaign-ai-settings-save,
+#btn-campaign-ai-doc-upload {
+    align-self: flex-end;
+}
+
+.campaign-ai-upload-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.campaign-ai-upload-grid input[type="text"] {
+    flex: 1 1 12rem;
+}
+
+/* Native file pickers, restyled to match .btn-outline */
+#campaign-section input[type="file"] {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0;
+}
+
+#campaign-section input[type="file"]::file-selector-button {
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: var(--font-main);
+    font-weight: 600;
+    margin-right: 0.6rem;
+    padding: 0.45rem 0.9rem;
+}
+
+#campaign-section input[type="file"]::file-selector-button:hover {
+    background: rgba(255,255,255,0.1);
+}

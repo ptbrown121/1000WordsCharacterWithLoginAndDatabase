@@ -165,6 +165,46 @@ content that moves to the Campaign tab.
 - Gates: 331/331 tests, eslint 0 errors (61 accepted warnings), typecheck 0,
   build clean, no duplicate ids.
 
+## Follow-up (2026-06-12): Character tab merged into Play + style pass
+
+User feedback after playing with the tabs: players need their attributes
+visible while on Play, and the Character tab held nothing but the stats
+section — so it was merged back. **The app now has three tabs: Play, Story,
+Campaign.**
+
+- The stats section became an **Attributes tracker card** (`#stats-panel`),
+  the first card in `#trackers-section` on Play. Collapsed, it always shows
+  the six stat dice color-coded in their call colors (`#stats-summary`,
+  rendered by `renderStatsSummary` in `js/ui/stats.js`); expanding reveals
+  the stats grid, GM-reviewed toggle, Auto-Calculate buttons, and the
+  rules-review strip. Same collapse pattern/ids style as the other trackers.
+- The `#tab-character-badge` was removed with its tab (the rules strip is
+  visible on Play itself now). A stored `1000words_active_tab` of
+  `tab-character` falls back to Play automatically.
+- Style pass shipped at the same time (user-approved recommendations):
+  - **Stat box colors fixed**: a `.stat-input-row` wrapper added with the
+    dice-edit buttons had broken `sel.parentElement.style.borderTopColor`
+    (everything fell back to red). Colors now come from
+    `.stat-box[data-color]` rules in `_layout.css`; the JS no longer sets
+    borders.
+  - **Mobile vitals**: at ≤700px the pools grid is
+    `auto-fit minmax(250px, 1fr)` (2-up when width allows; the ≤480 block
+    keeps one column), `.pool` cards are slimmer and wrap, XP/Story Points
+    span full width.
+  - **Desktop trackers grid**: at ≥900px `#trackers-section` lays the
+    collapsed tracker cards side by side (`auto-fit minmax(300px,1fr)`);
+    an expanded card spans the full row via `:has()`.
+  - **Dark thin scrollbars** in `_base.css` (sticky dashboard, modals).
+  - **Campaign tab cards**: membership/files/AI-notes groups got
+    `.campaign-card` sub-cards, left-aligned field labels, end-aligned
+    save buttons, themed textareas, and `::file-selector-button` styling
+    for the native file inputs (`_cloud.css`).
+  - **Empty-Call prompt** ("Select at least 1 color…") renders as quiet
+    guidance instead of red when no colors are picked (`js/ui/pool.js`).
+  - **Tap targets**: at ≤700px tile-card buttons and tracker Show buttons
+    get `min-height: 2.4rem`; Edit/Details buttons' inline styles moved to
+    `_cards.css`.
+
 ## Out of scope (noted during this pass, not part of the tabs work)
 
 - `js/ui/modals.js` (1,115 lines) and `js/spellBuilder.js` (1,091 lines) are

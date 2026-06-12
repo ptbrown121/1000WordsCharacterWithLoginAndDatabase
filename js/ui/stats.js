@@ -1,4 +1,5 @@
 import { ADVANCEABLE_STATS, parseDiceInput, getDiceValidationMessage } from '../pool.js';
+import { STAT_COLORS, COLOR_HEX } from '../data.js';
 import { els } from '../els.js';
 import { uiState } from '../state.js';
 import { updatePoolPreview } from './pool.js';
@@ -18,6 +19,7 @@ function refreshAfterStatChange() {
     updateXpTracker();
     updateShadowMax();
     renderRulesReview();
+    renderStatsSummary();
 }
 
 function saveStatDice(stat, value, { resetOnInvalid = false } = {}) {
@@ -200,6 +202,29 @@ export function init(deps) {
 
     // Auto-Calculate XP
     els.btnCalcXp.addEventListener('click', updateXpTracker);
+
+    // Attributes panel collapse (same pattern as the other tracker panels).
+    if (els.btnStatsToggle) {
+        els.btnStatsToggle.addEventListener('click', () => {
+            const isOpening = els.statsPanelBody.hidden;
+            els.statsPanelBody.hidden = !isOpening;
+            els.btnStatsToggle.setAttribute('aria-expanded', String(isOpening));
+            els.btnStatsToggle.textContent = isOpening ? 'Hide' : 'Show';
+        });
+    }
+}
+
+// The collapsed Attributes panel always shows the six stat dice in their
+// call colors, so they stay readable mid-session on the Play tab.
+export function renderStatsSummary() {
+    if (!els.statsSummary) return;
+    els.statsSummary.innerHTML = '';
+    Object.entries(STAT_COLORS).forEach(([stat, color]) => {
+        const span = document.createElement('span');
+        span.style.color = COLOR_HEX[color] || '';
+        span.textContent = `${stat} ${dataManager.state.stats[stat] || '—'}`;
+        els.statsSummary.appendChild(span);
+    });
 }
 
 export function updateXpTracker() {

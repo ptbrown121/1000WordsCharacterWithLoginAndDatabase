@@ -3,7 +3,7 @@ import { els } from './els.js';
 import { renderArmorSoak } from './ui/armorSoak.js';
 import { renderCards } from './ui/cards.js';
 import { updatePoolPreview } from './ui/pool.js';
-import { renderOptionalStatsVisibility, updateXpTracker } from './ui/stats.js';
+import { renderOptionalStatsVisibility, renderStatsSummary, updateXpTracker } from './ui/stats.js';
 import { renderTempBadge, updateShadowMax } from './ui/vitals.js';
 import { renderCondition } from './ui/condition.js';
 import { renderCore } from './ui/core.js';
@@ -49,6 +49,7 @@ export function renderAll() {
     els.statSelects.forEach(sel => {
         sel.value = dataManager.state.stats[sel.dataset.stat];
     });
+    renderStatsSummary();
 
     renderOptionalStatsVisibility();
     renderCards();

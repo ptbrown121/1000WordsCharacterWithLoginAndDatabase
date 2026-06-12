@@ -67,6 +67,19 @@
     margin-top: 0.3rem;
 }
 
+.stats-summary {
+    color: var(--text-secondary);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    font-weight: 700;
+    gap: 0.2rem 0.75rem;
+}
+
+.stats-panel-tools {
+    margin-bottom: 0.75rem;
+}
+
 .panel-select {
     background: rgba(0,0,0,0.5);
     border: 1px solid var(--glass-border);

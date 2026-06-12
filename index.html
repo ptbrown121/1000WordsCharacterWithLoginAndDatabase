@@ -164,14 +164,79 @@
 
     <nav class="app-tabs" role="tablist" aria-label="Sheet sections">
         <button type="button" id="tab-play" class="app-tab" role="tab" aria-selected="true" aria-controls="tab-panel-play">🎲 Play</button>
-        <button type="button" id="tab-character" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-character" tabindex="-1">📊 Character <span id="tab-character-badge" class="tab-badge" hidden></span></button>
         <button type="button" id="tab-story" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-story" tabindex="-1">📓 Story <span id="tab-story-badge" class="tab-badge tab-badge-dot" hidden></span></button>
         <button type="button" id="tab-campaign" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-campaign" tabindex="-1">🏰 Campaign</button>
     </nav>
 
     <main>
         <div id="tab-panel-play" class="tab-panel" role="tabpanel" aria-labelledby="tab-play">
-            <section id="trackers-section" class="glass-panel" aria-label="Condition and resource trackers">
+            <section id="trackers-section" class="glass-panel" aria-label="Attributes, condition, and resource trackers">
+                <div id="stats-panel" class="shadow-panel">
+                    <div class="shadow-panel-header">
+                        <div>
+                            <h3>Attributes</h3>
+                            <div id="stats-summary" class="stats-summary"></div>
+                        </div>
+                        <div class="shadow-panel-actions">
+                            <button type="button" id="btn-stats-toggle" class="btn btn-outline" aria-expanded="false" aria-controls="stats-panel-body">Show</button>
+                        </div>
+                    </div>
+                    <div id="stats-panel-body" class="shadow-panel-body" hidden>
+                        <div class="section-header-actions stats-panel-tools">
+                            <label class="inline-toggle" title="Quiet sheet-wide rules review notes after GM approval">
+                                <input type="checkbox" id="toggle-gm-override"> GM reviewed
+                            </label>
+                            <button id="btn-calc-xp" class="btn btn-outline btn-slim">Auto-Calculate XP</button>
+                            <button id="btn-calc-vitals" class="btn btn-outline btn-slim">Auto-Calculate Vitals</button>
+                        </div>
+                        <div id="rules-review-strip" class="rules-review-strip" hidden></div>
+                        <div class="stats-grid">
+                            <!-- Core Stats -->
+                            <div class="stat-box" data-color="Red">
+                                <span class="stat-name" id="stat-label-body">BODY (Red)</span>
+                                <div class="stat-input-row">
+                                    <input type="text" class="stat-select stat-input" data-stat="BODY" aria-labelledby="stat-label-body" placeholder="e.g. d6, d8">
+                                    <button type="button" class="btn-edit-stat-dice" data-stat="BODY" aria-label="Edit BODY dice" title="Edit BODY Dice">⚙️</button>
+                                </div>
+                            </div>
+                            <div class="stat-box" data-color="Orange">
+                                <span class="stat-name" id="stat-label-power">POWER (Orange)</span>
+                                <div class="stat-input-row">
+                                    <input type="text" class="stat-select stat-input" data-stat="POWER" aria-labelledby="stat-label-power" placeholder="e.g. d6, d8">
+                                    <button type="button" class="btn-edit-stat-dice" data-stat="POWER" aria-label="Edit POWER dice" title="Edit POWER Dice">⚙️</button>
+                                </div>
+                            </div>
+                            <div class="stat-box" data-color="Yellow">
+                                <span class="stat-name" id="stat-label-soul">SOUL (Yellow)</span>
+                                <div class="stat-input-row">
+                                    <input type="text" class="stat-select stat-input" data-stat="SOUL" aria-labelledby="stat-label-soul" placeholder="e.g. d6, d8">
+                                    <button type="button" class="btn-edit-stat-dice" data-stat="SOUL" aria-label="Edit SOUL dice" title="Edit SOUL Dice">⚙️</button>
+                                </div>
+                            </div>
+                            <div class="stat-box" data-color="Green">
+                                <span class="stat-name" id="stat-label-focus">FOCUS (Green)</span>
+                                <div class="stat-input-row">
+                                    <input type="text" class="stat-select stat-input" data-stat="FOCUS" aria-labelledby="stat-label-focus" placeholder="e.g. d6, d8">
+                                    <button type="button" class="btn-edit-stat-dice" data-stat="FOCUS" aria-label="Edit FOCUS dice" title="Edit FOCUS Dice">⚙️</button>
+                                </div>
+                            </div>
+                            <div class="stat-box" data-color="Blue">
+                                <span class="stat-name" id="stat-label-mind">MIND (Blue)</span>
+                                <div class="stat-input-row">
+                                    <input type="text" class="stat-select stat-input" data-stat="MIND" aria-labelledby="stat-label-mind" placeholder="e.g. d6, d8">
+                                    <button type="button" class="btn-edit-stat-dice" data-stat="MIND" aria-label="Edit MIND dice" title="Edit MIND Dice">⚙️</button>
+                                </div>
+                            </div>
+                            <div class="stat-box" data-color="Purple">
+                                <span class="stat-name" id="stat-label-speed">SPEED (Purple)</span>
+                                <div class="stat-input-row">
+                                    <input type="text" class="stat-select stat-input" data-stat="SPEED" aria-labelledby="stat-label-speed" placeholder="e.g. d6, d8">
+                                    <button type="button" class="btn-edit-stat-dice" data-stat="SPEED" aria-label="Edit SPEED dice" title="Edit SPEED Dice">⚙️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="condition-panel" class="shadow-panel">
                     <div class="shadow-panel-header">
                         <div>
@@ -449,67 +514,6 @@
             </div>
         </div>
 
-        <div id="tab-panel-character" class="tab-panel" role="tabpanel" aria-labelledby="tab-character" hidden>
-            <section id="stats-section" class="glass-panel">
-                <div class="section-header">
-                    <h2>Stats & Attributes</h2>
-                    <div class="section-header-actions">
-                        <label class="inline-toggle" title="Quiet sheet-wide rules review notes after GM approval">
-                            <input type="checkbox" id="toggle-gm-override"> GM reviewed
-                        </label>
-                        <button id="btn-calc-xp" class="btn btn-outline btn-slim">Auto-Calculate XP</button>
-                        <button id="btn-calc-vitals" class="btn btn-outline btn-slim">Auto-Calculate Vitals</button>
-                    </div>
-                </div>
-                <div id="rules-review-strip" class="rules-review-strip" hidden></div>
-                <div class="stats-grid">
-                    <!-- Core Stats -->
-                    <div class="stat-box" data-color="Red">
-                        <span class="stat-name" id="stat-label-body">BODY (Red)</span>
-                        <div class="stat-input-row">
-                            <input type="text" class="stat-select stat-input" data-stat="BODY" aria-labelledby="stat-label-body" placeholder="e.g. d6, d8">
-                            <button type="button" class="btn-edit-stat-dice" data-stat="BODY" aria-label="Edit BODY dice" title="Edit BODY Dice">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="stat-box" data-color="Orange">
-                        <span class="stat-name" id="stat-label-power">POWER (Orange)</span>
-                        <div class="stat-input-row">
-                            <input type="text" class="stat-select stat-input" data-stat="POWER" aria-labelledby="stat-label-power" placeholder="e.g. d6, d8">
-                            <button type="button" class="btn-edit-stat-dice" data-stat="POWER" aria-label="Edit POWER dice" title="Edit POWER Dice">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="stat-box" data-color="Yellow">
-                        <span class="stat-name" id="stat-label-soul">SOUL (Yellow)</span>
-                        <div class="stat-input-row">
-                            <input type="text" class="stat-select stat-input" data-stat="SOUL" aria-labelledby="stat-label-soul" placeholder="e.g. d6, d8">
-                            <button type="button" class="btn-edit-stat-dice" data-stat="SOUL" aria-label="Edit SOUL dice" title="Edit SOUL Dice">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="stat-box" data-color="Green">
-                        <span class="stat-name" id="stat-label-focus">FOCUS (Green)</span>
-                        <div class="stat-input-row">
-                            <input type="text" class="stat-select stat-input" data-stat="FOCUS" aria-labelledby="stat-label-focus" placeholder="e.g. d6, d8">
-                            <button type="button" class="btn-edit-stat-dice" data-stat="FOCUS" aria-label="Edit FOCUS dice" title="Edit FOCUS Dice">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="stat-box" data-color="Blue">
-                        <span class="stat-name" id="stat-label-mind">MIND (Blue)</span>
-                        <div class="stat-input-row">
-                            <input type="text" class="stat-select stat-input" data-stat="MIND" aria-labelledby="stat-label-mind" placeholder="e.g. d6, d8">
-                            <button type="button" class="btn-edit-stat-dice" data-stat="MIND" aria-label="Edit MIND dice" title="Edit MIND Dice">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="stat-box" data-color="Purple">
-                        <span class="stat-name" id="stat-label-speed">SPEED (Purple)</span>
-                        <div class="stat-input-row">
-                            <input type="text" class="stat-select stat-input" data-stat="SPEED" aria-labelledby="stat-label-speed" placeholder="e.g. d6, d8">
-                            <button type="button" class="btn-edit-stat-dice" data-stat="SPEED" aria-label="Edit SPEED dice" title="Edit SPEED Dice">⚙️</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-
         <div id="tab-panel-story" class="tab-panel" role="tabpanel" aria-labelledby="tab-story" hidden>
             <section id="journal-section" class="glass-panel">
                 <div class="section-header">
@@ -553,6 +557,7 @@
                     <button id="btn-join-campaign" class="btn btn-outline" type="button">Join campaign</button>
                 </div>
                 <div id="campaign-panel" class="campaign-panel" hidden>
+                    <div class="campaign-card campaign-membership-card">
                     <label>
                         Character campaign
                         <select id="character-campaign-select"></select>
@@ -563,7 +568,8 @@
                     </label>
                     <div id="campaign-member-list" class="campaign-member-list"></div>
                     <div id="roll-log-list" class="roll-log-list"></div>
-                    <div id="campaign-files-panel" class="campaign-files-panel" hidden>
+                    </div>
+                    <div id="campaign-files-panel" class="campaign-files-panel campaign-card" hidden>
                         <div class="campaign-files-header">
                             <h3>Campaign files (battle maps &amp; slides)</h3>
                             <span id="campaign-files-status"></span>
@@ -575,7 +581,7 @@
                         </div>
                         <div id="campaign-file-list" class="campaign-file-list"></div>
                     </div>
-                    <div id="campaign-ai-docs-panel" class="campaign-ai-docs-panel" hidden>
+                    <div id="campaign-ai-docs-panel" class="campaign-ai-docs-panel campaign-card" hidden>
                         <div class="campaign-ai-docs-header">
                             <h3>Campaign AI notes</h3>
                             <span id="campaign-ai-docs-status"></span>

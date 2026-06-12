@@ -351,8 +351,8 @@ export function renderCards() {
                 ${ammoLabel ? `<div class="tile-ammo" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${escapeHtml(ammoLabel)}</div>` : ''}
                 <div class="tile-dice">${isAmmo ? 'No dice' : escapeHtml((tile.dice || []).join(', '))}</div>
                 <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-edit-tile" aria-label="Edit ${tileNameLabel}" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: white; border-radius: 4px; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;">\u270f\ufe0f Edit</button>
-                    ${tile.description ? `<button class="btn-details" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: white; border-radius: 4px; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;">Details \u25bc</button>` : ''}
+                    <button class="btn-edit-tile" aria-label="Edit ${tileNameLabel}">\u270f\ufe0f Edit</button>
+                    ${tile.description ? `<button class="btn-details">Details \u25bc</button>` : ''}
                 </div>
                 ${tile.description ? `<div class="tile-description" style="display: none; margin-top: 0.5rem; font-size: 0.9rem; font-style: italic; color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(tile.description)}</div>` : ''}
             </div>
