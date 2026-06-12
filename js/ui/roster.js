@@ -14,9 +14,11 @@ export function init(deps) {
         renderRosterSelect();
     });
 
-    if (els.charRosterSelect) {
-        els.charRosterSelect.addEventListener('change', async (e) => {
-            await dataManager.switchCharacter(e.target.value);
+    if (els.charRosterList) {
+        els.charRosterList.addEventListener('click', async (e) => {
+            const button = e.target.closest('.char-roster-btn');
+            if (!button || button.classList.contains('active')) return;
+            await dataManager.switchCharacter(button.dataset.charId);
             uiState.callTile = null;
             uiState.hitchCallTiles = [];
             uiState.burnTiles = [];
@@ -70,23 +72,37 @@ export function init(deps) {
     });
 }
 
+// One button per roster entry, grouped like the old dropdown's optgroups,
+// with the active character highlighted.
 export function renderRosterSelect() {
-    if (!els.charRosterSelect) return;
-    els.charRosterSelect.innerHTML = '';
+    if (!els.charRosterList) return;
+    els.charRosterList.innerHTML = '';
     const groups = new Map();
     dataManager.roster.forEach(r => {
         const groupName = r.group || (r.source === 'cloud' ? 'My Characters' : 'Local Characters');
         if (!groups.has(groupName)) {
-            const group = document.createElement('optgroup');
-            group.label = groupName;
+            const group = document.createElement('div');
+            group.className = 'char-roster-group';
+            const label = document.createElement('span');
+            label.className = 'char-roster-group-label';
+            label.textContent = groupName;
+            group.appendChild(label);
             groups.set(groupName, group);
-            els.charRosterSelect.appendChild(group);
+            els.charRosterList.appendChild(group);
         }
-        const opt = document.createElement('option');
-        opt.value = r.id;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'char-roster-btn';
+        button.dataset.charId = r.id;
         const suffix = r.readOnly ? ' (view only)' : (r.campaignName ? ` (${r.campaignName})` : '');
-        opt.textContent = `${r.name || 'Unnamed'}${suffix}`;
-        if (r.id === dataManager.activeCharId) opt.selected = true;
-        groups.get(groupName).appendChild(opt);
+        button.textContent = `${r.name || 'Unnamed'}${suffix}`;
+        const isActive = r.id === dataManager.activeCharId;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        groups.get(groupName).appendChild(button);
     });
+    // A lone group's label ("Local Characters") is just noise.
+    if (groups.size === 1) {
+        els.charRosterList.querySelector('.char-roster-group-label')?.remove();
+    }
 }

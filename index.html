@@ -52,9 +52,9 @@
     <header class="glass-panel">
         <div class="header-top">
             <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; width: 100%; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1 1 200px;">
-                    <select id="char-roster-select" class="btn btn-outline" style="padding: 0.3rem; border-radius: 4px; max-width: 150px; text-overflow: ellipsis;" title="Switch Character"></select>
+                <div style="display: flex; flex-direction: column; gap: 0.4rem; flex: 1 1 200px;">
                     <input type="text" id="char-name" value="Hero Name" style="font-size: 1.5rem; background: transparent; border: none; color: white; width: 100%; min-width: 120px;">
+                    <div id="char-roster-list" class="char-roster-list" role="group" aria-label="Switch character"></div>
                 </div>
                 <div class="header-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                     <button id="btn-rest" class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size: 0.9rem;">🏕️ Rest</button>
@@ -62,7 +62,11 @@
                     <button id="btn-del-char" class="btn btn-outline" title="Delete Current Character" style="color: #ff4444; border-color: rgba(255,68,68,0.3);">🗑️ Del</button>
                     <button id="btn-export" class="btn btn-outline" title="Export Character">⬇️ Export</button>
                     <label for="file-import" class="btn btn-outline" title="Import Character">⬆️ Import</label>
-                    <input type="file" id="file-import" accept=".json" style="display: none;">
+                    <!-- Broad accept list: older Android/Samsung pickers ignore the ".json"
+     extension syntax and filter by MIME type, and Android downloads often
+     store JSON as text/plain or application/octet-stream. Real validation
+     happens in DataManager.importState, not here. -->
+                    <input type="file" id="file-import" accept=".json,.txt,application/json,text/plain,application/octet-stream" style="display: none;">
                     <button id="btn-info" class="btn btn-outline" title="How to Use">ℹ️ Info</button>
                 </div>
             </div>
@@ -723,14 +727,15 @@
                     </div>
                     <div id="gear-subtype-container" style="display: none; margin-top: 0.5rem;">
                         <label style="font-weight: normal; font-size: 0.9rem;">Gear Subtype</label>
-                        <select id="gear-subtype" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 0.95rem; margin-top: 0.3rem;">
-                            <option value="Custom">Custom Gear</option>
-                            <option value="Weapon">Weapon</option>
-                            <option value="Armor">Armor</option>
-                            <option value="Ammo">Ammo</option>
-                            <option value="Tool">Tool</option>
-                            <option value="Hinder">Hinder (verbal attack; -3 XP)</option>
-                        </select>
+                        <input type="hidden" id="gear-subtype" value="Custom">
+                        <div class="tile-option-grid" data-target="gear-subtype" aria-label="Gear subtype">
+                            <button type="button" class="tile-box-option" data-value="Custom">Custom</button>
+                            <button type="button" class="tile-box-option" data-value="Weapon">Weapon</button>
+                            <button type="button" class="tile-box-option" data-value="Armor">Armor</button>
+                            <button type="button" class="tile-box-option" data-value="Ammo">Ammo</button>
+                            <button type="button" class="tile-box-option" data-value="Tool">Tool</button>
+                            <button type="button" class="tile-box-option" data-value="Hinder" title="Verbal attack that exhausts opponents; -3 XP rebate">Hinder</button>
+                        </div>
                     </div>
                     <div id="hinder-builder-container" style="display: none; margin-top: 0.5rem;">
                         <label style="font-weight: normal; font-size: 0.9rem;">Assault Type (guidance)</label>
@@ -898,11 +903,12 @@
 
                 <div class="form-group">
                     <label>Special Identity (optional)</label>
-                    <select id="tile-special-identity" style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem;">
-                        <option value="">None</option>
-                        <option value="titan-identity">Titan Identity (Gear/Story: 3rd box; Build/Shield/Detail tags -1 XP, unlimited)</option>
-                        <option value="homeworld">Homeworld (Story: 3rd box; chained by World tags)</option>
-                    </select>
+                    <input type="hidden" id="tile-special-identity">
+                    <div class="tile-option-grid" data-target="tile-special-identity" aria-label="Special identity">
+                        <button type="button" class="tile-box-option" data-value="">None</button>
+                        <button type="button" class="tile-box-option" data-value="titan-identity" title="Gear/Story: 3rd box; Build/Shield/Detail tags -1 XP, unlimited">Titan Identity</button>
+                        <button type="button" class="tile-box-option" data-value="homeworld" title="Story: 3rd box; chained by World tags">Homeworld</button>
+                    </div>
                 </div>
 
                 <div class="form-group">

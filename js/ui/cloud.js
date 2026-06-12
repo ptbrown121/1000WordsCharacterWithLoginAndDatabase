@@ -170,7 +170,6 @@ export function applyReadOnlyMode() {
     if (els.readonlyBanner) els.readonlyBanner.hidden = !readOnly;
 
     const allowedIds = new Set([
-        'char-roster-select',
         'btn-export',
         'btn-info',
         'btn-auth-send-link',
@@ -190,6 +189,9 @@ export function applyReadOnlyMode() {
     document.querySelectorAll('header input, header button, header select, main input, main button, main select, main textarea')
         .forEach(node => {
             if (allowedIds.has(node.id)) return;
+            // Switching characters must always work, or a GM viewing a
+            // read-only sheet couldn't get back to their own character.
+            if (node.closest('#char-roster-list')) return;
             // The NPC tracker is GM-side and independent of the viewed
             // character; a GM browsing a player's read-only sheet still
             // needs to run their NPCs.

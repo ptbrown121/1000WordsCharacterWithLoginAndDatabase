@@ -67,7 +67,7 @@ export const els = {
     optionalStatBoxes: document.querySelectorAll('.optional-stat'),
     cardContainer: document.getElementById('card-container'),
     btnAddTile: document.getElementById('btn-add-tile'),
-    charRosterSelect: document.getElementById('char-roster-select'),
+    charRosterList: document.getElementById('char-roster-list'),
     btnDelChar: document.getElementById('btn-del-char'),
     searchTiles: document.getElementById('search-tiles'),
     btnReorderTiles: document.getElementById('btn-reorder-tiles'),

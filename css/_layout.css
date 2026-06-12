@@ -29,6 +29,53 @@ header {
     gap: 0.5rem;
 }
 
+/* Character switcher: one pill per roster entry, active one highlighted.
+   Capped height with scroll so a GM's long campaign roster can't swallow
+   the header. */
+.char-roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: 9rem;
+    overflow-y: auto;
+}
+
+.char-roster-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.char-roster-group-label {
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-basis: 100%;
+}
+
+.char-roster-btn {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: var(--font-main);
+    font-size: 0.8rem;
+    max-width: 14rem;
+    overflow: hidden;
+    padding: 0.3rem 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.char-roster-btn.active {
+    background: rgba(0,255,200,0.14);
+    border-color: rgba(0,255,200,0.5);
+    color: #00ffcc;
+}
+
 .resource-pools {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
