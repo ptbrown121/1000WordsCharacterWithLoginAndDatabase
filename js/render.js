@@ -1,4 +1,4 @@
-import { STAT_COLORS, COLOR_HEX, getEffectiveMax } from './data.js';
+import { getEffectiveMax } from './data.js';
 import { els } from './els.js';
 import { renderArmorSoak } from './ui/armorSoak.js';
 import { renderCards } from './ui/cards.js';
@@ -44,12 +44,10 @@ export function renderAll() {
     renderTempBadge(els.rxTempBadge, dataManager.state.rxTemp);
     renderTempBadge(els.shTempBadge, dataManager.state.shTemp);
 
-    // Apply stat values and dynamic borders
+    // Apply stat values; box border colors come from .stat-box[data-color]
+    // rules in _layout.css.
     els.statSelects.forEach(sel => {
-        const stat = sel.dataset.stat;
-        sel.value = dataManager.state.stats[stat];
-        const colorName = STAT_COLORS[stat];
-        sel.parentElement.style.borderTopColor = COLOR_HEX[colorName] || '#fff';
+        sel.value = dataManager.state.stats[sel.dataset.stat];
     });
 
     renderOptionalStatsVisibility();

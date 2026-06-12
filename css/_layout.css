@@ -198,8 +198,14 @@ header {
     background: rgba(0,0,0,0.3);
     padding: 0.8rem;
     border-radius: 12px;
-    border-top: 3px solid var(--color-red); /* updated via inline style in JS */
+    border-top: 3px solid var(--color-red);
 }
+
+.stat-box[data-color="Orange"] { border-top-color: var(--color-orange); }
+.stat-box[data-color="Yellow"] { border-top-color: var(--color-yellow); }
+.stat-box[data-color="Green"] { border-top-color: var(--color-green); }
+.stat-box[data-color="Blue"] { border-top-color: var(--color-blue); }
+.stat-box[data-color="Purple"] { border-top-color: var(--color-purple); }
 
 .stat-name {
     font-size: 0.85rem;
