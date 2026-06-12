@@ -264,6 +264,91 @@ export class SupabaseCharacterStore {
             .eq('id', npcId));
     }
 
+    // Campaign files (GM-only): PowerPoint maps/decks as storage objects
+    // plus a metadata row. Paths start with the campaign id so the storage
+    // RLS policies can authorize from the path alone.
+    async listCampaignFiles(campaignId) {
+        const rows = assertNoError(await this.client
+            .from('campaign_files')
+            .select('id, title, file_name, storage_path, content_type, size_bytes, created_at')
+            .eq('campaign_id', campaignId)
+            .order('created_at', { ascending: false }));
+        return rows.map(row => ({
+            id: row.id,
+            title: row.title || row.file_name,
+            fileName: row.file_name,
+            storagePath: row.storage_path,
+            contentType: row.content_type,
+            sizeBytes: row.size_bytes,
+            createdAt: row.created_at
+        }));
+    }
+
+    async uploadCampaignFile(campaignId, file, title) {
+        // Some platforms report an empty mime type; infer it from the
+        // extension so the bucket's allowlist can still accept the upload.
+        const mimeByExtension = {
+            ppt: 'application/vnd.ms-powerpoint',
+            pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            ppsx: 'application/vnd.openxmlformats-officedocument.presentationml.slideshow'
+        };
+        const extension = (file.name || '').split('.').pop().toLowerCase();
+        const contentType = file.type || mimeByExtension[extension] || '';
+        const safeName = String(file.name || 'presentation.pptx').replace(/[^\w.\- ]+/g, '_');
+        const storagePath = `${campaignId}/${crypto.randomUUID()}-${safeName}`;
+
+        assertNoError(await this.client.storage
+            .from('campaign-files')
+            .upload(storagePath, file, { contentType, upsert: false }));
+
+        try {
+            const row = assertNoError(await this.client
+                .from('campaign_files')
+                .insert({
+                    campaign_id: campaignId,
+                    uploaded_by: this.user.id,
+                    title: String(title || '').trim() || file.name,
+                    file_name: file.name,
+                    storage_path: storagePath,
+                    content_type: contentType,
+                    size_bytes: file.size || 0
+                })
+                .select('id, title, file_name, storage_path, content_type, size_bytes, created_at')
+                .single());
+            return {
+                id: row.id,
+                title: row.title || row.file_name,
+                fileName: row.file_name,
+                storagePath: row.storage_path,
+                contentType: row.content_type,
+                sizeBytes: row.size_bytes,
+                createdAt: row.created_at
+            };
+        } catch (error) {
+            // The metadata row failed: remove the blob so it cannot become
+            // an orphan invisible to the file list.
+            await this.client.storage.from('campaign-files').remove([storagePath]);
+            throw error;
+        }
+    }
+
+    async getCampaignFileDownloadUrl(storagePath, downloadName) {
+        const data = assertNoError(await this.client.storage
+            .from('campaign-files')
+            .createSignedUrl(storagePath, 300, { download: downloadName || true }));
+        return data.signedUrl;
+    }
+
+    async deleteCampaignFile(file) {
+        assertNoError(await this.client.storage
+            .from('campaign-files')
+            .remove([file.storagePath]));
+        assertNoError(await this.client
+            .from('campaign_files')
+            .delete()
+            .eq('id', file.id));
+    }
+
     async recordRollLog(log) {
         assertNoError(await this.client
             .from('roll_logs')

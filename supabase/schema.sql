@@ -807,6 +807,99 @@ on public.campaign_npcs for delete
 to authenticated
 using (public.is_campaign_gm(campaign_id));
 
+-- Campaign files (GM-side): PowerPoint battle maps and slide decks, stored
+-- as binaries in the private campaign-files bucket with a metadata row per
+-- file. Object paths are `<campaign_id>/<uuid>-<file name>`, so the storage
+-- policies can authorize directly from the path's first folder. Like NPCs,
+-- everything is GM-only.
+create table if not exists public.campaign_files (
+    id uuid primary key default gen_random_uuid(),
+    campaign_id uuid not null references public.campaigns(id) on delete cascade,
+    uploaded_by uuid not null references public.profiles(id) on delete cascade,
+    title text not null default '',
+    file_name text not null,
+    storage_path text not null unique,
+    content_type text not null default '',
+    size_bytes bigint not null default 0,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists campaign_files_campaign_idx on public.campaign_files(campaign_id, created_at desc);
+
+drop trigger if exists campaign_files_set_updated_at on public.campaign_files;
+create trigger campaign_files_set_updated_at
+before update on public.campaign_files
+for each row execute function public.set_updated_at();
+
+alter table public.campaign_files enable row level security;
+
+drop policy if exists "campaign_files_select_gms" on public.campaign_files;
+create policy "campaign_files_select_gms"
+on public.campaign_files for select
+to authenticated
+using (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_files_insert_gms" on public.campaign_files;
+create policy "campaign_files_insert_gms"
+on public.campaign_files for insert
+to authenticated
+with check (uploaded_by = auth.uid() and public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_files_delete_gms" on public.campaign_files;
+create policy "campaign_files_delete_gms"
+on public.campaign_files for delete
+to authenticated
+using (public.is_campaign_gm(campaign_id));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'campaign-files',
+    'campaign-files',
+    false,
+    52428800,
+    array[
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.openxmlformats-officedocument.presentationml.slideshow'
+    ]
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = 52428800,
+    allowed_mime_types = array[
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.openxmlformats-officedocument.presentationml.slideshow'
+    ];
+
+drop policy if exists "campaign_files_storage_insert_gms" on storage.objects;
+create policy "campaign_files_storage_insert_gms"
+on storage.objects for insert
+to authenticated
+with check (
+    bucket_id = 'campaign-files'
+    and public.is_campaign_gm(((storage.foldername(name))[1])::uuid)
+);
+
+drop policy if exists "campaign_files_storage_select_gms" on storage.objects;
+create policy "campaign_files_storage_select_gms"
+on storage.objects for select
+to authenticated
+using (
+    bucket_id = 'campaign-files'
+    and public.is_campaign_gm(((storage.foldername(name))[1])::uuid)
+);
+
+drop policy if exists "campaign_files_storage_delete_gms" on storage.objects;
+create policy "campaign_files_storage_delete_gms"
+on storage.objects for delete
+to authenticated
+using (
+    bucket_id = 'campaign-files'
+    and public.is_campaign_gm(((storage.foldername(name))[1])::uuid)
+);
+
 -- To allow a specific user to create campaigns, run this manually in the
 -- Supabase SQL editor after that user has signed in at least once:
 --

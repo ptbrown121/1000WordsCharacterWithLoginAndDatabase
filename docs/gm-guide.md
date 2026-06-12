@@ -88,6 +88,14 @@ Useful GM-side tools:
 
 - **Campaign characters:** View player characters in read-only mode.
 - **Recent campaign rolls:** Review non-test cloud rolls, including call colors, called tiles, totals, and haywire status.
+- **NPC tracker:** Build and run NPC stat blocks from the NPCs panel. The
+  "Stored in" selector keeps them in this browser or in a campaign you GM;
+  campaign NPCs are shared between that campaign's GMs and follow you
+  across devices. Players never see them.
+- **Campaign files:** In the campaign panel, upload PowerPoint battle maps
+  and slide decks (`.ppt`, `.pptx`, `.ppsx`, up to 50 MB each) to the
+  selected campaign and download them from any computer. Files are
+  GM-only, like NPCs.
 - **GM reviewed:** Players can check this on a sheet after table approval to quiet advisory rules-review notes.
 - **Test roll:** Players should turn this on for practice, setup checks, or AI/browser testing. Test rolls do not enter campaign roll history.
 

@@ -54,6 +54,18 @@
             </label>
             <div id="campaign-member-list" class="campaign-member-list"></div>
             <div id="roll-log-list" class="roll-log-list"></div>
+            <div id="campaign-files-panel" class="campaign-files-panel" hidden>
+                <div class="campaign-files-header">
+                    <h3>Campaign files (battle maps &amp; slides)</h3>
+                    <span id="campaign-files-status"></span>
+                </div>
+                <div class="campaign-files-controls">
+                    <input id="campaign-file-input" type="file" accept=".ppt,.pptx,.ppsx" aria-label="PowerPoint file to upload">
+                    <input id="campaign-file-title" type="text" placeholder="Title (optional)" aria-label="File title">
+                    <button id="btn-campaign-file-upload" class="btn btn-outline" type="button">Upload</button>
+                </div>
+                <div id="campaign-file-list" class="campaign-file-list"></div>
+            </div>
             <div id="campaign-ai-docs-panel" class="campaign-ai-docs-panel" hidden>
                 <div class="campaign-ai-docs-header">
                     <h3>Campaign AI notes</h3>
