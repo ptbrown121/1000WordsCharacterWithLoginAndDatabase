@@ -21,6 +21,13 @@
     scrollbar-gutter: stable;
 }
 
+/* Modals float over the full sheet, where the shared 5%-white glass
+   tint lets the page text bleed through. Use the same near-opaque dark
+   as the tile modal's sticky header/footer instead. */
+.modal .modal-content {
+    background: rgba(18, 18, 22, 0.97);
+}
+
 .pending-tag-dialog {
     z-index: 300;
 }

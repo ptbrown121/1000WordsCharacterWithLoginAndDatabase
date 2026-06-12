@@ -209,5 +209,21 @@ Campaign.**
 
 - `js/ui/modals.js` (1,115 lines) and `js/spellBuilder.js` (1,091 lines) are
   the two remaining oversized modules; same split treatment as pool.js (PR 9)
-  would apply if they grow further.
+  would apply if they grow further. **Done 2026-06-12** (user request):
+  - `js/ui/modals.js` is now an 18-line barrel re-exporting all 13 pre-split
+    names; the implementation lives in `js/ui/tileModal/` — `modal.js`
+    (open/close/save/init wiring, 433), `tagEditor.js` (tag-list state +
+    pending-tag flow + tag-limit status, 241), `gearBuilders.js` (weapon
+    templates, ammo builder/reagents, hinders, 239), `formFields.js`
+    (field readers + the card formatters, 82), `boxes.js` (tile-box
+    editor, 73). Zero changes to importers (`app.js`, `cards.js`).
+  - `js/spellBuilder.js` shrank 1,091 → 659: pure school-color pricing moved
+    to `js/spell-rules.js` (matching the `*-rules.js` convention; covered by
+    new `test/spell-rules.test.js`), the color/box DOM controls to
+    `js/ui/spellColors.js`, and spellState serialize/restore to
+    `js/ui/spellForm.js`. Class API (`openWizard`, constructor) unchanged.
+  - `js/ui/modalWidgets.js` holds the helpers that were duplicated verbatim
+    in both files: `bindStableTouchButton` (iOS keyboard-dismiss-safe taps),
+    `showPendingTagDialog`, and `createDiceTokenEditor` (comma-input +
+    chips + add-die buttons).
 - A full inline-style purge of index.html beyond the sections tabs touch.
