@@ -6,7 +6,7 @@ let supabaseClient;
 let renderAll;
 
 // Email a magic link was last sent to this page load. While set (and signed
-// out), the code form is shown so the emailed 6-digit OTP can be typed in —
+// out), the code form is shown so the emailed OTP code can be typed in —
 // for devices that can't open the link from their own inbox.
 let pendingOtpEmail = '';
 
@@ -320,7 +320,7 @@ export async function init(deps) {
             });
             if (error) throw error;
             pendingOtpEmail = email;
-            dataManager.setCloudStatus('link-sent', 'Email sent. Click the link, or type the 6-digit code from it below.');
+            dataManager.setCloudStatus('link-sent', 'Email sent. Click the link, or type the code from it below.');
         } catch (err) {
             dataManager.setCloudStatus('error', err.message || 'Could not send magic link.');
         } finally {
