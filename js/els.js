@@ -49,6 +49,8 @@ export const els = {
     toggleOptionalStats: document.getElementById('toggle-optional-stats'),
     toggleGmOverride: document.getElementById('toggle-gm-override'),
     rulesReviewStrip: document.getElementById('rules-review-strip'),
+    tabCharacterBadge: document.getElementById('tab-character-badge'),
+    tabStoryBadge: document.getElementById('tab-story-badge'),
     statSelects: document.querySelectorAll('.stat-select'),
     statDiceButtons: document.querySelectorAll('.btn-edit-stat-dice'),
     statDiceModal: document.getElementById('stat-dice-modal'),

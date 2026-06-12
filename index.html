@@ -164,8 +164,8 @@
 
     <nav class="app-tabs" role="tablist" aria-label="Sheet sections">
         <button type="button" id="tab-play" class="app-tab" role="tab" aria-selected="true" aria-controls="tab-panel-play">🎲 Play</button>
-        <button type="button" id="tab-character" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-character" tabindex="-1">📊 Character</button>
-        <button type="button" id="tab-story" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-story" tabindex="-1">📓 Story</button>
+        <button type="button" id="tab-character" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-character" tabindex="-1">📊 Character <span id="tab-character-badge" class="tab-badge" hidden></span></button>
+        <button type="button" id="tab-story" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-story" tabindex="-1">📓 Story <span id="tab-story-badge" class="tab-badge tab-badge-dot" hidden></span></button>
         <button type="button" id="tab-campaign" class="app-tab" role="tab" aria-selected="false" aria-controls="tab-panel-campaign" tabindex="-1">🏰 Campaign</button>
     </nav>
 
@@ -220,7 +220,7 @@
                             Current Core
                             <input type="number" id="val-core" value="0" min="0">
                         </label>
-                        <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Each unburied Cyber tile grants 1 Core. Core adds its current value to Grit (applied automatically in defense resolution). Recovery: 1 per hour, or all Core with a battery pack or a supercharger hour; Rest restores all.</small>
+                        <small class="panel-note">Each unburied Cyber tile grants 1 Core. Core adds its current value to Grit (applied automatically in defense resolution). Recovery: 1 per hour, or all Core with a battery pack or a supercharger hour; Rest restores all.</small>
                         <div id="core-abilities" style="margin-top: 0.5rem;"></div>
                     </div>
                 </div>
@@ -237,18 +237,18 @@
                     <div id="stranger-panel-body" class="shadow-panel-body" hidden>
                         <div id="stranger-form-section" style="display: none;">
                             <label for="stranger-form-select">Current Form (While X tiles)</label>
-                            <select id="stranger-form-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                            <select id="stranger-form-select" class="panel-select">
                             </select>
-                            <small id="stranger-form-detail" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                            <small id="stranger-form-detail" class="panel-note"></small>
                         </div>
                         <div id="stranger-celestial-section" style="display: none; margin-top: 0.5rem;">
                             <label for="celestial-aspect-select">Celestial Aspect</label>
-                            <select id="celestial-aspect-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                            <select id="celestial-aspect-select" class="panel-select">
                                 <option value="">-- Pick Aural or Astral --</option>
                                 <option value="aural">Aural (projected senses)</option>
                                 <option value="astral">Astral (out-of-body time)</option>
                             </select>
-                            <small id="celestial-aspect-detail" style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
+                            <small id="celestial-aspect-detail" class="panel-note"></small>
                         </div>
                         <small id="stranger-bestial-note" style="display: none; margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.8rem;"></small>
                     </div>
@@ -269,7 +269,7 @@
                             <input type="number" id="val-titan" value="0" min="0">
                         </label>
                         <div id="titan-hv-tracker" style="margin-top: 0.5rem;"></div>
-                        <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Each Titan tag (3 XP, any tile) grants 1 Titan. When a Titan tile is used, dice below their ▟ reroll automatically. Spend Titan in the results panel for an Add or a maximized die; Titan can also be spent as Core or Shadow (1:1) if those pools exist. Recovery is through acts of Heroism or Villainy — Rest does not restore Titan.</small>
+                        <small class="panel-note">Each Titan tag (3 XP, any tile) grants 1 Titan. When a Titan tile is used, dice below their ▟ reroll automatically. Spend Titan in the results panel for an Add or a maximized die; Titan can also be spent as Core or Shadow (1:1) if those pools exist. Recovery is through acts of Heroism or Villainy — Rest does not restore Titan.</small>
                         <div id="titan-abilities" style="margin-top: 0.5rem;"></div>
                     </div>
                 </div>
@@ -355,7 +355,7 @@
                         <select id="freebie-die-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
                             <option value="">None</option>
                         </select>
-                        <small style="display: block; margin-top: 0.3rem; color: var(--text-secondary); font-size: 0.8rem;">Duplicates a die already in the pool and costs Energy equal to its ▟ (d6 = 2 EN, d8 = 3 EN). A freebie can also be added after the roll from the results panel.</small>
+                        <small class="panel-note">Duplicates a die already in the pool and costs Energy equal to its ▟ (d6 = 2 EN, d8 = 3 EN). A freebie can also be added after the roll from the results panel.</small>
                     </div>
 
                     <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
@@ -419,7 +419,7 @@
 
                 <!-- Mosaic (Cards) -->
                 <section id="mosaic-section">
-                    <div class="section-header" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+                    <div class="section-header section-header-stack">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <h2>Mosaic (Tiles)</h2>
                             <div style="display: flex; gap: 0.5rem;">
@@ -451,14 +451,14 @@
 
         <div id="tab-panel-character" class="tab-panel" role="tabpanel" aria-labelledby="tab-character" hidden>
             <section id="stats-section" class="glass-panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h2 style="margin: 0;">Stats & Attributes</h2>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
+                <div class="section-header">
+                    <h2>Stats & Attributes</h2>
+                    <div class="section-header-actions">
                         <label class="inline-toggle" title="Quiet sheet-wide rules review notes after GM approval">
                             <input type="checkbox" id="toggle-gm-override"> GM reviewed
                         </label>
-                        <button id="btn-calc-xp" class="btn btn-outline" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Auto-Calculate XP</button>
-                        <button id="btn-calc-vitals" class="btn btn-outline" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Auto-Calculate Vitals</button>
+                        <button id="btn-calc-xp" class="btn btn-outline btn-slim">Auto-Calculate XP</button>
+                        <button id="btn-calc-vitals" class="btn btn-outline btn-slim">Auto-Calculate Vitals</button>
                     </div>
                 </div>
                 <div id="rules-review-strip" class="rules-review-strip" hidden></div>
@@ -512,12 +512,12 @@
 
         <div id="tab-panel-story" class="tab-panel" role="tabpanel" aria-labelledby="tab-story" hidden>
             <section id="journal-section" class="glass-panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h2 style="margin: 0;">📓 Journal</h2>
+                <div class="section-header">
+                    <h2>📓 Journal</h2>
                     <button id="btn-add-journal" class="btn btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;">+ New Entry</button>
                 </div>
                 <div id="journal-entries-container">
-                    <p style="color: var(--text-secondary); font-style: italic;">No journal entries yet. Click "+ New Entry" to get started.</p>
+                    <p class="empty-note">No journal entries yet. Click "+ New Entry" to get started.</p>
                 </div>
             </section>
 
@@ -612,20 +612,20 @@
                     </div>
                     <div id="npc-panel-body" class="shadow-panel-body" hidden>
                         <small style="display: block; color: var(--text-secondary); font-size: 0.8rem;">Rank is Soak and Grit and adds to Attack (Rank + Skill roll) and Defense (Rank + Charm roll). Might rolls for injury. Budgets: 15 + 6×Rank resource points; 3 + 2×Rank stat die steps. BLEED downgrades a die 1▟; a forced burn drops Rank by 1. NPCs are stored in this browser, or in a campaign you GM so they follow you across devices.</small>
-                        <div id="npc-storage-row" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem;" hidden>
-                            <label for="npc-storage-select" style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">Stored in</label>
-                            <select id="npc-storage-select" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;"></select>
-                            <button type="button" id="btn-npc-copy-local" class="btn btn-outline" style="padding: 0.4rem;" hidden title="Copy this browser's NPCs into the selected campaign (the local copies stay)">Copy browser NPCs here</button>
-                            <small id="npc-storage-note" style="color: var(--text-secondary); font-size: 0.8rem;"></small>
+                        <div id="npc-storage-row" hidden>
+                            <label for="npc-storage-select">Stored in</label>
+                            <select id="npc-storage-select"></select>
+                            <button type="button" id="btn-npc-copy-local" class="btn btn-outline" hidden title="Copy this browser's NPCs into the selected campaign (the local copies stay)">Copy browser NPCs here</button>
+                            <small id="npc-storage-note"></small>
                         </div>
-                        <div id="npc-add-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; align-items: end;">
-                            <label style="grid-column: span 2; font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">
+                        <div id="npc-add-form">
+                            <label style="grid-column: span 2;">
                                 Name
-                                <input type="text" id="npc-name" placeholder="e.g. Gargoyle" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="text" id="npc-name" placeholder="e.g. Gargoyle">
                             </label>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Rank is Soak and Grit and adds to Attack and Defense">
+                            <label title="Rank is Soak and Grit and adds to Attack and Defense">
                                 Rank
-                                <select id="npc-rank" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <select id="npc-rank">
                                     <option value="1">Rank 1</option>
                                     <option value="2">Rank 2</option>
                                     <option value="3" selected>Rank 3</option>
@@ -635,37 +635,37 @@
                                     <option value="7">Rank 7</option>
                                 </select>
                             </label>
-                            <button type="button" id="btn-npc-example" class="btn btn-outline" style="padding: 0.4rem; align-self: end;" title="Fill the printed example stat block for this Rank">Use Rank example</button>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Stands in for BODY/POWER; rolled when the NPC deals injury">
+                            <button type="button" id="btn-npc-example" class="btn btn-outline" title="Fill the printed example stat block for this Rank">Use Rank example</button>
+                            <label title="Stands in for BODY/POWER; rolled when the NPC deals injury">
                                 Might (injury)
-                                <input type="text" id="npc-might" placeholder="e.g. d8" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="text" id="npc-might" placeholder="e.g. d8">
                             </label>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Stands in for SOUL/FOCUS; rolled for Defense (plus Rank)">
+                            <label title="Stands in for SOUL/FOCUS; rolled for Defense (plus Rank)">
                                 Charm (defense)
-                                <input type="text" id="npc-charm" placeholder="e.g. d8" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="text" id="npc-charm" placeholder="e.g. d8">
                             </label>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Stands in for MIND/SPEED; rolled for Attack (plus Rank)">
+                            <label title="Stands in for MIND/SPEED; rolled for Attack (plus Rank)">
                                 Skill (attack)
-                                <input type="text" id="npc-skill" placeholder="e.g. d8" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="text" id="npc-skill" placeholder="e.g. d8">
                             </label>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Health pool maximum">
+                            <label title="Health pool maximum">
                                 Health (HP)
-                                <input type="number" id="npc-hp" placeholder="e.g. 10" min="0" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="number" id="npc-hp" placeholder="e.g. 10" min="0">
                             </label>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Energy pool maximum">
+                            <label title="Energy pool maximum">
                                 Energy (EN)
-                                <input type="number" id="npc-en" placeholder="e.g. 10" min="0" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="number" id="npc-en" placeholder="e.g. 10" min="0">
                             </label>
-                            <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Reflex pool maximum">
+                            <label title="Reflex pool maximum">
                                 Reflex (RX)
-                                <input type="number" id="npc-rx" placeholder="e.g. 13" min="0" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="number" id="npc-rx" placeholder="e.g. 13" min="0">
                             </label>
-                            <label style="grid-column: 1 / -1; font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Up to Rank descriptors; each can be spent for a freebie die at Rank ▟">
+                            <label style="grid-column: 1 / -1;" title="Up to Rank descriptors; each can be spent for a freebie die at Rank ▟">
                                 Descriptors (comma list, up to Rank)
-                                <input type="text" id="npc-descriptors" placeholder="e.g. Thick hide, Vicious, Huge" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <input type="text" id="npc-descriptors" placeholder="e.g. Thick hide, Vicious, Huge">
                             </label>
-                            <small id="npc-budget-note" style="grid-column: 1 / -1; color: var(--text-secondary); font-size: 0.8rem;"></small>
-                            <button type="button" id="btn-npc-add" class="btn btn-action" style="grid-column: 1 / -1; padding: 0.4rem;">Add NPC</button>
+                            <small id="npc-budget-note"></small>
+                            <button type="button" id="btn-npc-add" class="btn btn-action">Add NPC</button>
                         </div>
                         <div id="npc-list" style="margin-top: 0.5rem;"></div>
                     </div>

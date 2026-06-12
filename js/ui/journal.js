@@ -25,7 +25,7 @@ export function renderJournal() {
     const entries = dataManager.state.journal || [];
     
     if (entries.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No journal entries yet. Click "+ New Entry" to get started.</p>';
+        container.innerHTML = '<p class="empty-note">No journal entries yet. Click "+ New Entry" to get started.</p>';
         return;
     }
     

@@ -501,11 +501,15 @@ export function renderAiCreation() {
 
     const entry = activeCampaignEntry();
     els.aiCreationSection.hidden = !entry;
-    if (!entry) return;
+    if (!entry) {
+        if (els.tabStoryBadge) els.tabStoryBadge.hidden = true;
+        return;
+    }
 
     const canChat = Boolean(entry.isMine && !entry.readOnly);
     const hasThread = Boolean(aiState.activeBundle?.thread);
     const hasOpenThread = hasThread && !isClosedThread();
+    if (els.tabStoryBadge) els.tabStoryBadge.hidden = !hasOpenThread;
     const status = aiState.loadingThread
         ? 'Loading AI creation chat...'
         : aiState.threadStatus || statusForBundle(aiState.activeBundle);

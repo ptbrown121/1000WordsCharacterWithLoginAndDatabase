@@ -143,6 +143,28 @@ content that moves to the Campaign tab.
   touched into the CSS partials (index.html currently has 332 inline styles;
   this PR only cleans the moved sections, not the whole file).
 
+**Status: done 2026-06-13. All three PRs of this plan are complete.** Notes:
+- Badges: `#tab-character-badge` shows the rules-review item count, hidden
+  when the GM-reviewed override is on (same quieting as the strip);
+  `#tab-story-badge` is a dot shown while an AI creation thread is open.
+  Both are toggled inside `renderRulesReview` / `renderAiCreation`,
+  including their early-return paths.
+- Bottom bar: at `max-width: 700px` (the existing mobile breakpoint) the nav
+  becomes `position: fixed` at the bottom, z-index 90 (under modals at 100+
+  and notifications at 1000), with `env(safe-area-inset-bottom)` padding and
+  `body { padding-bottom: 4.5rem }` so content scrolls clear of it.
+- Inline styles inside `<main>` went 74 → 33. Extracted: the NPC form
+  (id-scoped rules in `_dashboard.css`, deliberately outranking
+  `.shadow-panel-body label/input`), `.panel-note`/`.panel-select` for the
+  tracker panels, `.section-header` adoption for stats/journal plus
+  `.section-header-stack`/`.section-header-actions`/`.btn-slim`, and
+  `.empty-note` (also de-duplicated from journal.js's innerHTML). What
+  remains inline is JS-toggled `display:none`, layout-only `grid-column`
+  spans, dashboard internals, and one-offs — left to keep computed styles
+  byte-identical.
+- Gates: 331/331 tests, eslint 0 errors (61 accepted warnings), typecheck 0,
+  build clean, no duplicate ids.
+
 ## Out of scope (noted during this pass, not part of the tabs work)
 
 - `js/ui/modals.js` (1,115 lines) and `js/spellBuilder.js` (1,091 lines) are

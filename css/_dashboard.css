@@ -60,6 +60,91 @@
     width: 100%;
 }
 
+.panel-note {
+    color: var(--text-secondary);
+    display: block;
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
+}
+
+.panel-select {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: white;
+    padding: 0.5rem;
+    width: 100%;
+}
+
+/* NPC (GM) panel form (inline styles extracted, UI tabs plan PR 3). The
+   id-scoped rules must outrank .shadow-panel-body label/input above. */
+#npc-panel label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: normal;
+}
+
+#npc-add-form {
+    align-items: end;
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    margin-top: 0.5rem;
+}
+
+#npc-add-form input,
+#npc-add-form select {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: white;
+    display: block;
+    margin-top: 0.2rem;
+    padding: 0.4rem;
+    width: 100%;
+}
+
+#btn-npc-example {
+    align-self: end;
+    padding: 0.4rem;
+}
+
+#btn-npc-add {
+    grid-column: 1 / -1;
+    padding: 0.4rem;
+}
+
+#npc-budget-note {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    grid-column: 1 / -1;
+}
+
+#npc-storage-row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+#npc-storage-select {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: white;
+    padding: 0.4rem;
+}
+
+#btn-npc-copy-local {
+    padding: 0.4rem;
+}
+
+#npc-storage-note {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
 .shadow-abilities-display {
     color: var(--text-secondary);
     display: flex;

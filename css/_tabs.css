@@ -37,6 +37,31 @@
     color: white;
 }
 
+/* Badges (UI tabs plan PR 3): rules-review count on Character, open
+   AI-thread dot on Story. Toggled by the existing render functions. */
+.tab-badge {
+    background: #ffd166;
+    border-radius: 999px;
+    color: #1a1a2e;
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-left: 0.3rem;
+    min-width: 1rem;
+    padding: 0.18rem 0.32rem;
+    vertical-align: middle;
+}
+
+.tab-badge-dot {
+    background: #00b09b;
+    border-radius: 50%;
+    height: 0.55rem;
+    min-width: 0;
+    padding: 0;
+    width: 0.55rem;
+}
+
 .tab-panel {
     display: flex;
     flex-direction: column;

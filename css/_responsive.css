@@ -237,3 +237,34 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
 }
+
+/* The tab nav becomes a fixed bottom bar on small screens (UI tabs plan
+   PR 3); the body padding keeps the last panel scrollable above it. */
+@media (max-width: 700px) {
+    .app-tabs {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background: rgba(15, 17, 21, 0.92); /* --bg-dark, near-opaque */
+        border-top: 1px solid var(--glass-border);
+        bottom: 0;
+        flex-wrap: nowrap;
+        gap: 0.35rem;
+        left: 0;
+        margin: 0;
+        padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+        position: fixed;
+        right: 0;
+        z-index: 90; /* under modals (100+) and notifications (1000) */
+    }
+    .app-tab {
+        flex: 1 1 0;
+        font-size: 0.8rem;
+        overflow: hidden;
+        padding: 0.5rem 0.25rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    body {
+        padding-bottom: 4.5rem;
+    }
+}

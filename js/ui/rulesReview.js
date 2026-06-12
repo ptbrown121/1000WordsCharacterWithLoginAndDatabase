@@ -25,6 +25,7 @@ export function renderRulesReview() {
     els.toggleGmOverride.checked = gmOverride;
 
     if (items.length === 0) {
+        if (els.tabCharacterBadge) els.tabCharacterBadge.hidden = true;
         els.rulesReviewStrip.hidden = true;
         els.rulesReviewStrip.innerHTML = '';
         return;
@@ -32,6 +33,12 @@ export function renderRulesReview() {
 
     els.rulesReviewStrip.hidden = false;
     els.rulesReviewStrip.classList.toggle('rules-review-overridden', gmOverride);
+
+    // Tab badge: quiet once the GM has reviewed, like the strip itself.
+    if (els.tabCharacterBadge) {
+        els.tabCharacterBadge.hidden = gmOverride;
+        els.tabCharacterBadge.textContent = String(items.length);
+    }
 
     const severityCounts = items.reduce((counts, item) => {
         counts[item.severity] = (counts[item.severity] || 0) + 1;
