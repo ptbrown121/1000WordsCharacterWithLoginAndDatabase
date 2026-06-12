@@ -370,25 +370,52 @@
                 </div>
                 <div id="npc-panel-body" class="shadow-panel-body" hidden>
                     <small style="display: block; color: var(--text-secondary); font-size: 0.8rem;">Rank is Soak and Grit and adds to Attack (Rank + Skill roll) and Defense (Rank + Charm roll). Might rolls for injury. Budgets: 15 + 6×Rank resource points; 3 + 2×Rank stat die steps. BLEED downgrades a die 1▟; a forced burn drops Rank by 1. NPCs are stored in this browser, not in cloud saves.</small>
-                    <div id="npc-add-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.4rem; margin-top: 0.5rem;">
-                        <input type="text" id="npc-name" placeholder="Name" style="grid-column: span 2; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <select id="npc-rank" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                            <option value="1">Rank 1</option>
-                            <option value="2">Rank 2</option>
-                            <option value="3" selected>Rank 3</option>
-                            <option value="4">Rank 4</option>
-                            <option value="5">Rank 5</option>
-                            <option value="6">Rank 6</option>
-                            <option value="7">Rank 7</option>
-                        </select>
-                        <button type="button" id="btn-npc-example" class="btn btn-outline" style="padding: 0.4rem;" title="Fill the printed example stat block for this Rank">Use Rank example</button>
-                        <input type="text" id="npc-might" placeholder="Might (e.g. d8)" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <input type="text" id="npc-charm" placeholder="Charm (e.g. d8)" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <input type="text" id="npc-skill" placeholder="Skill (e.g. d8)" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <input type="number" id="npc-hp" placeholder="HP" min="0" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <input type="number" id="npc-en" placeholder="EN" min="0" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <input type="number" id="npc-rx" placeholder="RX" min="0" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <input type="text" id="npc-descriptors" placeholder="Descriptors (comma list, up to Rank)" style="grid-column: 1 / -1; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                    <div id="npc-add-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; align-items: end;">
+                        <label style="grid-column: span 2; font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">
+                            Name
+                            <input type="text" id="npc-name" placeholder="e.g. Gargoyle" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Rank is Soak and Grit and adds to Attack and Defense">
+                            Rank
+                            <select id="npc-rank" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <option value="1">Rank 1</option>
+                                <option value="2">Rank 2</option>
+                                <option value="3" selected>Rank 3</option>
+                                <option value="4">Rank 4</option>
+                                <option value="5">Rank 5</option>
+                                <option value="6">Rank 6</option>
+                                <option value="7">Rank 7</option>
+                            </select>
+                        </label>
+                        <button type="button" id="btn-npc-example" class="btn btn-outline" style="padding: 0.4rem; align-self: end;" title="Fill the printed example stat block for this Rank">Use Rank example</button>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Stands in for BODY/POWER; rolled when the NPC deals injury">
+                            Might (injury)
+                            <input type="text" id="npc-might" placeholder="e.g. d8" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Stands in for SOUL/FOCUS; rolled for Defense (plus Rank)">
+                            Charm (defense)
+                            <input type="text" id="npc-charm" placeholder="e.g. d8" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Stands in for MIND/SPEED; rolled for Attack (plus Rank)">
+                            Skill (attack)
+                            <input type="text" id="npc-skill" placeholder="e.g. d8" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Health pool maximum">
+                            Health (HP)
+                            <input type="number" id="npc-hp" placeholder="e.g. 10" min="0" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Energy pool maximum">
+                            Energy (EN)
+                            <input type="number" id="npc-en" placeholder="e.g. 10" min="0" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Reflex pool maximum">
+                            Reflex (RX)
+                            <input type="number" id="npc-rx" placeholder="e.g. 13" min="0" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
+                        <label style="grid-column: 1 / -1; font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);" title="Up to Rank descriptors; each can be spent for a freebie die at Rank ▟">
+                            Descriptors (comma list, up to Rank)
+                            <input type="text" id="npc-descriptors" placeholder="e.g. Thick hide, Vicious, Huge" style="display: block; width: 100%; margin-top: 0.2rem; padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                        </label>
                         <small id="npc-budget-note" style="grid-column: 1 / -1; color: var(--text-secondary); font-size: 0.8rem;"></small>
                         <button type="button" id="btn-npc-add" class="btn btn-action" style="grid-column: 1 / -1; padding: 0.4rem;">Add NPC</button>
                     </div>
