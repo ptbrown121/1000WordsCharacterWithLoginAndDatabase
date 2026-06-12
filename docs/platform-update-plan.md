@@ -355,6 +355,19 @@ the new shapes. Do not combine with any rules-behavior change.
 
 ## PR 9 — Split pool.js (after PRs 7-8)
 
+**Status: done 2026-06-12.** As planned, with one addition: a seventh
+module `js/rules/shared.js` holds the cross-cutting primitives (stat/color/
+resource constants, dice parsing, die steps, escapeHtml) that didn't belong
+to any one subsystem. Final shape: pool.js is a 14-line barrel; rules
+modules are tags 81 / shared 107 / equipment 171 / xp 243 / shadow 254 /
+exotic 274 / engine 889 lines. Import direction is acyclic:
+shared/tags → xp/equipment/shadow/exotic → engine. Internals that crossed
+module lines (DIE_STEPS, the XP catalogs, parsed-tag views, armor XP
+tables) are now exported from their home module and flow through the
+barrel. Verified the barrel re-exports all 81 pre-split names with no
+duplicate exports (`export *` silently drops ambiguous names, so this was
+checked explicitly). Zero changes to UI importers or tests.
+
 **Why:** pool.js is ~2,000 lines; the v5.02 review deferred the split
 until something forced churn — PRs 7-8 are that churn, and v5.03's
 crafting changes will thank us.
