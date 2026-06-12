@@ -232,6 +232,38 @@ export class SupabaseCharacterStore {
             .eq('user_id', userId));
     }
 
+    // Campaign NPCs (GM-only; RLS rejects every operation for non-GMs). The
+    // row id doubles as the NPC id so the browser's list and the table stay
+    // in one-to-one correspondence.
+    async listCampaignNpcs(campaignId) {
+        const rows = assertNoError(await this.client
+            .from('campaign_npcs')
+            .select('id, data')
+            .eq('campaign_id', campaignId)
+            .order('created_at', { ascending: true }));
+        return rows.map(row => ({ ...(row.data || {}), id: row.id }));
+    }
+
+    async saveCampaignNpc(campaignId, npc) {
+        assertNoError(await this.client
+            .from('campaign_npcs')
+            .upsert({
+                id: npc.id,
+                campaign_id: campaignId,
+                created_by: this.user.id,
+                name: npc.name || 'NPC',
+                data: npc,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' }));
+    }
+
+    async deleteCampaignNpc(npcId) {
+        assertNoError(await this.client
+            .from('campaign_npcs')
+            .delete()
+            .eq('id', npcId));
+    }
+
     async recordRollLog(log) {
         assertNoError(await this.client
             .from('roll_logs')

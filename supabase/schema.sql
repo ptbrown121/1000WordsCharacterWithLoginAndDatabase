@@ -759,6 +759,54 @@ grant execute on function public.join_campaign_by_code(text) to authenticated;
 grant execute on function public.can_create_campaign() to authenticated;
 grant execute on function public.rewind_ai_thread_from_message(uuid, text) to authenticated;
 
+-- Campaign NPC roster (GM-side). Each row is one NPC; the full stat block
+-- lives in `data` as the same JSON shape the browser keeps in localStorage.
+-- NPC stat blocks are GM secrets, so every operation - including select -
+-- requires the GM role in that campaign.
+create table if not exists public.campaign_npcs (
+    id uuid primary key default gen_random_uuid(),
+    campaign_id uuid not null references public.campaigns(id) on delete cascade,
+    created_by uuid not null references public.profiles(id) on delete cascade,
+    name text not null default 'NPC',
+    data jsonb not null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists campaign_npcs_campaign_idx on public.campaign_npcs(campaign_id, created_at asc);
+
+drop trigger if exists campaign_npcs_set_updated_at on public.campaign_npcs;
+create trigger campaign_npcs_set_updated_at
+before update on public.campaign_npcs
+for each row execute function public.set_updated_at();
+
+alter table public.campaign_npcs enable row level security;
+
+drop policy if exists "campaign_npcs_select_gms" on public.campaign_npcs;
+create policy "campaign_npcs_select_gms"
+on public.campaign_npcs for select
+to authenticated
+using (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_npcs_insert_gms" on public.campaign_npcs;
+create policy "campaign_npcs_insert_gms"
+on public.campaign_npcs for insert
+to authenticated
+with check (created_by = auth.uid() and public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_npcs_update_gms" on public.campaign_npcs;
+create policy "campaign_npcs_update_gms"
+on public.campaign_npcs for update
+to authenticated
+using (public.is_campaign_gm(campaign_id))
+with check (public.is_campaign_gm(campaign_id));
+
+drop policy if exists "campaign_npcs_delete_gms" on public.campaign_npcs;
+create policy "campaign_npcs_delete_gms"
+on public.campaign_npcs for delete
+to authenticated
+using (public.is_campaign_gm(campaign_id));
+
 -- To allow a specific user to create campaigns, run this manually in the
 -- Supabase SQL editor after that user has signed in at least once:
 --

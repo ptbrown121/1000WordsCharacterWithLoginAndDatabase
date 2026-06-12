@@ -155,6 +155,10 @@ export function applyReadOnlyMode() {
     document.querySelectorAll('header input, header button, header select, main input, main button, main select, main textarea')
         .forEach(node => {
             if (allowedIds.has(node.id)) return;
+            // The NPC tracker is GM-side and independent of the viewed
+            // character; a GM browsing a player's read-only sheet still
+            // needs to run their NPCs.
+            if (node.closest('#npc-panel')) return;
             node.disabled = readOnly;
         });
 

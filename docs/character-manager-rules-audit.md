@@ -36,7 +36,7 @@ the exact Sticky rider cost reading (+2×X assumed).
 | Rules engine | `js/pool.js` | Die steps, XP cascade, tag catalog/classification, duplicate pricing, resource maxes, Call/Burn/Chain compilation (chain limits, Freebie, Glitch, Titan), armor soak, shields, Core/Titan/Stranger/Hinder/Gizmo helpers. |
 | Status rules | `js/status-rules.js` | Status conditions from 0 pools, Crits Dashboard catalog, WOUND penalty, Press costs. |
 | Ammo/crafting | `js/ammo-rules.js` | Ammo Builder line costs, 🞮/🞧 split, reagent templates (Apothecary, Geomancer, field ammo). |
-| NPCs | `js/npc-rules.js`, `js/ui/npcs.js` | GM-side NPC stat blocks, budgets, rolls; localStorage only. |
+| NPCs | `js/npc-rules.js`, `js/ui/npcs.js` | GM-side NPC stat blocks, budgets, rolls; stored in localStorage or a GM's campaign (campaign_npcs table). |
 | Rules review | `js/rules-review.js`, `js/ui/rulesReview.js` | Non-blocking review notes; GM override. |
 | Tile UI | `js/ui/modals.js`, `js/ui/cards.js` | Tile CRUD, tag pickers (crits, shields, exotic, While X), weapon/armor/ammo/Hinder builders, special identity, 3rd box. |
 | Dice & resolution | `js/ui/pool.js`, `js/resolution-rules.js`, `js/ui/resolution.js` | Pool preview, rolls, post-roll assignment (attack/defense/healing/extension), shields, ammo, Freebie, Titan spends, crafting hints. |
@@ -87,7 +87,7 @@ the exact Sticky rider cost reading (+2×X assumed).
 | Titan (pool, rerolls, spends, H/V economy, Costume) | Implemented (shock boxes pending GM) |
 | Stranger (Bestial resources/Pace, While X forms, Celestial ranks) | Implemented |
 | Spells (v5.02 🗱 builder, casting Test data, spell tag-limit exemptions) | Builder implemented; cast-Test *workflow* remains manual |
-| NPCs (Rank, Might/Charm/Skill, budgets, descriptors) | Implemented, GM-side, local-only |
+| NPCs (Rank, Might/Charm/Skill, budgets, descriptors) | Implemented, GM-side; browser-local or shared per campaign (GM-only) |
 
 ## Remaining gaps (deliberate)
 
@@ -95,7 +95,8 @@ the exact Sticky rider cost reading (+2×X assumed).
   reduces it, but there is no dedicated casting panel; tables handle it.
 - **Automatic crit application**: incoming crits update the Condition panel
   manually; resolution reports what lands but does not mutate pools.
-- **NPC cloud sync**: NPCs are per-browser; cloud share is a possible follow-up.
+- ~~NPC cloud sync~~: done — a GM can store NPCs in a campaign
+  (`campaign_npcs` table, GM-only RLS) via the panel's "Stored in" selector.
 - **BLEED on NPCs** (die downgrade) is a manual edit with a hint.
 - **v5.03**: the author promises more; crafting and Titan shock boxes are
   the most likely areas to change.

@@ -1,6 +1,7 @@
 // GM-side NPC tracker panel (v5.02 p.71). NPCs are independent of player
-// characters: stored locally in this browser under their own key, not in
-// character state or cloud saves.
+// characters. They live either in this browser's localStorage or - when a
+// signed-in GM picks one of their campaigns in the "Stored in" selector -
+// in the campaign_npcs table, so a campaign keeps one shared NPC roster.
 import { els } from '../els.js';
 import { escapeHtml } from '../pool.js';
 import {
@@ -16,29 +17,119 @@ import {
 } from '../npc-rules.js';
 
 const STORAGE_KEY = '1000words_npcs';
+const LOCAL_STORAGE_ID = 'local';
 
+let dataManager;
 let poolEngine;
 let npcs = [];
+let storageId = LOCAL_STORAGE_ID;
+let loading = false;
+let storageError = '';
+let storageOptionsSnapshot = '';
 
 const toInt = (value) => {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
-function loadNpcs() {
+const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
+
+function getGmCampaigns() {
+    return (dataManager?.campaigns || []).filter(campaign => campaign.role === 'gm');
+}
+
+function isCampaignStorage() {
+    return storageId !== LOCAL_STORAGE_ID;
+}
+
+function readLocalNpcs() {
     try {
-        npcs = normalizeNpcList(JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) || '[]'));
+        return normalizeNpcList(JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) || '[]'));
     } catch {
-        npcs = [];
+        return [];
     }
 }
 
-function saveNpcs() {
+function saveLocalNpcs() {
     try {
         globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(npcs));
     } catch (e) {
         console.error('Failed to save NPCs', e);
     }
+}
+
+function reportStorageError(error, fallback) {
+    storageError = error?.message || fallback;
+    renderNpcs();
+}
+
+// Persist one NPC to wherever the panel currently points. Cloud writes are
+// optimistic: the list updates immediately and a failure surfaces in the
+// storage note.
+function persistNpc(npc) {
+    storageError = '';
+    if (!isCampaignStorage()) {
+        saveLocalNpcs();
+        return;
+    }
+    if (!isUuid(npc.id)) npc.id = crypto.randomUUID();
+    dataManager.cloudStore?.saveCampaignNpc(storageId, npc)
+        .catch(error => reportStorageError(error, `Could not save ${npc.name} to the campaign.`));
+}
+
+function removeNpc(npcId) {
+    storageError = '';
+    if (!isCampaignStorage()) {
+        saveLocalNpcs();
+        return;
+    }
+    dataManager.cloudStore?.deleteCampaignNpc(npcId)
+        .catch(error => reportStorageError(error, 'Could not delete the NPC from the campaign.'));
+}
+
+async function switchStorage(nextId) {
+    storageId = nextId;
+    storageError = '';
+    if (!isCampaignStorage()) {
+        npcs = readLocalNpcs();
+        renderNpcs();
+        return;
+    }
+
+    npcs = [];
+    loading = true;
+    renderNpcs();
+    try {
+        npcs = normalizeNpcList(await dataManager.cloudStore.listCampaignNpcs(storageId));
+    } catch (error) {
+        storageId = LOCAL_STORAGE_ID;
+        npcs = readLocalNpcs();
+        storageError = error?.message || 'Could not load campaign NPCs; showing this browser instead.';
+    }
+    loading = false;
+    renderNpcs();
+}
+
+async function copyLocalNpcsToCampaign() {
+    if (!isCampaignStorage()) return;
+    const locals = readLocalNpcs();
+    if (locals.length === 0) return;
+    if (!confirm(`Copy ${locals.length} browser NPC${locals.length === 1 ? '' : 's'} into this campaign? The browser copies stay.`)) return;
+
+    storageError = '';
+    for (const local of locals) {
+        // Fresh ids: the same browser NPC may be copied into several
+        // campaigns, and reusing the id would move it instead.
+        const copy = normalizeNpc({ ...local, id: crypto.randomUUID() });
+        try {
+            await dataManager.cloudStore.saveCampaignNpc(storageId, copy);
+            npcs.push(copy);
+        } catch (error) {
+            storageError = error?.message || `Could not copy ${copy.name} to the campaign.`;
+            break;
+        }
+    }
+    renderNpcs();
 }
 
 function rollDie(die) {
@@ -102,7 +193,7 @@ function addNpcFromForm() {
         .map(part => part.trim())
         .filter(Boolean);
 
-    npcs.push(normalizeNpc({
+    const npc = normalizeNpc({
         name,
         rank: document.getElementById('npc-rank')?.value,
         might: document.getElementById('npc-might')?.value,
@@ -112,8 +203,9 @@ function addNpcFromForm() {
         enMax: document.getElementById('npc-en')?.value,
         rxMax: document.getElementById('npc-rx')?.value,
         descriptors
-    }));
-    saveNpcs();
+    });
+    npcs.push(npc);
+    persistNpc(npc);
     document.getElementById('npc-name').value = '';
     document.getElementById('npc-descriptors').value = '';
     renderNpcs();
@@ -130,7 +222,12 @@ function handleNpcAction(npcId, action, payload) {
     if (action === 'delete') {
         if (!confirm(`Delete ${npc.name}?`)) return;
         npcs = npcs.filter(entry => entry.id !== npcId);
-    } else if (action === 'pool') {
+        removeNpc(npcId);
+        renderNpcs();
+        return;
+    }
+
+    if (action === 'pool') {
         const { pool, step } = payload;
         npc[pool] = Math.max(0, toInt(npc[pool]) + step);
     } else if (action === 'set-static') {
@@ -165,7 +262,7 @@ function handleNpcAction(npcId, action, payload) {
         }
     }
 
-    saveNpcs();
+    persistNpc(npc);
     renderNpcs();
 }
 
@@ -217,6 +314,53 @@ function renderNpcCard(npc) {
     `;
 }
 
+// The "Stored in" selector lists this browser plus every campaign the user
+// GMs. It only rebuilds when that set changes (cloud status events fire on
+// every save) and never while the dropdown has focus.
+function renderStorageControls() {
+    const row = document.getElementById('npc-storage-row');
+    const select = document.getElementById('npc-storage-select');
+    if (!row || !select) return;
+
+    const gmCampaigns = getGmCampaigns();
+    if (!dataManager?.cloudStore || gmCampaigns.length === 0) {
+        row.hidden = true;
+        if (isCampaignStorage()) switchStorage(LOCAL_STORAGE_ID);
+        storageOptionsSnapshot = '';
+        return;
+    }
+
+    row.hidden = false;
+    const snapshot = JSON.stringify(gmCampaigns.map(campaign => [campaign.id, campaign.name]));
+    if (snapshot !== storageOptionsSnapshot && document.activeElement !== select) {
+        storageOptionsSnapshot = snapshot;
+        select.innerHTML = `<option value="${LOCAL_STORAGE_ID}">This browser</option>` + gmCampaigns.map(campaign =>
+            `<option value="${escapeHtml(campaign.id)}">${escapeHtml(campaign.name)} (campaign)</option>`
+        ).join('');
+    }
+    if (isCampaignStorage() && !gmCampaigns.some(campaign => campaign.id === storageId)) {
+        switchStorage(LOCAL_STORAGE_ID);
+        return;
+    }
+    select.value = storageId;
+
+    const copyButton = document.getElementById('btn-npc-copy-local');
+    if (copyButton) copyButton.hidden = !isCampaignStorage() || readLocalNpcs().length === 0;
+
+    const note = document.getElementById('npc-storage-note');
+    if (note) {
+        if (storageError) {
+            note.textContent = storageError;
+        } else if (loading) {
+            note.textContent = 'Loading campaign NPCs...';
+        } else {
+            note.textContent = isCampaignStorage()
+                ? 'Campaign NPCs are shared with every GM of this campaign.'
+                : 'Browser NPCs stay on this device.';
+        }
+    }
+}
+
 export function renderNpcs() {
     const summary = document.getElementById('npc-summary');
     const list = document.getElementById('npc-list');
@@ -226,14 +370,19 @@ export function renderNpcs() {
             : npcs.map(npc => `${npc.name} R${npc.rank}`).join(' · ');
     }
     if (list) {
-        list.innerHTML = npcs.map(renderNpcCard).join('') || '<small>No NPCs yet. Fill the form above (Use Rank example gives the printed stat block).</small>';
+        const empty = loading
+            ? '<small>Loading campaign NPCs...</small>'
+            : '<small>No NPCs yet. Fill the form above (Use Rank example gives the printed stat block).</small>';
+        list.innerHTML = npcs.map(renderNpcCard).join('') || empty;
     }
+    renderStorageControls();
     renderBudgetNote();
 }
 
 export function init(deps) {
+    dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
-    loadNpcs();
+    npcs = readLocalNpcs();
 
     if (els.btnNpcToggle && els.npcPanelBody) {
         els.btnNpcToggle.addEventListener('click', () => {
@@ -247,6 +396,14 @@ export function init(deps) {
     document.getElementById('btn-npc-example')?.addEventListener('click', applyRankExample);
     document.getElementById('btn-npc-add')?.addEventListener('click', addNpcFromForm);
     document.getElementById('npc-add-form')?.addEventListener('input', renderBudgetNote);
+    document.getElementById('npc-storage-select')?.addEventListener('change', (e) => {
+        switchStorage(e.target.value);
+    });
+    document.getElementById('btn-npc-copy-local')?.addEventListener('click', copyLocalNpcsToCampaign);
+
+    // Campaigns load after sign-in (and vanish on sign-out), so refresh the
+    // storage selector whenever the cloud state changes.
+    window.addEventListener('cloud-status-change', renderStorageControls);
 
     els.npcList?.addEventListener('click', (e) => {
         const control = e.target.closest('[data-action]');

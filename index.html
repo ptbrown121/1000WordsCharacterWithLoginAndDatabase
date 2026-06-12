@@ -369,7 +369,13 @@
                     </div>
                 </div>
                 <div id="npc-panel-body" class="shadow-panel-body" hidden>
-                    <small style="display: block; color: var(--text-secondary); font-size: 0.8rem;">Rank is Soak and Grit and adds to Attack (Rank + Skill roll) and Defense (Rank + Charm roll). Might rolls for injury. Budgets: 15 + 6×Rank resource points; 3 + 2×Rank stat die steps. BLEED downgrades a die 1▟; a forced burn drops Rank by 1. NPCs are stored in this browser, not in cloud saves.</small>
+                    <small style="display: block; color: var(--text-secondary); font-size: 0.8rem;">Rank is Soak and Grit and adds to Attack (Rank + Skill roll) and Defense (Rank + Charm roll). Might rolls for injury. Budgets: 15 + 6×Rank resource points; 3 + 2×Rank stat die steps. BLEED downgrades a die 1▟; a forced burn drops Rank by 1. NPCs are stored in this browser, or in a campaign you GM so they follow you across devices.</small>
+                    <div id="npc-storage-row" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem;" hidden>
+                        <label for="npc-storage-select" style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">Stored in</label>
+                        <select id="npc-storage-select" style="padding: 0.4rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;"></select>
+                        <button type="button" id="btn-npc-copy-local" class="btn btn-outline" style="padding: 0.4rem;" hidden title="Copy this browser's NPCs into the selected campaign (the local copies stay)">Copy browser NPCs here</button>
+                        <small id="npc-storage-note" style="color: var(--text-secondary); font-size: 0.8rem;"></small>
+                    </div>
                     <div id="npc-add-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; align-items: end;">
                         <label style="grid-column: span 2; font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">
                             Name
