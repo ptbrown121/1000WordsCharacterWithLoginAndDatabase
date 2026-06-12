@@ -18,7 +18,7 @@ import { renderCards } from '../cards.js';
 import { updatePoolPreview } from '../pool.js';
 import { updateXpTracker } from '../stats.js';
 import { renderRulesReview } from '../rulesReview.js';
-import { bindStableTouchButton, createDiceTokenEditor } from '../modalWidgets.js';
+import { bindStableTouchButton, createDiceTokenEditor, createSearchableSelect } from '../modalWidgets.js';
 import {
     getFormArmorType,
     getFormAmmo,
@@ -41,7 +41,6 @@ import {
     renderFormTags,
     renderTileTagLimitStatus,
     renderXpEstimateNote,
-    resetTagSearch,
     setFormTags
 } from './tagEditor.js';
 import {
@@ -62,6 +61,8 @@ import {
 let dataManager;
 let poolEngine;
 let tileDiceEditor;
+let tagPicker;
+let reagentPicker;
 
 function resetTileModalScroll() {
     const modalContent = els.modal.querySelector('.modal-content');
@@ -133,6 +134,10 @@ export function init(deps) {
     populateWeaponTemplates();
     populateHinderTypes();
     populateReagentTemplates();
+
+    // Long catalogs get a filter that appears on opening the picker.
+    tagPicker = createSearchableSelect(els.tagSelect, { searchPlaceholder: 'Type to filter tags...' });
+    reagentPicker = createSearchableSelect(document.getElementById('ammo-reagent-template'), { searchPlaceholder: 'Type to filter templates...' });
 
     // Info Modal
     els.btnInfo.addEventListener('click', () => els.infoModal.classList.add('active'));
@@ -246,7 +251,10 @@ export function openModal(tile = null) {
     setFormBoxes([]);
     setFormTags([]);
     els.tagCustomInput.style.display = 'none';
-    resetTagSearch();
+    // form.reset() above changed select values without firing 'change';
+    // re-sync the searchable pickers' trigger labels.
+    tagPicker?.sync();
+    reagentPicker?.sync();
     const hitchValue = document.getElementById('tag-hitch-value');
     if (hitchValue) {
         hitchValue.style.display = 'none';

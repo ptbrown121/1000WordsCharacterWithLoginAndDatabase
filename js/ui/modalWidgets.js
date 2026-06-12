@@ -51,6 +51,126 @@ export function bindStableTouchButton(button, handler) {
     });
 }
 
+// A native <select> upgraded into a tap-to-open panel whose first element
+// is a filter box: the search field appears the moment the picker opens,
+// instead of sitting beside the select where nobody discovers it. The
+// select stays in the DOM (hidden) as the source of truth; picking an
+// option sets its value and dispatches 'change', so existing listeners and
+// programmatic .value writes keep working. The option list is rebuilt from
+// the select on every open, so dynamically populated selects stay current.
+export function createSearchableSelect(select, { searchPlaceholder = 'Type to filter...' } = {}) {
+    if (!select) return { sync: () => {}, close: () => {} };
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'searchable-select';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'searchable-select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const panel = document.createElement('div');
+    panel.className = 'searchable-select-panel';
+    panel.hidden = true;
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'searchable-select-search';
+    search.placeholder = searchPlaceholder;
+    search.autocomplete = 'off';
+    search.setAttribute('aria-label', searchPlaceholder);
+
+    const list = document.createElement('div');
+    list.className = 'searchable-select-list';
+    list.setAttribute('role', 'listbox');
+
+    panel.append(search, list);
+    wrapper.append(trigger, panel);
+    select.insertAdjacentElement('afterend', wrapper);
+    select.classList.add('searchable-select-native');
+
+    function sync() {
+        const option = select.options[select.selectedIndex];
+        trigger.textContent = option?.textContent || ' ';
+    }
+
+    function appendOption(option, groupLabel, term) {
+        if (term && !`${option.textContent} ${option.value} ${groupLabel}`.toLowerCase().includes(term)) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'searchable-select-option';
+        button.setAttribute('role', 'option');
+        if (option.value === select.value) button.classList.add('active');
+        button.textContent = option.textContent;
+        button.addEventListener('click', () => {
+            select.value = option.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            close();
+        });
+        list.appendChild(button);
+    }
+
+    function renderList() {
+        const term = search.value.trim().toLowerCase();
+        list.innerHTML = '';
+        Array.from(select.children).forEach(node => {
+            if (node instanceof HTMLOptGroupElement) {
+                const label = document.createElement('div');
+                label.className = 'searchable-select-group';
+                label.textContent = node.label;
+                list.appendChild(label);
+                Array.from(node.children).forEach(option => appendOption(option, node.label, term));
+                // Drop the label of a group the filter emptied out.
+                if (list.lastChild === label) label.remove();
+            } else if (node instanceof HTMLOptionElement) {
+                appendOption(node, '', term);
+            }
+        });
+        if (!list.children.length) {
+            const empty = document.createElement('div');
+            empty.className = 'searchable-select-empty';
+            empty.textContent = 'No matches.';
+            list.appendChild(empty);
+        }
+    }
+
+    function open() {
+        search.value = '';
+        renderList();
+        panel.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        search.focus();
+    }
+
+    function close() {
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        sync();
+    }
+
+    trigger.addEventListener('click', () => {
+        if (panel.hidden) open(); else close();
+    });
+    search.addEventListener('input', renderList);
+    search.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            // Enter takes the first visible match.
+            e.preventDefault();
+            list.querySelector('.searchable-select-option')?.click();
+        } else if (e.key === 'Escape') {
+            close();
+        }
+    });
+    document.addEventListener('click', (e) => {
+        if (!panel.hidden && e.target instanceof Node && !wrapper.contains(e.target)) close();
+    });
+    select.addEventListener('change', sync);
+
+    sync();
+    return { sync, close };
+}
+
 // Dice entry: a comma-separated text input mirrored as removable chips,
 // plus a grid of "+d6"-style add buttons. The input element stays the
 // source of truth; setTokens dispatches 'input' so the existing listeners

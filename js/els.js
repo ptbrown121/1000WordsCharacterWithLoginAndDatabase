@@ -78,7 +78,6 @@ export const els = {
     btnCancel: document.getElementById('btn-modal-cancel'),
     btnDelete: document.getElementById('btn-modal-delete'),
 
-    tagSearch: document.getElementById('tag-search'),
     tagSelect: document.getElementById('tag-select'),
     tagCustomInput: document.getElementById('tag-custom-input'),
     btnAddTag: document.getElementById('btn-add-tag'),
