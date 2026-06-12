@@ -190,6 +190,8 @@ export const els = {
     btnStorageErrorExport: document.getElementById('btn-storage-error-export'),
 
     cloudPanel: document.getElementById('cloud-panel'),
+    btnCloudToggle: document.getElementById('btn-cloud-toggle'),
+    cloudPanelBody: document.getElementById('cloud-panel-body'),
     cloudModeLabel: document.getElementById('cloud-mode-label'),
     cloudStatusText: document.getElementById('cloud-status-text'),
     authForm: document.getElementById('auth-form'),

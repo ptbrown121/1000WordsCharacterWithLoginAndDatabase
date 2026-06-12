@@ -4,6 +4,14 @@
     gap: 0.75rem;
 }
 
+/* Collapsible body (everything below the status row); the Hide/Show
+   button in .cloud-row toggles [hidden] on it. */
+.cloud-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .cloud-row,
 .cloud-actions,
 .campaign-panel {

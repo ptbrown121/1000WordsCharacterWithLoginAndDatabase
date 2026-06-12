@@ -30,64 +30,67 @@
                 <strong id="cloud-mode-label">Browser saves</strong>
                 <span id="cloud-status-text">Set up Supabase to enable login and campaign sync.</span>
             </div>
+            <button type="button" id="btn-cloud-toggle" class="btn btn-outline" aria-expanded="true" aria-controls="cloud-panel-body">Hide</button>
+        </div>
+        <div id="cloud-panel-body" class="cloud-panel-body">
             <form id="auth-form" class="auth-form">
                 <button id="btn-auth-google" class="btn btn-outline" type="button">Sign in with Google</button>
                 <input id="auth-email" type="email" autocomplete="email" placeholder="player@example.com" aria-label="Email address">
                 <button id="btn-auth-send-link" class="btn btn-outline" type="submit">Send magic link</button>
                 <button id="btn-auth-sign-out" class="btn btn-outline" type="button" hidden>Sign out</button>
             </form>
-        </div>
-        <div id="cloud-actions" class="cloud-actions" hidden>
-            <button id="btn-upload-local" class="btn btn-outline" type="button">Upload local characters</button>
-            <input id="campaign-name-input" type="text" placeholder="Campaign name" aria-label="Campaign name">
-            <button id="btn-create-campaign" class="btn btn-outline" type="button">Create campaign</button>
-            <input id="campaign-code-input" type="text" placeholder="Invite code" aria-label="Campaign invite code">
-            <button id="btn-join-campaign" class="btn btn-outline" type="button">Join campaign</button>
-        </div>
-        <div id="campaign-panel" class="campaign-panel" hidden>
-            <label>
-                Character campaign
-                <select id="character-campaign-select"></select>
-            </label>
-            <label>
-                Manage members
-                <select id="campaign-manage-select"></select>
-            </label>
-            <div id="campaign-member-list" class="campaign-member-list"></div>
-            <div id="roll-log-list" class="roll-log-list"></div>
-            <div id="campaign-files-panel" class="campaign-files-panel" hidden>
-                <div class="campaign-files-header">
-                    <h3>Campaign files (battle maps &amp; slides)</h3>
-                    <span id="campaign-files-status"></span>
-                </div>
-                <div class="campaign-files-controls">
-                    <input id="campaign-file-input" type="file" accept=".ppt,.pptx,.ppsx" aria-label="PowerPoint file to upload">
-                    <input id="campaign-file-title" type="text" placeholder="Title (optional)" aria-label="File title">
-                    <button id="btn-campaign-file-upload" class="btn btn-outline" type="button">Upload</button>
-                </div>
-                <div id="campaign-file-list" class="campaign-file-list"></div>
+            <div id="cloud-actions" class="cloud-actions" hidden>
+                <button id="btn-upload-local" class="btn btn-outline" type="button">Upload local characters</button>
+                <input id="campaign-name-input" type="text" placeholder="Campaign name" aria-label="Campaign name">
+                <button id="btn-create-campaign" class="btn btn-outline" type="button">Create campaign</button>
+                <input id="campaign-code-input" type="text" placeholder="Invite code" aria-label="Campaign invite code">
+                <button id="btn-join-campaign" class="btn btn-outline" type="button">Join campaign</button>
             </div>
-            <div id="campaign-ai-docs-panel" class="campaign-ai-docs-panel" hidden>
-                <div class="campaign-ai-docs-header">
-                    <h3>Campaign AI notes</h3>
-                    <span id="campaign-ai-docs-status"></span>
-                </div>
-                <label class="campaign-ai-field">
-                    Scenario seed
-                    <textarea id="campaign-ai-scenario-seed" rows="3" placeholder="Opening premise, campaign tone, important factions, safety boundaries, or setup notes."></textarea>
+            <div id="campaign-panel" class="campaign-panel" hidden>
+                <label>
+                    Character campaign
+                    <select id="character-campaign-select"></select>
                 </label>
-                <label class="campaign-ai-field">
-                    GM guidance
-                    <textarea id="campaign-ai-gm-instructions" rows="3" placeholder="What should the AI emphasize, avoid, or ask players about during character creation?"></textarea>
+                <label>
+                    Manage members
+                    <select id="campaign-manage-select"></select>
                 </label>
-                <button id="btn-campaign-ai-settings-save" class="btn btn-outline" type="button">Save AI guidance</button>
-                <div class="campaign-ai-upload-grid">
-                    <input id="campaign-ai-doc-title" type="text" placeholder="Document title" aria-label="Campaign AI document title">
-                    <input id="campaign-ai-doc-file" type="file" accept=".txt,.md,text/plain,text/markdown" aria-label="Campaign AI text file">
+                <div id="campaign-member-list" class="campaign-member-list"></div>
+                <div id="roll-log-list" class="roll-log-list"></div>
+                <div id="campaign-files-panel" class="campaign-files-panel" hidden>
+                    <div class="campaign-files-header">
+                        <h3>Campaign files (battle maps &amp; slides)</h3>
+                        <span id="campaign-files-status"></span>
+                    </div>
+                    <div class="campaign-files-controls">
+                        <input id="campaign-file-input" type="file" accept=".ppt,.pptx,.ppsx" aria-label="PowerPoint file to upload">
+                        <input id="campaign-file-title" type="text" placeholder="Title (optional)" aria-label="File title">
+                        <button id="btn-campaign-file-upload" class="btn btn-outline" type="button">Upload</button>
+                    </div>
+                    <div id="campaign-file-list" class="campaign-file-list"></div>
                 </div>
-                <textarea id="campaign-ai-doc-text" rows="4" placeholder="Paste a short setting note, faction brief, location writeup, or scenario outline."></textarea>
-                <button id="btn-campaign-ai-doc-upload" class="btn btn-outline" type="button">Save campaign note</button>
-                <div id="campaign-ai-doc-list" class="campaign-ai-doc-list"></div>
+                <div id="campaign-ai-docs-panel" class="campaign-ai-docs-panel" hidden>
+                    <div class="campaign-ai-docs-header">
+                        <h3>Campaign AI notes</h3>
+                        <span id="campaign-ai-docs-status"></span>
+                    </div>
+                    <label class="campaign-ai-field">
+                        Scenario seed
+                        <textarea id="campaign-ai-scenario-seed" rows="3" placeholder="Opening premise, campaign tone, important factions, safety boundaries, or setup notes."></textarea>
+                    </label>
+                    <label class="campaign-ai-field">
+                        GM guidance
+                        <textarea id="campaign-ai-gm-instructions" rows="3" placeholder="What should the AI emphasize, avoid, or ask players about during character creation?"></textarea>
+                    </label>
+                    <button id="btn-campaign-ai-settings-save" class="btn btn-outline" type="button">Save AI guidance</button>
+                    <div class="campaign-ai-upload-grid">
+                        <input id="campaign-ai-doc-title" type="text" placeholder="Document title" aria-label="Campaign AI document title">
+                        <input id="campaign-ai-doc-file" type="file" accept=".txt,.md,text/plain,text/markdown" aria-label="Campaign AI text file">
+                    </div>
+                    <textarea id="campaign-ai-doc-text" rows="4" placeholder="Paste a short setting note, faction brief, location writeup, or scenario outline."></textarea>
+                    <button id="btn-campaign-ai-doc-upload" class="btn btn-outline" type="button">Save campaign note</button>
+                    <div id="campaign-ai-doc-list" class="campaign-ai-doc-list"></div>
+                </div>
             </div>
         </div>
         <div id="readonly-banner" class="readonly-banner" hidden>

@@ -5,6 +5,34 @@ let dataManager;
 let supabaseClient;
 let renderAll;
 
+// Collapsed/expanded is a per-device UI preference, like the active tab.
+const PANEL_COLLAPSED_KEY = '1000words_cloud_panel_collapsed';
+
+function initPanelToggle() {
+    if (!els.btnCloudToggle || !els.cloudPanelBody) return;
+    const applyCollapsed = (collapsed) => {
+        els.cloudPanelBody.hidden = collapsed;
+        els.btnCloudToggle.setAttribute('aria-expanded', String(!collapsed));
+        els.btnCloudToggle.textContent = collapsed ? 'Show' : 'Hide';
+    };
+    let collapsed = false;
+    try {
+        collapsed = globalThis.localStorage?.getItem(PANEL_COLLAPSED_KEY) === '1';
+    } catch {
+        // Storage can be unavailable (private mode); default to expanded.
+    }
+    applyCollapsed(collapsed);
+    els.btnCloudToggle.addEventListener('click', () => {
+        const next = !els.cloudPanelBody.hidden;
+        applyCollapsed(next);
+        try {
+            globalThis.localStorage?.setItem(PANEL_COLLAPSED_KEY, next ? '1' : '0');
+        } catch {
+            // ignore; the toggle still works for this page load
+        }
+    });
+}
+
 function setBusy(button, busy, label) {
     if (!button) return;
     button.disabled = busy;
@@ -236,6 +264,8 @@ export async function init(deps) {
     dataManager = deps.dataManager;
     supabaseClient = deps.supabaseClient;
     renderAll = deps.renderAll;
+
+    initPanelToggle();
 
     if (!supabaseClient) {
         dataManager.setCloudStatus('local-only', 'Cloud save is not configured.');

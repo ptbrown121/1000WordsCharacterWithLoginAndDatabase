@@ -94,6 +94,17 @@ Placement judgment calls (cheap to change later — each is a markup move):
 - Gates: 331/331 tests, eslint 0 errors (61 accepted warnings), typecheck 0,
   Vite build clean. Manual browser smoke pass is still pending (user).
 
+### Interim change (user request, 2026-06-13): collapsible cloud panel
+
+The cloud panel was felt to be intrusive. Its status row (`cloud-mode-label`,
+`cloud-status-text`) now carries a Hide/Show toggle (`#btn-cloud-toggle`,
+same pattern as the tracker panels); the auth form, cloud actions, and
+campaign panel are wrapped in `#cloud-panel-body`, which the toggle collapses.
+The readonly banner stays outside the collapse — it is a safety signal.
+Collapsed state persists per device (`1000words_cloud_panel_collapsed`).
+This also stages PR 2: `#cloud-panel-body` minus the auth form is exactly the
+content that moves to the Campaign tab.
+
 ## PR 2 — Campaign tab consolidation
 
 - Split `#cloud-panel`: keep a slim always-visible strip (`cloud-mode-label`,
