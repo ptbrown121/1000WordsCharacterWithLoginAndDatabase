@@ -274,6 +274,19 @@ at the table.
 
 ## PR 7 — Structured tag model (parser + canonical serializer)
 
+**Status: done 2026-06-12.** As planned. Design notes for PR 8: `parseTag`
+returns a frozen, memoized `{ raw, name, prefix, body, base, args, exempt }`;
+`body` keeps original casing so the serializer round-trips user text. Base
+names are clean (`while`, `crowd`) rather than the legacy strings
+(`while x`, `crowd 50`) — PR 8 re-keys the flaw/exotic sets accordingly.
+Two legacy quirks are locked by tests on purpose: `startsWith` matching
+("Hitchhiker" is a hitch), and compilePool following only *unprefixed*
+chain tags (the parser keeps `prefix` visible so PR 8 can preserve that).
+The parser is catalog-free; XP catalogs stay in pool.js so the import
+direction stays pool → tag-model. 24 contract tests, including parity
+assertions against `getHitchValue`, `getTileWhileForms`, and
+`getTileShieldCrits`.
+
 **Why:** tags are strings ("Bestial: HP", "Chain medical scanner",
 "Shield: BREAK KO BLEED", "Hitch 3", "Motorized: SPEED", "While Wolf",
 "Crowd 50") and the engine re-derives meaning by regex in many places
