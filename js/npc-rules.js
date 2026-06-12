@@ -38,7 +38,8 @@ export function getNpcBudgets(rank) {
     const r = Math.max(1, toInt(rank));
     return {
         resourcePoints: 15 + 6 * r,
-        statSteps: 3 + 2 * r
+        statSteps: 3 + 2 * r,
+        descriptors: r
     };
 }
 
@@ -59,17 +60,21 @@ export function getDescriptorDie(rank) {
     return DICE_BY_STEP[step];
 }
 
-// Advisory budget check against 15+6R resource points and 3+2R die steps.
+// Advisory budget check against 15+6R resource points, 3+2R die steps, and
+// up to Rank descriptors.
 export function reviewNpcBuild(npc = {}) {
     const budgets = getNpcBudgets(npc.rank);
     const poolTotal = toInt(npc.hpMax) + toInt(npc.enMax) + toInt(npc.rxMax);
     const statSteps = countNpcDiceSteps(npc.might) + countNpcDiceSteps(npc.charm) + countNpcDiceSteps(npc.skill);
+    const descriptorCount = Array.isArray(npc.descriptors) ? npc.descriptors.length : 0;
     return {
         budgets,
         poolTotal,
         statSteps,
+        descriptorCount,
         poolDelta: poolTotal - budgets.resourcePoints,
-        stepDelta: statSteps - budgets.statSteps
+        stepDelta: statSteps - budgets.statSteps,
+        descriptorDelta: descriptorCount - budgets.descriptors
     };
 }
 
@@ -93,11 +98,12 @@ export function rollNpcDefense(npc, rollFn) {
 
 export function normalizeNpc(raw = {}) {
     const rank = Math.max(1, toInt(raw.rank) || 1);
+    // Up to Rank descriptors is the rule, but extras are kept and flagged
+    // (advisory, like the build budgets) rather than silently dropped.
     const descriptors = Array.isArray(raw.descriptors)
         ? raw.descriptors
             .map(entry => typeof entry === 'string' ? { text: entry, spent: false } : { text: String(entry?.text || '').trim(), spent: Boolean(entry?.spent) })
             .filter(entry => entry.text)
-            .slice(0, rank)
         : [];
 
     return {

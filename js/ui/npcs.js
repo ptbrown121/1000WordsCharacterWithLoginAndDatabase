@@ -63,12 +63,19 @@ function renderBudgetNote() {
         skill: document.getElementById('npc-skill')?.value,
         hpMax: document.getElementById('npc-hp')?.value,
         enMax: document.getElementById('npc-en')?.value,
-        rxMax: document.getElementById('npc-rx')?.value
+        rxMax: document.getElementById('npc-rx')?.value,
+        descriptors: (document.getElementById('npc-descriptors')?.value || '')
+            .split(',')
+            .map(part => part.trim())
+            .filter(Boolean)
     };
     const review = reviewNpcBuild(draft);
     const poolText = `${review.poolTotal}/${review.budgets.resourcePoints} resource points`;
     const stepText = `${review.statSteps}/${review.budgets.statSteps} stat ▟`;
-    note.textContent = `Budget: ${poolText}; ${stepText} (advisory).`;
+    const descriptorText = review.descriptorDelta > 0
+        ? ` ${review.descriptorCount}/${review.budgets.descriptors} descriptors — over the Rank limit.`
+        : '';
+    note.textContent = `Budget: ${poolText}; ${stepText} (advisory).${descriptorText}`;
 }
 
 function applyRankExample() {
@@ -171,12 +178,15 @@ function renderNpcCard(npc) {
         </span>
     `).join('');
 
+    const descriptorOverage = npc.descriptors.length > npc.rank
+        ? `<span class="status-badge status-major" title="NPCs get up to Rank descriptors (advisory)">${npc.descriptors.length}/${npc.rank} over Rank</span>`
+        : '';
     const descriptors = npc.descriptors.map((descriptor, index) => `
         <label class="filter-toggle" title="Spend for a freebie ${getDescriptorDie(npc.rank)} (Rank ▟) on a check, or another edge">
             <input type="checkbox" data-npc-id="${npc.id}" data-action="descriptor" data-index="${index}"${descriptor.spent ? ' checked' : ''}>
             ${escapeHtml(descriptor.text)}
         </label>
-    `).join('');
+    `).join('') + descriptorOverage;
 
     const statics = npc.attackStatic !== null || npc.defenseStatic !== null
         ? `<strong>Attack ${npc.attackStatic ?? '—'} / Defense ${npc.defenseStatic ?? '—'}</strong> · `

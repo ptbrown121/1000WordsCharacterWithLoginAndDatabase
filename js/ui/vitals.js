@@ -127,6 +127,13 @@ export function init(deps) {
         state.enMax = resourceMaxes.en;
         state.rxMax = resourceMaxes.rx;
 
+        // A recalculated max can drop (e.g. a form switch buried a Bestial
+        // tile); current pools cannot sit above the new effective max.
+        ['hp', 'en', 'rx'].forEach(key => {
+            const current = parseInt(state[key], 10) || 0;
+            state[key] = Math.min(current, getEffectiveMax(state, key));
+        });
+
         dataManager.saveState();
         renderAll();
     });

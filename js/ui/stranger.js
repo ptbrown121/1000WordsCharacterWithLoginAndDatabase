@@ -40,10 +40,15 @@ function renderFormSection(forms) {
     els.strangerFormSection.style.display = '';
     const state = dataManager.state;
     const current = String(state.currentForm || '').toLowerCase();
-    els.strangerFormSelect.innerHTML = '<option value="">No form (all While tiles buried)</option>' + forms.map(form => {
-        const selected = form.toLowerCase() === current ? ' selected' : '';
-        return `<option value="${escapeHtml(form)}"${selected}>${escapeHtml(form)}</option>`;
-    }).join('');
+    // Rebuilding the options while the dropdown has focus would close it
+    // mid-pick (renders fire after every roll); the open list is already
+    // current, so skip it.
+    if (document.activeElement !== els.strangerFormSelect) {
+        els.strangerFormSelect.innerHTML = '<option value="">No form (all While tiles buried)</option>' + forms.map(form => {
+            const selected = form.toLowerCase() === current ? ' selected' : '';
+            return `<option value="${escapeHtml(form)}"${selected}>${escapeHtml(form)}</option>`;
+        }).join('');
+    }
 
     const whileTiles = (state.tiles || []).filter(tile => getTileWhileForms(tile).length > 0);
     const active = whileTiles.filter(tile => !tile.isBuried).map(tile => tile.name).filter(Boolean);

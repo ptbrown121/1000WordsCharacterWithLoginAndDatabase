@@ -15,9 +15,9 @@ import {
 } from '../js/npc-rules.js';
 
 describe('NPC budgets (v5.02 p.71)', () => {
-    it('grants 15 + 6/Rank resource points and 3 + 2/Rank stat steps', () => {
-        assert.deepEqual(getNpcBudgets(1), { resourcePoints: 21, statSteps: 5 });
-        assert.deepEqual(getNpcBudgets(5), { resourcePoints: 45, statSteps: 13 });
+    it('grants 15 + 6/Rank resource points, 3 + 2/Rank stat steps, and Rank descriptors', () => {
+        assert.deepEqual(getNpcBudgets(1), { resourcePoints: 21, statSteps: 5, descriptors: 1 });
+        assert.deepEqual(getNpcBudgets(5), { resourcePoints: 45, statSteps: 13, descriptors: 5 });
     });
 
     it('every printed Rank example conforms to both budgets', () => {
@@ -65,7 +65,7 @@ describe('NPC dice and rolls', () => {
 });
 
 describe('NPC normalization', () => {
-    it('fills defaults, floors pools, and caps descriptors at Rank', () => {
+    it('fills defaults, floors pools, and keeps descriptors past Rank (flagged, not dropped)', () => {
         const npc = normalizeNpc({
             name: '  Gargoyle  ',
             rank: '2',
@@ -78,9 +78,14 @@ describe('NPC normalization', () => {
         assert.equal(npc.charm, 'd4'); // default
         assert.equal(npc.hp, 13);      // current defaults to max
         assert.equal(npc.hpMax, 13);
-        assert.equal(npc.descriptors.length, 2); // capped at Rank
+        assert.equal(npc.descriptors.length, 3); // kept; review flags the overage
         assert.equal(npc.descriptors[0].spent, false);
         assert.equal(npc.attackStatic, null);
+
+        const review = reviewNpcBuild(npc);
+        assert.equal(review.descriptorCount, 3);
+        assert.equal(review.budgets.descriptors, 2);
+        assert.equal(review.descriptorDelta, 1);
     });
 
     it('normalizes lists and drops junk entries', () => {
