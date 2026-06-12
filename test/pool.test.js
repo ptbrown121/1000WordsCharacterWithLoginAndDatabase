@@ -1544,3 +1544,37 @@ describe('spell tag-limit handling (v5.02 pp.49, 55-57)', () => {
         assert.equal(engine.estimateTileXp(['d4'], ['Spell']), 1); // just the d4
     });
 });
+
+describe('parsed-tag adoption: a GM (Exempt) suffix no longer disables tag mechanics', () => {
+    // Before the tag-model refactor, the exempt suffix was stripped for XP
+    // and tag limits but broke exact-match lookups in the pool compiler and
+    // resource maxes. The suffix only exempts a tag from the limit (p.33);
+    // its mechanics stay on. These lock the now-consistent behavior.
+    const stats = { BODY: 'd6' }; // Red
+
+    it('keeps the Keen contextual bonus', () => {
+        const tile = { id: '1', name: 'Sword', colors: ['Red'], dice: ['d6'], tags: ['Keen (Exempt)'] };
+        const res = engine.compilePool(['Red'], stats, tile, [], [tile], []);
+        assert.equal(res.error, null);
+        assert.deepEqual(res.tagBonuses.map(bonus => bonus.tag), ['Keen']);
+    });
+
+    it('keeps Tough resource points', () => {
+        const tile = { id: '1', name: 'Vest', dice: ['d6'], tags: ['Tough (Exempt)'] };
+        assert.equal(engine.calculateResourceMaxes([tile]).hp, 2); // d6 = 2 steps
+    });
+
+    it('keeps Chain links callable', () => {
+        const callTile = { id: '1', name: 'Sword', colors: ['Red'], dice: ['d8'], tags: ['Chain Helper (Exempt)'] };
+        const helper = { id: '2', name: 'Helper', colors: ['Red'], dice: ['d4'] };
+        const res = engine.compilePool(['Red'], stats, callTile, [], [callTile, helper], []);
+        assert.equal(res.error, null);
+        assert.equal(res.chainOptions.length, 1);
+        assert.equal(res.chainOptions[0].targetFound, true);
+    });
+
+    it('still prices and limit-exempts the suffixed tag as before', () => {
+        assert.equal(engine.estimateTileXp(['d6'], ['Keen (Exempt)']), 5); // 3 + 2, unchanged
+        assert.equal(engine.classifyTagForLimit('Keen (Exempt)').counts, false);
+    });
+});

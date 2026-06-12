@@ -318,7 +318,23 @@ write the parser by transcribing them.
 
 ## PR 8 — Rules engine consumes parsed tags
 
-**Why:** the payoff for PR 7.
+**Status: done 2026-06-12.** Converted per-subsystem as planned (base-tag
+helpers → XP scoring → tag limits → pool compile/resource maxes →
+rules-review), tests green between each step; all seven string helpers
+(`getTagName`, `stripExemptSuffix`, `normalizeTagForLimit`,
+`normalizeTagForXp`, `stripMechanicalPrefix`, `getMechanicalBaseTag`,
+`normalizeMechanicalTag`) are deleted. Two deviations from the plan text:
+the "unknown tag" flag stays in `classifyTagForXp` (the parser is
+catalog-free by design, so `recognized` can't live there — the
+Auto-Estimate warning is unchanged either way); and a small set of
+deliberate consistency fixes shipped where the old exact-match string
+lookups silently dropped a tag's mechanics: a GM "(Exempt)" suffix no
+longer disables contextual bonuses, Tough/Vital/Quick resource points, or
+Chain links (it only ever meant tag-limit exemption, p.33), and
+rules-review's typed-Bestial check now accepts exactly what
+`calculateResourceMaxes` grants instead of its own narrower regex. Those
+fixes are locked by 4 new regression tests (suite now 331). `status-rules.js`
+and the spell builder needed no changes — neither parses tag strings.
 
 **Changes:**
 - `js/pool.js`, `js/rules-review.js`, `js/status-rules.js` (and the spell

@@ -1,4 +1,5 @@
 // @ts-check
+import { parseTag } from './tag-model.js';
 import {
     activeTileTagList,
     calculateHitchRebateTotal,
@@ -14,7 +15,12 @@ import {
 } from './pool.js';
 
 function hasBestialResourceChoice(tile) {
-    return tileTagList(tile).some(tag => /^(?:build\s*:|detail\s*:)?\s*bestial\s*:?\s*(hp|health|en|energy|rx|reflex)/i.test(String(tag).trim()));
+    // Typed means the +1 resource is chosen ("Bestial: HP"), matching what
+    // calculateResourceMaxes actually grants.
+    return tileTagList(tile).some(tag => {
+        const parsed = parseTag(tag);
+        return parsed.base === 'bestial' && Boolean(parsed.args.resource);
+    });
 }
 
 function statXpTotal(state, poolEngine) {
@@ -28,8 +34,10 @@ function tileXpTotal(state) {
 function hasChainTo(tile, targetName) {
     const target = String(targetName || '').trim().toLowerCase();
     return activeTileTagList(tile).some(tag => {
-        const normalized = String(tag).trim().toLowerCase();
-        return normalized === `chain ${target}` || normalized === `world ${target}`;
+        const parsed = parseTag(tag);
+        return parsed.prefix === null
+            && (parsed.base === 'chain' || parsed.base === 'world')
+            && (parsed.args.target || '').toLowerCase() === target;
     });
 }
 
@@ -38,7 +46,10 @@ function hasArcanaSkill(tile) {
 }
 
 function countChainTags(tile) {
-    return tileTagList(tile).filter(tag => /^chain\s+/i.test(String(tag).trim())).length;
+    return tileTagList(tile).filter(tag => {
+        const parsed = parseTag(tag);
+        return parsed.prefix === null && parsed.base === 'chain' && parsed.args.target !== '';
+    }).length;
 }
 
 export function buildRulesReviewItems(state, poolEngine) {

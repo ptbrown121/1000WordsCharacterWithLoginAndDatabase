@@ -1,5 +1,6 @@
 // @ts-check
 import { STAT_COLORS, VALID_DICE } from './data.js';
+import { parseTag, DEFAULT_HITCH_VALUE } from './tag-model.js';
 
 export const ADVANCEABLE_STATS = ['BODY', 'POWER', 'SOUL', 'FOCUS', 'MIND', 'SPEED'];
 export const NORMAL_COLORS = ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple'];
@@ -86,6 +87,25 @@ export function isGearTagsBroken(tile) {
 export function activeTileTagList(tile) {
     return isGearTagsBroken(tile) ? [] : tileTagList(tile);
 }
+
+// Parsed-tag views of the same lists (parseTag is memoized, so these are
+// cheap to call in render paths).
+function parsedTileTags(tile) {
+    return tileTagList(tile).map(parseTag);
+}
+
+function activeParsedTags(tile) {
+    return activeTileTagList(tile).map(parseTag);
+}
+
+function tileHasParsedBase(tile, baseTag) {
+    return activeParsedTags(tile).some(parsed => parsed.base === baseTag);
+}
+
+// Prefixes under which a tag's mechanical effect (resource bonus,
+// contextual ▟ bonus) still applies; Crit/Flaw/Range/Duration prefixes
+// change the tag's function instead of qualifying it.
+const MECHANICAL_PREFIXES = new Set([null, 'build', 'detail', 'shield']);
 
 export function getDiceValidationMessage(label = 'Dice') {
     return `${label} must use only: d3, d4, d6, d8, d10, d12, d14, or d16.`;
@@ -249,7 +269,7 @@ const F_FLAW_TAGS = new Set([
 ]);
 const X_FLAW_TAGS = new Set([
     'adware', 'bound', 'feedback', 'glitch', 'hacked', 'hungry', 'malware',
-    'numb', 'overload', 'rube', 'solo', 'stigma', 'torn', 'undroid', 'while x'
+    'numb', 'overload', 'rube', 'solo', 'stigma', 'torn', 'undroid', 'while'
 ]);
 const ARCANE_FLAW_TAGS = new Set(['drain', 'sap', 'tire', 'witch']);
 const ARCANE_DETAIL_TAGS = new Set(['escape!', 'rite', 'sustain']);
@@ -433,12 +453,14 @@ const RANGE_DURATION_XP = new Map(Object.entries({
 // counts price at the next step up.
 const CROWD_XP_STEPS = [[1, 1], [2, 2], [5, 3], [10, 4], [50, 5], [100, 6], [500, 7], [1000, 8]];
 
-function getCrowdXp(baseTag) {
-    const match = String(baseTag || '').match(/^crowd\s*(\d+)$/);
-    if (!match) return null;
-    const count = parseInt(match[1], 10);
+/** @param {number} count */
+function getCrowdXp(count) {
     const step = CROWD_XP_STEPS.find(([max]) => count <= max);
     return step ? step[1] : 8;
+}
+
+function isCrowdTag(parsed) {
+    return parsed.base === 'crowd' && parsed.args.count != null;
 }
 
 // Armor (p.29): base XP = material + coverage, base Soak is Open +0 /
@@ -470,13 +492,6 @@ const DICE_BY_STEP = Object.fromEntries(
     Object.entries(DIE_STEPS).map(([die, step]) => [step, die])
 );
 const D6_STEP = DIE_STEPS.d6;
-
-function normalizeMechanicalTag(tag) {
-    return String(tag || '')
-        .replace(/^(build|detail|shield)\s*:\s*/i, '')
-        .trim()
-        .toLowerCase();
-}
 
 export function normalizeShadowKind(kind) {
     const value = String(kind || '').trim().toLowerCase();
@@ -633,9 +648,8 @@ export function getShadowTagCounts(tiles = []) {
 
     tiles.forEach(tile => {
         if (tile?.isBuried) return;
-        activeTileTagList(tile).forEach(tag => {
-            const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
-            if (counts[baseTag] !== undefined) counts[baseTag] += 1;
+        activeParsedTags(tile).forEach(parsed => {
+            if (counts[parsed.base] !== undefined) counts[parsed.base] += 1;
         });
     });
 
@@ -718,8 +732,9 @@ export function validateShadowTags(tile) {
     const hasId = tileHasShadowKind(tile, 'Id');
     const hasAnyShadow = hasQi || hasId;
 
-    tileTagList(tile).forEach(tag => {
-        const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
+    parsedTileTags(tile).forEach(parsed => {
+        const baseTag = parsed.base;
+        const tag = parsed.raw;
         if (baseTag === 'day' && !hasQi) {
             issues.push({ tag, message: 'Day requires a Qi box.' });
         } else if (baseTag === 'night' && !hasId) {
@@ -743,76 +758,35 @@ export function validateShadowTags(tile) {
     return issues;
 }
 
-function getTagName(tag) {
-    if (tag && typeof tag === 'object') return tag.name || '';
-    return String(tag || '');
-}
-
-function stripExemptSuffix(tag) {
-    return String(tag || '')
-        .replace(/\s*\(exempt\)\s*$/i, '')
-        .trim();
-}
-
-function normalizeTagForLimit(tag) {
-    return String(tag || '')
-        .trim()
-        .replace(/\s+/g, ' ')
-        .toLowerCase();
-}
-
-function normalizeTagForXp(tag) {
-    return normalizeTagForLimit(stripExemptSuffix(tag));
-}
-
-function stripMechanicalPrefix(normalizedTag) {
-    return normalizeTagForLimit(normalizedTag.replace(/^(build|detail|crit|shield|flaw|range|duration)\s*:\s*/i, ''));
-}
-
-function getMechanicalBaseTag(normalizedTag) {
-    const withoutPrefix = stripMechanicalPrefix(normalizedTag);
-    if (withoutPrefix.startsWith('chain ')) return 'chain';
-    if (withoutPrefix.startsWith('world ')) return 'world';
-    if (withoutPrefix.startsWith('hitch')) return 'hitch';
-    if (withoutPrefix.startsWith('motorized')) return 'motorized';
-    if (withoutPrefix.startsWith('while ')) return 'while x';
-    // "Bestial: HP" stores the chosen +1 resource on the tag (p.61).
-    if (withoutPrefix.startsWith('bestial')) return 'bestial';
-    if (withoutPrefix.startsWith('celestial')) return 'celestial';
-    return withoutPrefix;
-}
-
 function getArcaneSacrificeKey(tag) {
-    const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
+    const baseTag = parseTag(tag).base;
     return ARCANE_SACRIFICE_ALIASES[baseTag] || baseTag;
 }
 
 function getDuplicateKey(tag) {
-    const normalized = normalizeTagForXp(getTagName(tag));
-    const baseTag = getMechanicalBaseTag(normalized);
+    const parsed = parseTag(tag);
+    const baseTag = parsed.base;
     if (baseTag === 'world') return '';
     // The same crit name as Crit and as Shield is two different functions on
     // one tile (boxing cesti, p.39), not a duplicate. Bare crit names (the
     // tag picker's convention) are Crit-side.
     if (CRIT_SHIELD_XP.has(baseTag)) {
-        return /^shield\s*:/i.test(normalized) ? `shield:${baseTag}` : `crit:${baseTag}`;
+        return parsed.prefix === 'shield' ? `shield:${baseTag}` : `crit:${baseTag}`;
     }
-    return baseTag || normalized;
+    return baseTag;
 }
 
 // The Hitch flaw (p.20; glossary p.79 "F 1-6"): calling a Hitched tile
 // costs 1 EN, the GM can force the call, Hitched tiles cannot be burned,
 // and buying it off takes the XP plus a Story Point.
 export function getHitchValue(tile) {
-    const hitchTag = tileTagList(tile).find(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'hitch');
+    const hitchTag = parsedTileTags(tile).find(parsed => parsed.base === 'hitch');
     if (!hitchTag) return 0;
-    const match = String(hitchTag).match(/hitch\s*(\d+)/i);
-    return match ? Math.min(6, Math.max(1, parseInt(match[1], 10) || 1)) : 3;
+    return hitchTag.args.value ?? DEFAULT_HITCH_VALUE;
 }
 
 export function isHitchedTile(tile) {
-    if (isGearTagsBroken(tile)) return false;
-    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'hitch');
+    return tileHasParsedBase(tile, 'hitch');
 }
 
 export function calculateHitchRebateTotal(tiles = []) {
@@ -830,8 +804,8 @@ export function calculateArmorSoakDetails(tiles = []) {
         if (!ARMOR_MATERIALS.has(armorType.material) || !(armorType.coverage in ARMOR_COVERAGE_SOAK)) return;
 
         const baseSoak = ARMOR_COVERAGE_SOAK[armorType.coverage];
-        const ironcladCount = activeTileTagList(tile)
-            .filter(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'ironclad')
+        const ironcladCount = activeParsedTags(tile)
+            .filter(parsed => parsed.base === 'ironclad')
             .length;
         const tileSteps = (tile.dice || []).reduce((sum, die) => sum + (DIE_STEPS[die] || 0), 0);
         const ironcladSoak = ironcladCount * tileSteps;
@@ -878,7 +852,7 @@ export const CORE_ABILITIES = {
 // Cyber exotic skill tile ("They start with the Cyber Exotic tag", p.64).
 export function tileHasCyberTag(tile) {
     if (tile?.exoticSkill?.system === 'Cyber') return true;
-    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'cyber');
+    return tileHasParsedBase(tile, 'cyber');
 }
 
 // "Each tile with the Cyber tag contributes 1 point to the Core Resource
@@ -896,8 +870,8 @@ export function getCoreAbilities(tiles = []) {
 
     (tiles || []).forEach(tile => {
         if (!tile || tile.isBuried) return;
-        activeTileTagList(tile).forEach(tag => {
-            const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
+        activeParsedTags(tile).forEach(parsed => {
+            const baseTag = parsed.base;
             const effect = CORE_ABILITIES[baseTag];
             if (!effect) return;
             if (!abilities.has(baseTag)) {
@@ -936,7 +910,7 @@ export function isHinderTile(tile) {
 // Generic "does this tile carry tag X" check on the mechanical base name.
 // Broken gear's tags are off; buried state is the caller's concern.
 export function tileHasMechanicalTag(tile, baseTag) {
-    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === baseTag);
+    return tileHasParsedBase(tile, baseTag);
 }
 
 // Gizmo / Sliver capacity (p.68): a character can have up to MIND+FOCUS ▟
@@ -958,12 +932,12 @@ export function countSliverTiles(tiles = []) {
 
 export function tileHasBestialTag(tile) {
     if (tile?.exoticSkill?.specialty === 'Bestial') return true;
-    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'bestial');
+    return tileHasParsedBase(tile, 'bestial');
 }
 
 export function tileHasCelestialTag(tile) {
     if (tile?.exoticSkill?.specialty === 'Celestial') return true;
-    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'celestial');
+    return tileHasParsedBase(tile, 'celestial');
 }
 
 export function calculateBestialTileCount(tiles = []) {
@@ -1002,11 +976,9 @@ export function getCelestialAspectSummary(rank, aspect) {
 // display; matching is case-insensitive. Raw tags (not activeTileTagList)
 // are used so a BREAK-marked gear tile still binds to its form.
 export function getTileWhileForms(tile) {
-    return tileTagList(tile)
-        .map(stripExemptSuffix)
-        .map(tag => tag.replace(/^(build|detail|flaw)\s*:\s*/i, ''))
-        .filter(tag => /^while\s+/i.test(tag))
-        .map(tag => tag.replace(/^while\s+/i, '').trim())
+    return parsedTileTags(tile)
+        .filter(parsed => parsed.base === 'while')
+        .map(parsed => parsed.args.form || '')
         .filter(Boolean);
 }
 
@@ -1063,7 +1035,7 @@ export const TITAN_ABILITIES = {
 };
 
 export function tileHasTitanTag(tile) {
-    return activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'titan');
+    return tileHasParsedBase(tile, 'titan');
 }
 
 // "Each Titan tag adds 1 point to the Titan resource pool" (p.69) - counted
@@ -1071,8 +1043,8 @@ export function tileHasTitanTag(tile) {
 export function calculateTitanMax(tiles = []) {
     return (tiles || []).reduce((sum, tile) => {
         if (!tile || tile.isBuried) return sum;
-        return sum + activeTileTagList(tile)
-            .filter(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'titan')
+        return sum + activeParsedTags(tile)
+            .filter(parsed => parsed.base === 'titan')
             .length;
     }, 0);
 }
@@ -1084,8 +1056,8 @@ export function getTitanAbilities(tiles = []) {
 
     (tiles || []).forEach(tile => {
         if (!tile || tile.isBuried) return;
-        activeTileTagList(tile).forEach(tag => {
-            const baseTag = getMechanicalBaseTag(normalizeTagForXp(tag));
+        activeParsedTags(tile).forEach(parsed => {
+            const baseTag = parsed.base;
             const ability = TITAN_ABILITIES[baseTag];
             if (!ability) return;
             if (!abilities.has(baseTag)) {
@@ -1114,11 +1086,9 @@ export function getTitanAbilities(tiles = []) {
  * crits can be shielded too.
  */
 export function getTileShieldCrits(tile) {
-    return activeTileTagList(tile)
-        .map(stripExemptSuffix)
-        .filter(tag => /^shield\s*:/i.test(tag))
-        .flatMap(tag => tag.replace(/^shield\s*:\s*/i, '').toLowerCase().split(/[\s,]+/))
-        .filter(Boolean);
+    return activeParsedTags(tile)
+        .filter(parsed => parsed.prefix === 'shield')
+        .flatMap(parsed => parsed.args.crits || []);
 }
 
 /**
@@ -1165,17 +1135,16 @@ export class PoolEngine {
     }
 
     classifyTagForLimit(tag) {
-        const name = getTagName(tag);
-        const normalized = normalizeTagForLimit(name);
-        const withoutPrefix = stripMechanicalPrefix(normalized);
-        const baseTag = getMechanicalBaseTag(normalized);
-        const hasBuildPrefix = /^build\s*:/i.test(normalized);
+        const parsed = parseTag(tag);
+        const name = parsed.raw;
+        const baseTag = parsed.base;
+        const bodyLower = parsed.body.toLowerCase();
 
-        if (!normalized) {
+        if (!parsed.name && !parsed.exempt) {
             return { name, counts: false, reason: 'blank' };
         }
 
-        if (hasBuildPrefix) {
+        if (parsed.prefix === 'build') {
             return { name, counts: true, reason: 'Build tags count' };
         }
 
@@ -1191,19 +1160,20 @@ export class PoolEngine {
             return { name, counts: false, reason: 'Spell marker does not count' };
         }
 
-        if (/^(range|duration)\s*:/i.test(normalized) || RANGE_DURATION_XP.has(baseTag) || getCrowdXp(baseTag) !== null) {
+        if (parsed.prefix === 'range' || parsed.prefix === 'duration'
+            || RANGE_DURATION_XP.has(baseTag) || isCrowdTag(parsed)) {
             return { name, counts: false, reason: 'Range/Duration tags do not count' };
         }
 
-        if (withoutPrefix.includes('flaw') || FLAW_TAGS.has(baseTag)) {
+        if (bodyLower.includes('flaw') || FLAW_TAGS.has(baseTag)) {
             return { name, counts: false, reason: 'Flaw tags do not count' };
         }
 
-        if (withoutPrefix.includes('(exempt)') || withoutPrefix.includes('exempt')) {
+        if (parsed.exempt || bodyLower.includes('exempt')) {
             return { name, counts: false, reason: 'GM Exception' };
         }
 
-        if (withoutPrefix.includes('exotic') || EXOTIC_TAGS.has(baseTag)) {
+        if (bodyLower.includes('exotic') || EXOTIC_TAGS.has(baseTag)) {
             return { name, counts: false, reason: 'Exotic tags do not count' };
         }
 
@@ -1218,9 +1188,9 @@ export class PoolEngine {
         // Detail tags" (p.69) - only Crit tags still count for them.
         const isTitanIdentity = normalizeSpecialIdentity(specialIdentity) === 'titan-identity';
         const isCritSide = (tag) => {
-            const normalized = normalizeTagForXp(getTagName(tag));
-            if (/^shield\s*:/i.test(normalized)) return false;
-            return /^crit\s*:/i.test(normalized) || CRIT_SHIELD_XP.has(getMechanicalBaseTag(normalized));
+            const parsed = parseTag(tag);
+            if (parsed.prefix === 'shield') return false;
+            return parsed.prefix === 'crit' || CRIT_SHIELD_XP.has(parsed.base);
         };
         const details = tagsArray.map(tag => {
             const detail = this.classifyTagForLimit(tag);
@@ -1230,7 +1200,7 @@ export class PoolEngine {
             // "Each spell tile gains the Chain tag" (p.49) - granted, not
             // bought, so it does not count against the spell's tag limit
             // (sample spells like captivate are d4 with Chain + a Crit).
-            if (isSpell && detail.counts && getMechanicalBaseTag(normalizeTagForXp(getTagName(tag))) === 'chain') {
+            if (isSpell && detail.counts && parseTag(tag).base === 'chain') {
                 return { ...detail, counts: false, reason: 'A spell’s Chain tag is granted and does not count' };
             }
             return detail;
@@ -1317,18 +1287,17 @@ export class PoolEngine {
      * flagged as unknown so the UI doesn't bother the player about them.
      */
     classifyTagForXp(tag) {
-        const t = normalizeTagForXp(tag);
-        const baseTag = getMechanicalBaseTag(t);
+        const parsed = parseTag(tag);
+        const baseTag = parsed.base;
 
-        if (!t) return { xp: 0, recognized: true, category: 'blank' };
+        if (!parsed.name) return { xp: 0, recognized: true, category: 'blank' };
         // World Build tag (p.63): "A tile with the 3 XP World Build tag chains
         // your Homeworld tile."
         if (baseTag === 'world') return { xp: 3, recognized: true, category: 'world' };
         // The SpellBuilder's "Spell" marker tag: not a bought tag, 0 XP.
         if (baseTag === 'spell') return { xp: 0, recognized: true, category: 'marker' };
         if (baseTag === 'hitch') {
-            const match = t.match(/hitch\s*(\d+)/i);
-            const value = match ? Math.min(6, Math.max(1, parseInt(match[1], 10) || 1)) : 3;
+            const value = parsed.args.value ?? DEFAULT_HITCH_VALUE;
             return { xp: -value, recognized: true, category: 'flaw', hardArmorFlawEligible: false };
         }
         if (FLAW_XP.has(baseTag)) {
@@ -1342,19 +1311,18 @@ export class PoolEngine {
         if (RANGE_DURATION_XP.has(baseTag)) {
             return { xp: RANGE_DURATION_XP.get(baseTag) ?? 0, recognized: true, category: 'rangeDuration' };
         }
-        const crowdXp = getCrowdXp(baseTag);
-        if (crowdXp !== null) {
-            return { xp: crowdXp, recognized: true, category: 'rangeDuration' };
+        if (isCrowdTag(parsed)) {
+            return { xp: getCrowdXp(parsed.args.count ?? 0), recognized: true, category: 'rangeDuration' };
         }
-        if (/^(range|duration)\s*:/i.test(t)) {
+        if (parsed.prefix === 'range' || parsed.prefix === 'duration') {
             return { xp: 2, recognized: true, category: 'rangeDuration' };
         }
-        if (/^(crit|shield)\s*:/i.test(t) || CRIT_SHIELD_XP.has(baseTag)) {
+        if (parsed.prefix === 'crit' || parsed.prefix === 'shield' || CRIT_SHIELD_XP.has(baseTag)) {
             return {
                 xp: CRIT_SHIELD_XP.get(baseTag) ?? 2,
                 recognized: true,
-                category: /^shield\s*:/i.test(t) ? 'shield' : 'crit',
-                hardArmorDiscountable: /^shield\s*:/i.test(t)
+                category: parsed.prefix === 'shield' ? 'shield' : 'crit',
+                hardArmorDiscountable: parsed.prefix === 'shield'
             };
         }
         if (TAG_XP_CATALOG.has(baseTag)) {
@@ -1362,15 +1330,15 @@ export class PoolEngine {
                 xp: TAG_XP_CATALOG.get(baseTag) ?? 2,
                 recognized: true,
                 category: EXOTIC_TAGS.has(baseTag) ? 'exotic' : 'tag',
-                hardArmorDiscountable: ARMOR_DETAIL_TAGS.has(baseTag) || /^detail\s*:/i.test(t)
+                hardArmorDiscountable: ARMOR_DETAIL_TAGS.has(baseTag) || parsed.prefix === 'detail'
             };
         }
-        if (/^(build|detail)\s*:/i.test(t)) {
+        if (parsed.prefix === 'build' || parsed.prefix === 'detail') {
             return {
                 xp: 2,
                 recognized: true,
-                category: /^build\s*:/i.test(t) ? 'build' : 'detail',
-                hardArmorDiscountable: /^detail\s*:/i.test(t)
+                category: parsed.prefix,
+                hardArmorDiscountable: parsed.prefix === 'detail'
             };
         }
 
@@ -1404,13 +1372,13 @@ export class PoolEngine {
         const exoticSpecialty = (options.exoticSkill?.specialty || '').toLowerCase();
 
         tagsArray.forEach(tag => {
-            const t = normalizeTagForXp(tag);
+            const parsed = parseTag(tag);
             const tagRule = this.classifyTagForXp(tag);
             let tagXp = tagRule.xp;
 
             // Bestial / Celestial are 2 XP on Skill tiles but 4 XP when added
             // to a Trait, Story, or Gear tile (glossary "X 2/4", pp.61-63).
-            const baseTag = getMechanicalBaseTag(t);
+            const baseTag = parsed.base;
             if (options.tileType && options.tileType !== 'Skill' && (baseTag === 'bestial' || baseTag === 'celestial')) {
                 tagXp += 2;
             }
@@ -1438,7 +1406,7 @@ export class PoolEngine {
             }
 
             xp += tagXp;
-            if (!tagRule.recognized && t.trim()) unknownTags.push(String(tag));
+            if (!tagRule.recognized && parsed.name) unknownTags.push(parsed.raw);
         });
 
         // Armor base cost: material + coverage.
@@ -1453,7 +1421,7 @@ export class PoolEngine {
 
         // Gizmo (p.68): the tag is 4 XP chained to a skill; "If it does not
         // Chain a skill, Gizmo only costs 2 XP."
-        const allBaseTags = tagsArray.map(tag => getMechanicalBaseTag(normalizeTagForXp(tag)));
+        const allBaseTags = tagsArray.map(tag => parseTag(tag).base);
         if (allBaseTags.includes('gizmo') && !allBaseTags.includes('chain')) {
             xp -= 2;
         }
@@ -1464,7 +1432,7 @@ export class PoolEngine {
             : null;
         if (weaponTemplate?.extraXp) {
             xp += weaponTemplate.extraXp;
-        } else if (normalizeTagForXp(weapon?.category) === 'far') {
+        } else if (String(weapon?.category || '').trim().toLowerCase() === 'far') {
             xp += 2;
         }
 
@@ -1501,23 +1469,20 @@ export class PoolEngine {
             });
 
             const tileSteps = this.calculateSteps(tile.dice || []);
-            const tags = activeTileTagList(tile).map(normalizeMechanicalTag);
-            tags.forEach(tag => {
-                const resource = RESOURCE_TAGS[tag];
-                if (resource) maxes[resource] += tileSteps;
-            });
+            activeParsedTags(tile).forEach(parsed => {
+                if (MECHANICAL_PREFIXES.has(parsed.prefix)) {
+                    const resource = RESOURCE_TAGS[parsed.base];
+                    if (resource) maxes[resource] += tileSteps;
+                }
 
-            // Bestial (p.61): "For each tile with the Bestial tag, add an
-            // extra point to one Resource." The chosen pool is fixed when
-            // bought, stored on the tag as "Bestial: HP|EN|RX". Untyped
-            // Bestial tags grant nothing until a resource is chosen (the
-            // rules review flags them).
-            activeTileTagList(tile).forEach(tag => {
-                const normalized = normalizeTagForXp(tag);
-                if (getMechanicalBaseTag(normalized) !== 'bestial') return;
-                const match = stripMechanicalPrefix(normalized).match(/^bestial\s*:?\s*(\S+)/);
-                const resource = normalizeResourceKey(match?.[1]);
-                if (resource) maxes[resource] += 1;
+                // Bestial (p.61): "For each tile with the Bestial tag, add an
+                // extra point to one Resource." The chosen pool is fixed when
+                // bought, stored on the tag as "Bestial: HP|EN|RX". Untyped
+                // Bestial tags grant nothing until a resource is chosen (the
+                // rules review flags them).
+                if (parsed.base === 'bestial' && parsed.args.resource) {
+                    maxes[parsed.args.resource] += 1;
+                }
             });
         });
 
@@ -1705,17 +1670,16 @@ export class PoolEngine {
             if (!isCallTile) adds += 1;
 
             // Parse tags
-            const tags = activeTileTagList(tile).map(t => t.toLowerCase());
-            
+            const tags = activeParsedTags(tile);
+
             // Contextual tag bonuses are surfaced for user selection.
-            tags.forEach((tag, index) => {
-                const normalizedTag = normalizeMechanicalTag(tag);
-                let bonusRule = CONTEXTUAL_TAG_BONUSES[normalizedTag];
+            tags.forEach((parsed, index) => {
+                if (!MECHANICAL_PREFIXES.has(parsed.prefix)) return;
+                let bonusRule = CONTEXTUAL_TAG_BONUSES[parsed.base];
 
                 // Motorized: "+steps on [stat]". The chosen stat is stored as "Motorized: STAT".
-                if (!bonusRule && normalizedTag.startsWith('motorized')) {
-                    const statMatch = String(tag).match(/motorized\s*:?\s*([^()]*)/i);
-                    const stat = statMatch && statMatch[1] ? statMatch[1].trim().toUpperCase() : '';
+                if (!bonusRule && parsed.base === 'motorized') {
+                    const stat = parsed.args.stat || '';
                     bonusRule = {
                         name: stat ? `Motorized (${stat})` : 'Motorized',
                         context: stat ? `${stat} check` : 'stat check',
@@ -1729,7 +1693,7 @@ export class PoolEngine {
                 if (steps <= 0) return;
 
                 tagBonuses.push({
-                    id: `${tile.id}:${normalizedTag}:${index}`,
+                    id: `${tile.id}:${parsed.base}:${index}`,
                     tag: bonusRule.name,
                     sourceTileId: tile.id,
                     sourceTileName: tile.name,
@@ -1739,17 +1703,21 @@ export class PoolEngine {
                 });
             });
 
-            // Chain tags
+            // Chain tags. Only unprefixed links are followed: a
+            // "Build: Chain X" tag prices as a Chain but is not walked.
             for (let index = 0; index < tags.length; index++) {
-                const tag = tags[index];
-                const isChainTag = tag.startsWith('chain ');
-                const isWorldTag = tag.startsWith('world ');
+                const parsed = tags[index];
+                if (parsed.prefix !== null) continue;
+                const target = parsed.args.target || '';
+                const isChainTag = parsed.base === 'chain' && target !== '';
+                const isWorldTag = parsed.base === 'world' && target !== '';
                 if (isChainTag || isWorldTag) {
                     const linkKind = isWorldTag ? 'world' : 'chain';
                     const linkLabel = isWorldTag ? 'World' : 'Chain';
-                    const targetName = tag.replace(/^(chain|world)\s+/, '').trim();
-                    const chainId = `${tile.id}:${linkKind}:${index}:${targetName.toLowerCase()}`;
-                    const targetTile = allTiles.find(t => (t.name || '').toLowerCase() === targetName);
+                    const targetName = target;
+                    const targetKey = target.toLowerCase();
+                    const chainId = `${tile.id}:${linkKind}:${index}:${targetKey}`;
+                    const targetTile = allTiles.find(t => (t.name || '').toLowerCase() === targetKey);
                     const disabled = isChainDisabled(chainId);
                     const sharedColors = targetTile ? getSharedCallColors(tile, targetTile) : [];
                     const selectedColor = getSelectedChainColor(chainId);
@@ -1908,9 +1876,7 @@ export class PoolEngine {
 
         // Glitch flaw (p.65): haywire counts 1s and 2s when any tile in the
         // pool carries it.
-        const haywireThreshold = usedTiles.some(tile =>
-            activeTileTagList(tile).some(tag => getMechanicalBaseTag(normalizeTagForXp(tag)) === 'glitch')
-        ) ? 2 : 1;
+        const haywireThreshold = usedTiles.some(tile => tileHasParsedBase(tile, 'glitch')) ? 2 : 1;
 
         // Titan (p.69): when a Titan tile is used, dice rolling below their
         // own ▟ are rerolled, and Titan spends can maximize any pool die.
