@@ -320,6 +320,14 @@
     padding: 0.5rem 0.35rem;
 }
 
+/* Second line on an option button (e.g. a magic school's colors). */
+.tile-box-option small {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 400;
+    opacity: 0.75;
+}
+
 .tile-box-option.active {
     background: rgba(0,255,200,0.14);
     border-color: rgba(0,255,200,0.5);

@@ -2,6 +2,7 @@
 // modal is a singleton, so these operate on the document directly; the
 // pure pricing rules live in js/spell-rules.js.
 import { getTileBoxes, serializeTileBoxes } from '../pool.js';
+import { syncOptionGrids } from './modalWidgets.js';
 import {
     SPELL_NORMAL_COLORS,
     SPELL_SHADOW_KINDS,
@@ -84,6 +85,11 @@ export function syncShadowResourceControls() {
         }
     });
     syncSpellBoxButtons();
+    // Every programmatic write to spell-school or a shadow-resource select
+    // (form.reset, edit restore, default boxes) funnels through here, so
+    // this one call keeps all the spell modal's button grids highlighted
+    // correctly.
+    syncOptionGrids(document.getElementById('spell-modal') || document);
 }
 
 function syncSpellBoxButtons() {

@@ -1166,12 +1166,21 @@
                     
                     <div class="form-group">
                         <label>Magic School (Skill Color)</label>
-                        <select id="spell-school" class="spell-input" style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem;">
+                        <!-- Hidden select stays the source of truth: form.reset()
+                             restores Twist, spellState restore sets .value, and
+                             all readers keep using getElementById('spell-school'). -->
+                        <select id="spell-school" class="spell-input" hidden>
                             <option value="Twist">Twist (Yellow/Purple)</option>
                             <option value="Forge">Forge (Green/Red)</option>
                             <option value="Augur">Augur (Blue/Orange)</option>
                             <option value="Divergent">Divergent (Custom School) [+2 🗱]</option>
                         </select>
+                        <div class="tile-option-grid" data-target="spell-school" role="group" aria-label="Magic school">
+                            <button type="button" class="tile-box-option" data-value="Twist">Twist <small>Yellow/Purple</small></button>
+                            <button type="button" class="tile-box-option" data-value="Forge">Forge <small>Green/Red</small></button>
+                            <button type="button" class="tile-box-option" data-value="Augur">Augur <small>Blue/Orange</small></button>
+                            <button type="button" class="tile-box-option" data-value="Divergent">Divergent <small>Custom +2 🗱</small></button>
+                        </div>
                     </div>
                     <div class="form-group" id="spell-custom-colors-container">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
@@ -1202,25 +1211,37 @@
                             <button type="button" class="tile-box-option spell-box-option tile-box-option-qi" data-value="Qi" aria-pressed="false">Qi +2</button>
                             <button type="button" class="tile-box-option spell-box-option tile-box-option-id" data-value="Id" aria-pressed="false">Id +2</button>
                         </div>
-                        <div id="spell-shadow-resource-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
-                            <label class="spell-shadow-resource-row" data-shadow-kind="Qi" style="display: none; font-weight: normal; font-size: 0.85rem;">
-                                Qi resource
-                                <select class="spell-shadow-resource" data-shadow-kind="Qi" style="width: 100%; margin-top: 0.2rem; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                        <div id="spell-shadow-resource-options" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                            <div class="spell-shadow-resource-row" data-shadow-kind="Qi" style="display: none; font-size: 0.85rem;">
+                                <span style="color: var(--text-secondary);">Qi resource</span>
+                                <select id="spell-shadow-resource-qi" class="spell-shadow-resource" data-shadow-kind="Qi" hidden>
                                     <option value="">-- Normal resource --</option>
                                     <option value="hp">Health</option>
                                     <option value="en">Energy</option>
                                     <option value="rx">Reflex</option>
                                 </select>
-                            </label>
-                            <label class="spell-shadow-resource-row" data-shadow-kind="Id" style="display: none; font-weight: normal; font-size: 0.85rem;">
-                                Id resource
-                                <select class="spell-shadow-resource" data-shadow-kind="Id" style="width: 100%; margin-top: 0.2rem; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                                <div class="tile-option-grid" data-target="spell-shadow-resource-qi" role="group" aria-label="Qi resource">
+                                    <button type="button" class="tile-box-option" data-value="">Normal</button>
+                                    <button type="button" class="tile-box-option" data-value="hp">Health</button>
+                                    <button type="button" class="tile-box-option" data-value="en">Energy</button>
+                                    <button type="button" class="tile-box-option" data-value="rx">Reflex</button>
+                                </div>
+                            </div>
+                            <div class="spell-shadow-resource-row" data-shadow-kind="Id" style="display: none; font-size: 0.85rem;">
+                                <span style="color: var(--text-secondary);">Id resource</span>
+                                <select id="spell-shadow-resource-id" class="spell-shadow-resource" data-shadow-kind="Id" hidden>
                                     <option value="">-- Normal resource --</option>
                                     <option value="hp">Health</option>
                                     <option value="en">Energy</option>
                                     <option value="rx">Reflex</option>
                                 </select>
-                            </label>
+                                <div class="tile-option-grid" data-target="spell-shadow-resource-id" role="group" aria-label="Id resource">
+                                    <button type="button" class="tile-box-option" data-value="">Normal</button>
+                                    <button type="button" class="tile-box-option" data-value="hp">Health</button>
+                                    <button type="button" class="tile-box-option" data-value="en">Energy</button>
+                                    <button type="button" class="tile-box-option" data-value="rx">Reflex</button>
+                                </div>
+                            </div>
                         </div>
                         <small id="spell-color-cost-note" style="display: block; margin-top: 0.45rem; color: var(--text-secondary); font-size: 0.8rem;">Standard school colors.</small>
                     </div>

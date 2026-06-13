@@ -20,7 +20,7 @@ import {
     toggleSpellBoxButton
 } from './ui/spellColors.js';
 import { SPELL_METRIC_IDS, applySpellStateToForm, readSpellStateFromForm } from './ui/spellForm.js';
-import { bindStableTouchButton, createDiceTokenEditor, showPendingTagDialog } from './ui/modalWidgets.js';
+import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, showPendingTagDialog } from './ui/modalWidgets.js';
 
 export class SpellBuilder {
     constructor(dataManager, renderCallback) {
@@ -121,6 +121,8 @@ export class SpellBuilder {
                 this.calculateXP();
             });
         });
+        // Hidden-control button grids (Magic School, Qi/Id resources).
+        bindOptionGrids(this.modal);
 
         this.tagSelect.addEventListener('change', (e) => {
             const hitchValue = document.getElementById('spell-tag-hitch-value');

@@ -51,6 +51,39 @@ export function bindStableTouchButton(button, handler) {
     });
 }
 
+// Button groups backed by a hidden control: each .tile-option-grid names
+// its hidden input/select in data-target. Tapping a button writes the
+// control's value and dispatches 'change', so existing readers and
+// listeners keep working. syncOptionGrids re-derives the highlighted
+// button from the control's value after programmatic writes (form.reset(),
+// edit-mode population), which never fire 'change' on their own.
+export function syncOptionGrids(root = document) {
+    root.querySelectorAll('.tile-option-grid').forEach(grid => {
+        const value = document.getElementById(grid.dataset.target || '')?.value || '';
+        grid.querySelectorAll('.tile-box-option').forEach(button => {
+            const isSelected = (button.dataset.value || '') === value;
+            button.classList.toggle('active', isSelected);
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+    });
+}
+
+// Scope `root` to the owning modal so two modals can bind independently
+// without double-binding each other's grids.
+export function bindOptionGrids(root = document) {
+    root.querySelectorAll('.tile-option-grid').forEach(grid => {
+        grid.querySelectorAll('.tile-box-option').forEach(button => {
+            bindStableTouchButton(button, () => {
+                const control = document.getElementById(grid.dataset.target || '');
+                if (!control) return;
+                control.value = button.dataset.value || '';
+                control.dispatchEvent(new Event('change', { bubbles: true }));
+                syncOptionGrids(root);
+            });
+        });
+    });
+}
+
 // A native <select> upgraded into a tap-to-open panel whose first element
 // is a filter box: the search field appears the moment the picker opens,
 // instead of sitting beside the select where nobody discovers it. The
