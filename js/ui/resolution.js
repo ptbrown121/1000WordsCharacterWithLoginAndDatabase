@@ -1,4 +1,4 @@
-import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, isHitchedTile, tileHasMechanicalTag } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, isHitchedTile, RESOURCE_LABELS, tileHasMechanicalTag } from '../pool.js';
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
@@ -16,7 +16,8 @@ import {
     applyShieldsToCrits,
     parseCritList,
     getRangeExtensionResults,
-    getChainMaxedDieCost
+    getChainMaxedDieCost,
+    CHAIN_COST_RESOURCE_KEYS
 } from '../resolution-rules.js';
 
 let dataManager;
@@ -47,6 +48,11 @@ export function init(deps = {}) {
         if (e.target.classList.contains('ammo-die-select')) {
             uiState.ammoAssignments[e.target.dataset.ammoTileId] = e.target.value;
             renderResolution();
+            return;
+        }
+
+        if (e.target.classList.contains('chain-cost-resource')) {
+            uiState.chainCostSelections[e.target.dataset.rollId] = e.target.value;
             return;
         }
 
@@ -83,6 +89,10 @@ export function init(deps = {}) {
         }
         if (e.target.classList.contains('btn-titan-maximize')) {
             spendTitanOnMaximize();
+            return;
+        }
+        if (e.target.classList.contains('btn-chain-cost-pay')) {
+            payChainCost();
             return;
         }
         if (!e.target.classList.contains('btn-resolve-ammo')) return;
@@ -492,6 +502,113 @@ function renderTitanResolutionPanel(result) {
     `;
 }
 
+// Chain cost (p.25, upcoming-edition ruling): in a chained check every
+// maxed die that is used costs 1 resource of the player's choice. The
+// panel lists each maxed die; leaving it on Unused in the assignment list
+// skips its cost, otherwise the player picks the resource to spend.
+function renderChainCostPanel(result) {
+    const cost = getChainMaxedDieCost(result, uiState.currentResolutionAssignments);
+    if (!cost.chained || cost.entries.length === 0) return '';
+
+    const paid = result.chainCostPaid;
+    const shadowMax = getEffectiveMax(dataManager?.state || {}, 'sh',
+        poolEngine ? poolEngine.calculateShadowMax(dataManager?.state?.tiles || []) : 0);
+    const resourceKeys = CHAIN_COST_RESOURCE_KEYS.filter(key => key !== 'sh' || shadowMax > 0);
+
+    const rows = cost.entries.map(entry => {
+        let control;
+        if (paid) {
+            const paidKey = paid.selections?.[entry.rollId];
+            control = paidKey
+                ? `<span class="resolution-success">Paid 1 ${escapeHtml(RESOURCE_LABELS[paidKey] || paidKey)}</span>`
+                : '<span>Unused — no cost</span>';
+        } else if (entry.used) {
+            const selected = uiState.chainCostSelections[entry.rollId] || 'en';
+            const options = resourceKeys.map(key =>
+                `<option value="${key}"${key === selected ? ' selected' : ''}>${RESOURCE_LABELS[key]}</option>`).join('');
+            control = `<select class="chain-cost-resource" data-roll-id="${escapeHtml(entry.rollId)}">${options}</select>`;
+        } else {
+            control = '<span class="resolution-success">Unused — no cost</span>';
+        }
+        return `
+            <div class="resolution-die-row">
+                <span class="resolution-die-main">
+                    <span class="resolution-die-badge" title="${escapeHtml(entry.die)} rolled its maximum">
+                        <span class="resolution-die-type">${escapeHtml(entry.die)}</span>
+                        <span class="resolution-die-label">maxed</span>
+                        <span class="resolution-die-roll">${entry.val}</span>
+                    </span>
+                    <span class="resolution-die-source">${escapeHtml(entry.source)}</span>
+                </span>
+                ${control}
+            </div>
+        `;
+    }).join('');
+
+    let footer;
+    if (paid) {
+        const detail = Object.entries(paid.breakdown)
+            .map(([key, amount]) => `${amount} ${RESOURCE_LABELS[key] || key}`).join(', ');
+        footer = `<p class="resolution-success">Chain cost paid: ${escapeHtml(detail)}.</p>`;
+        if (paid.count !== cost.dueCount) {
+            footer += `<p class="resolution-warning">Assignments changed after paying (${paid.count} paid, ${cost.dueCount} now used) — settle the difference with the GM.</p>`;
+        }
+    } else if (cost.dueCount === 0) {
+        footer = '<p class="resolution-success">All maxed dice are Unused — no resource cost.</p>';
+    } else {
+        footer = `<button class="btn btn-outline btn-chain-cost-pay" type="button">Pay ${cost.dueCount} resource${cost.dueCount === 1 ? '' : 's'}</button>`;
+    }
+
+    return `
+        <div class="freebie-resolution-panel chain-cost-panel" style="margin-top: 0.5rem;">
+            <h3>Chain Cost</h3>
+            <p class="hint-text">This check uses a chain: each maxed die <em>used</em> costs 1 resource (your choice). Assign a maxed die to Unused to skip its cost.</p>
+            ${rows}
+            ${footer}
+        </div>
+    `;
+}
+
+function payChainCost() {
+    const result = uiState.lastRollResult;
+    if (!result || result.chainCostPaid || !dataManager) return;
+
+    const cost = getChainMaxedDieCost(result, uiState.currentResolutionAssignments);
+    const due = cost.entries.filter(entry => entry.used);
+    if (due.length === 0) return;
+
+    const selections = {};
+    const breakdown = {};
+    due.forEach(entry => {
+        const key = uiState.chainCostSelections[entry.rollId] || 'en';
+        selections[entry.rollId] = key;
+        breakdown[key] = (breakdown[key] || 0) + 1;
+    });
+
+    const state = dataManager.state;
+    if (!state.gmOverride) {
+        const short = Object.entries(breakdown)
+            .filter(([key, amount]) => (parseInt(state[key], 10) || 0) < amount)
+            .map(([key, amount]) => `${RESOURCE_LABELS[key]} (need ${amount}, have ${parseInt(state[key], 10) || 0})`);
+        if (short.length > 0) {
+            alert(`Not enough resources for the chain cost: ${short.join(', ')}. Pick different resources or set maxed dice to Unused.`);
+            return;
+        }
+    }
+
+    const detail = Object.entries(breakdown)
+        .map(([key, amount]) => `${amount} ${RESOURCE_LABELS[key]}`).join(', ');
+    if (!confirm(`Spend ${detail} for ${due.length} maxed ${due.length === 1 ? 'die' : 'dice'} in this chained check?`)) return;
+
+    Object.entries(breakdown).forEach(([key, amount]) => {
+        state[key] = Math.max(0, (parseInt(state[key], 10) || 0) - amount);
+    });
+    dataManager.saveState();
+    result.chainCostPaid = { count: due.length, breakdown, selections };
+    if (renderAll) renderAll();
+    renderResolution();
+}
+
 function rollPostRollFreebie(die) {
     const result = uiState.lastRollResult;
     if (!result || result.freebieUsed || !poolEngine) return;
@@ -788,9 +905,9 @@ export function renderResolutionDetails() {
     } else if (result.titanActive && result.titanManualReminder) {
         notices.push('<div class="result-notice">Titan active: reroll any physical die that rolled below its ▟ (d6 on 1, d8 on 1-2, ...) and enter the new values.</div>');
     }
-    const chainCost = getChainMaxedDieCost(result);
-    if (chainCost.maxedCount > 0) {
-        notices.push(`<div class="result-notice">Chain cost: ${chainCost.maxedCount} maxed chain ${chainCost.maxedCount === 1 ? 'die' : 'dice'} — spend ${chainCost.maxedCount} resource point${chainCost.maxedCount === 1 ? '' : 's'} (EN, RX, or HP; player's choice).</div>`);
+    const chainCost = getChainMaxedDieCost(result, uiState.currentResolutionAssignments);
+    if (chainCost.dueCount > 0 && !result.chainCostPaid) {
+        notices.push(`<div class="result-notice">Chain cost: ${chainCost.dueCount} maxed ${chainCost.dueCount === 1 ? 'die is' : 'dice are'} used in this chained check — pay 1 resource each (Health, Energy, Reflex, or Shadow) in the Chain Cost panel, or set the ${chainCost.dueCount === 1 ? 'die' : 'dice'} to Unused.</div>`);
     }
     els.resultNotices.innerHTML = notices.join('');
 
@@ -828,6 +945,7 @@ export function renderResolution() {
             <label>Assign Rolled Dice</label>
             ${renderResolutionAssignments(result)}
         </div>
+        ${renderChainCostPanel(result)}
         ${renderAmmoResolution(result)}
         ${renderFreebiePanel(result)}
         ${renderTitanResolutionPanel(result)}
@@ -842,6 +960,7 @@ export function showResults(result) {
     uiState.currentResolutionMode = 'action';
     uiState.currentResolutionAssignments = getDefaultResolutionAssignments(result, uiState.currentResolutionMode);
     uiState.ammoAssignments = {};
+    uiState.chainCostSelections = {};
     uiState.healingInCombat = false;
     els.rollResults.style.display = 'block';
     renderResolution();

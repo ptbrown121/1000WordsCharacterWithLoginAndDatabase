@@ -106,19 +106,38 @@ export function getRangeExtensionResults(result, assignments) {
     return { entries, increments: entries.filter(entry => entry.success).length };
 }
 
-// Chain cost (p.25): "Each maxed die used costs 1 resource." Counts dice
-// contributed by chain-called tiles (source "Chain (...)") that rolled their
-// maximum face. The resource (EN, RX, or HP) is the player's choice, so the
-// UI reports the cost rather than auto-deducting it.
-export function getChainMaxedDieCost(result) {
-    const chainRolls = (result.originalRolls || [])
-        .filter(roll => String(roll.source || '').startsWith('Chain ('));
-    const maxedCount = chainRolls.filter(roll => {
-        const faces = parseInt(String(roll.die || '').replace('d', ''), 10);
-        return Number.isFinite(faces) && roll.val === faces;
-    }).length;
+// Resources that may pay a chain cost, in display order.
+export const CHAIN_COST_RESOURCE_KEYS = ['hp', 'en', 'rx', 'sh'];
 
-    return { chainDiceCount: chainRolls.length, maxedCount };
+// Chain cost (p.25): "Each maxed die used costs 1 resource." Per the
+// upcoming-edition ruling (2026-06-12) the cost applies to any check that
+// calls chained tiles — Chain tags, Spells (Chain to an Arcana skill), and
+// World links all contribute dice labeled "Chain (...)" — and prices EVERY
+// die in that check that rolled its maximum face, not just the chained
+// tiles' own dice. The resource (HP, EN, RX, or SH) is the player's choice
+// per die, and a maxed die assigned to Unused costs nothing: the player may
+// decline the die to skip the cost. This reports each maxed die so the UI
+// can offer that choice; nothing is auto-deducted here.
+export function getChainMaxedDieCost(result, assignments = {}) {
+    const rolls = result.originalRolls || [];
+    const chained = rolls.some(roll => String(roll.source || '').startsWith('Chain ('));
+    if (!chained) return { chained: false, entries: [], dueCount: 0 };
+
+    const entries = [];
+    rolls.forEach((roll, index) => {
+        const faces = parseInt(String(roll.die || '').replace('d', ''), 10);
+        if (!Number.isFinite(faces) || roll.val !== faces) return;
+        const rollId = getRollId(roll, index);
+        entries.push({
+            rollId,
+            source: roll.source,
+            die: roll.die,
+            val: roll.val,
+            used: (assignments[rollId] || 'unused') !== 'unused'
+        });
+    });
+
+    return { chained: true, entries, dueCount: entries.filter(entry => entry.used).length };
 }
 
 // Free-text crit list ("BLEED, DOWN") -> lowercased crit names.

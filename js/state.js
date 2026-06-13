@@ -31,6 +31,9 @@ export const uiState = {
     currentResolutionAssignments: {},
     // Map of ammo tile id -> roll id selected for ammo supply resolution.
     ammoAssignments: {},
+    // Map of roll id -> resource key ('hp'|'en'|'rx'|'sh') chosen to pay
+    // that maxed die's chain cost. Reset per roll.
+    chainCostSelections: {},
     // Whether healing-in-combat penalties apply to the current roll.
     healingInCombat: false,
     // Map of gear tile id -> whether its Shield tags protect this defense.

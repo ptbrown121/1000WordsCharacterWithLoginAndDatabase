@@ -405,21 +405,44 @@ describe('getRangeExtensionResults', () => {
 });
 
 describe('getChainMaxedDieCost', () => {
-    it('counts only chain-sourced dice that rolled their maximum', () => {
+    it('prices every maxed die used in a chained check, not just chain-sourced dice', () => {
         const res = result([
-            { source: 'Tile (Kit)', die: 'd6', val: 6 },
-            { source: 'Chain (Tinker)', die: 'd4', val: 4 },
+            { source: 'Stat (MIND)', die: 'd6', val: 6 },
+            { source: 'Tile (Kit)', die: 'd4', val: 4 },
             { source: 'Chain (Tinker)', die: 'd6', val: 5 },
             { source: 'Chain (Lore)', die: 'd6', val: 6 }
         ]);
-        const cost = getChainMaxedDieCost(res);
-        assert.equal(cost.chainDiceCount, 3);
-        assert.equal(cost.maxedCount, 2);
+        const cost = getChainMaxedDieCost(res, { 0: 'action', 1: 'action', 2: 'action', 3: 'action' });
+        assert.equal(cost.chained, true);
+        // The non-maxed chain d6 is not an entry; the maxed stat and call
+        // tile dice are.
+        assert.deepEqual(cost.entries.map(entry => [entry.rollId, entry.used]), [
+            ['0', true], ['1', true], ['3', true]
+        ]);
+        assert.equal(cost.dueCount, 3);
     });
 
-    it('returns zero for rolls without chain dice', () => {
-        const cost = getChainMaxedDieCost(result(rolls(6, 6)));
-        assert.equal(cost.chainDiceCount, 0);
-        assert.equal(cost.maxedCount, 0);
+    it('excludes maxed dice left Unused from the due count', () => {
+        const res = result([
+            { source: 'Chain (Tinker)', die: 'd6', val: 6 },
+            { source: 'Tile (Kit)', die: 'd8', val: 8 }
+        ]);
+        const cost = getChainMaxedDieCost(res, { 0: 'unused', 1: 'attack' });
+        assert.equal(cost.dueCount, 1);
+        assert.deepEqual(cost.entries.map(entry => entry.used), [false, true]);
+    });
+
+    it('treats unassigned dice as Unused', () => {
+        const res = result([{ source: 'Chain (Lore)', die: 'd6', val: 6 }]);
+        const cost = getChainMaxedDieCost(res, {});
+        assert.equal(cost.dueCount, 0);
+        assert.equal(cost.entries[0].used, false);
+    });
+
+    it('charges nothing on checks without chained dice, even with maxed dice used', () => {
+        const cost = getChainMaxedDieCost(result(rolls(6, 6)), { 0: 'action', 1: 'action' });
+        assert.equal(cost.chained, false);
+        assert.deepEqual(cost.entries, []);
+        assert.equal(cost.dueCount, 0);
     });
 });
