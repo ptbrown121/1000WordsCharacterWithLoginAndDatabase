@@ -135,11 +135,20 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
         }
     }
 
+    // Phone back button support: opening the panel pushes a history entry,
+    // so pressing back pops it and closes the panel instead of leaving the
+    // page. Closing any other way (pick, outside tap, Escape) consumes the
+    // entry via history.back() to keep history balanced; the armed flag
+    // makes sure we only ever consume our own entry.
+    let historyEntryArmed = false;
+
     function open() {
         search.value = '';
         renderList();
         panel.hidden = false;
         trigger.setAttribute('aria-expanded', 'true');
+        historyEntryArmed = true;
+        history.pushState({ searchableSelect: select.id || true }, '');
         search.focus();
         // With the on-screen keyboard up only a slice of the page stays
         // visible. Pin the picker to the top of that slice and size the
@@ -162,7 +171,19 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
         panel.hidden = true;
         trigger.setAttribute('aria-expanded', 'false');
         sync();
+        if (historyEntryArmed) {
+            historyEntryArmed = false;
+            history.back();
+        }
     }
+
+    window.addEventListener('popstate', () => {
+        if (panel.hidden) return;
+        // The back button already removed our entry; disarm before closing
+        // so close() doesn't call history.back() a second time.
+        historyEntryArmed = false;
+        close();
+    });
 
     trigger.addEventListener('click', () => {
         if (panel.hidden) open(); else close();
