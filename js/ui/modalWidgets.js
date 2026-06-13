@@ -141,6 +141,21 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
         panel.hidden = false;
         trigger.setAttribute('aria-expanded', 'true');
         search.focus();
+        // With the on-screen keyboard up only a slice of the page stays
+        // visible. Pin the picker to the top of that slice and size the
+        // list to the visual viewport so it gets the remaining space.
+        // Re-assert after the keyboard animation: the browser's own
+        // scroll-focused-input-into-view would otherwise win and leave
+        // the picker near the keyboard with a few rows showing.
+        const claimViewport = () => {
+            if (panel.hidden) return;
+            const viewportHeight = window.visualViewport?.height || window.innerHeight;
+            // ~9rem reserved for the trigger, search box, and breathing room.
+            list.style.maxHeight = `${Math.max(150, Math.min(viewportHeight - 145, 384))}px`;
+            wrapper.scrollIntoView({ block: 'start' });
+        };
+        requestAnimationFrame(claimViewport);
+        setTimeout(claimViewport, 300);
     }
 
     function close() {
