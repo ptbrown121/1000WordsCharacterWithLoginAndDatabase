@@ -31,11 +31,22 @@ export const AMMO_FUNCTION_TIERS = {
     5: 'Recover 1 tile'
 };
 
+/**
+ * @typedef {Object} AmmoBuilderLine
+ * @property {string} [trigger]
+ * @property {string|number} [x]
+ * @property {boolean} [tagOnTheFly]
+ * @property {boolean} [sticky]
+ * @property {boolean} [restriction]
+ * @property {boolean} [repeat]
+ */
+
 const toInt = (value) => {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
+/** @param {AmmoBuilderLine} [line] @param {number} [index] */
 export function calculateAmmoLineCost(line = {}, index = 0) {
     const trigger = AMMO_TRIGGERS[line.trigger];
     if (!trigger) return null; // disabled line
@@ -49,6 +60,7 @@ export function calculateAmmoLineCost(line = {}, index = 0) {
     return cost;
 }
 
+/** @param {{multiTool?: boolean, lines?: AmmoBuilderLine[]}} [options] */
 export function calculateAmmoBuildTotal({ multiTool = false, lines = [] } = {}) {
     const lineCosts = lines
         .slice(0, 3)

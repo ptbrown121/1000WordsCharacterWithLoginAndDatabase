@@ -1,26 +1,28 @@
+// @ts-check
 // Serializes the spell wizard's form to and from tile.spellState. Kept
 // symmetric: every key readSpellStateFromForm writes is restored by
 // applySpellStateToForm (color boxes are restored separately by the
 // builder via js/ui/spellColors.js).
+import { editorElement, editorElements } from './editorDom.js';
 
 export const SPELL_METRIC_IDS = ['spell-range', 'spell-area', 'spell-volume', 'spell-displacement', 'spell-crowd', 'spell-duration'];
 
 // Restores the form fields from a saved spell tile and returns the tag
 // and action lists for the builder to adopt.
 export function applySpellStateToForm(tile) {
-    document.getElementById('spell-name').value = tile.name;
-    document.getElementById('spell-dice').value = tile.dice.join(', ');
+    editorElement('spell-name').value = tile.name;
+    editorElement('spell-dice').value = tile.dice.join(', ');
 
     Object.keys(tile.spellState).forEach(key => {
         if (key.startsWith('spell-mod-val-')) return; // handled separately
-        const el = document.getElementById(key);
+        const el = editorElement(key);
         if (el) {
             if (el.type === 'checkbox') {
                 el.checked = tile.spellState[key];
             } else {
                 el.value = tile.spellState[key];
                 if (el.tagName === 'SELECT' && el.value === 'custom') {
-                    const customDiv = document.getElementById(`${el.id}-custom`);
+                    const customDiv = editorElement(`${el.id}-custom`);
                     if (customDiv) customDiv.style.display = 'flex';
                 }
             }
@@ -31,7 +33,7 @@ export function applySpellStateToForm(tile) {
     // spellState.userDetails (saved post-fix) over tile.description
     // (which on legacy saves contains generatedPreview+userDetails
     // merged, and on even older saves contains only userDetails).
-    const detailsEl = document.getElementById('spell-description');
+    const detailsEl = editorElement('spell-description');
     if (tile.spellState && typeof tile.spellState.userDetails === 'string') {
         detailsEl.value = tile.spellState.userDetails;
     } else if (tile.description) {
@@ -53,7 +55,7 @@ export function applySpellStateToForm(tile) {
         detailsEl.value = '';
     }
 
-    document.querySelectorAll('.spell-mod').forEach(input => {
+    editorElements(document, '.spell-mod', HTMLInputElement).forEach(input => {
         const key = `spell-mod-val-${input.dataset.label}`;
         if (tile.spellState[key] !== undefined) {
             input.value = tile.spellState[key];
@@ -66,10 +68,10 @@ export function applySpellStateToForm(tile) {
     SPELL_METRIC_IDS.forEach(id => {
         const saved = tile.spellState[id];
         if (saved === undefined || saved === 'custom') return;
-        const select = document.getElementById(id);
+        const select = editorElement(id);
         if (!select || String(select.value) === String(saved)) return;
-        const customDiv = document.getElementById(`${id}-custom`);
-        const customXp = document.getElementById(`${id}-custom-xp`);
+        const customDiv = editorElement(`${id}-custom`);
+        const customXp = editorElement(`${id}-custom-xp`);
         const parsed = parseInt(saved, 10);
         if (!customDiv || !customXp || !Number.isFinite(parsed)) return;
         select.value = 'custom';
@@ -83,7 +85,7 @@ export function applySpellStateToForm(tile) {
         actions.push(...tile.spellState.actionsList);
     } else if (tile.spellState['spell-action']) {
         const legacyVal = tile.spellState['spell-action'];
-        const actionSelect = document.getElementById('spell-action');
+        const actionSelect = editorElement('spell-action');
         Array.from(actionSelect.options).forEach(opt => {
             if (opt.value === legacyVal) {
                 actions.push({
@@ -102,20 +104,20 @@ export function applySpellStateToForm(tile) {
 // repopulate itself on the next edit.
 export function readSpellStateFromForm({ actions, tags, boxes, colorBuild, userDetails }) {
     const spellState = {
-        'spell-school': document.getElementById('spell-school').value,
+        'spell-school': editorElement('spell-school').value,
         actionsList: [...actions]
     };
 
     SPELL_METRIC_IDS.forEach(id => {
-        spellState[id] = document.getElementById(id).value;
-        spellState[`${id}-custom-name`] = document.getElementById(`${id}-custom-name`).value;
-        spellState[`${id}-custom-xp`] = document.getElementById(`${id}-custom-xp`).value;
+        spellState[id] = editorElement(id).value;
+        spellState[`${id}-custom-name`] = editorElement(`${id}-custom-name`).value;
+        spellState[`${id}-custom-xp`] = editorElement(`${id}-custom-xp`).value;
     });
 
-    spellState['spell-custom-tags'] = document.getElementById('spell-custom-tags').value;
-    spellState['spell-unchained'] = document.getElementById('spell-unchained').checked;
-    spellState['spell-chain-target'] = document.getElementById('spell-chain-target') ? document.getElementById('spell-chain-target').value : '';
-    spellState['spell-custom-colors'] = Boolean(document.getElementById('spell-custom-colors')?.checked);
+    spellState['spell-custom-tags'] = editorElement('spell-custom-tags').value;
+    spellState['spell-unchained'] = editorElement('spell-unchained').checked;
+    spellState['spell-chain-target'] = editorElement('spell-chain-target') ? editorElement('spell-chain-target').value : '';
+    spellState['spell-custom-colors'] = Boolean(editorElement('spell-custom-colors')?.checked);
     spellState.spellBoxes = boxes;
     spellState.colorBuild = colorBuild;
     spellState.tagsList = [...tags];
@@ -125,7 +127,7 @@ export function readSpellStateFromForm({ actions, tags, boxes, colorBuild, userD
     // double-prepend the preview.
     spellState.userDetails = userDetails;
 
-    document.querySelectorAll('.spell-mod').forEach(input => {
+    editorElements(document, '.spell-mod', HTMLInputElement).forEach(input => {
         spellState[`spell-mod-val-${input.dataset.label}`] = input.value;
     });
 

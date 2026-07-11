@@ -1,6 +1,8 @@
+// @ts-check
 // The tile-box editor: two box slots (three for special identity tiles),
 // each either a call color or a Qi/Id shadow box tied to a resource.
 import { serializeTileBoxes } from '../../pool.js';
+import { editorElement, editorElements, optionalEditorElement } from '../editorDom.js';
 import { getFormSpecialIdentity } from './formFields.js';
 
 export function isShadowBoxValue(value) {
@@ -11,17 +13,17 @@ export function isShadowBoxValue(value) {
 // show or hide the Box 3 column and keep the picker label honest.
 export function syncSpecialIdentityVisibility() {
     const specialIdentity = getFormSpecialIdentity();
-    const boxRow = document.querySelector('.tile-box-row[data-box-index="2"]');
-    const label = document.getElementById('tile-box-editor-label');
+    const boxRow = optionalEditorElement(document, '.tile-box-row[data-box-index="2"]', HTMLElement);
+    const label = editorElement('tile-box-editor-label');
     if (boxRow) boxRow.style.display = specialIdentity ? '' : 'none';
     if (label) label.textContent = specialIdentity ? 'Tile Boxes (Pick 3)' : 'Tile Boxes (Pick 2)';
     if (!specialIdentity) setTileBoxValue(2, '');
 }
 
 export function syncTileBoxResourceVisibility() {
-    document.querySelectorAll('.tile-box-type').forEach(typeSelect => {
+    editorElements(document, '.tile-box-type', HTMLInputElement).forEach(typeSelect => {
         const index = typeSelect.dataset.boxIndex;
-        const resourceSelect = document.querySelector(`.tile-box-resource[data-box-index="${index}"]`);
+        const resourceSelect = optionalEditorElement(document, `.tile-box-resource[data-box-index="${index}"]`, HTMLSelectElement);
         if (!resourceSelect) return;
         const isShadow = isShadowBoxValue(typeSelect.value);
         resourceSelect.style.display = isShadow ? 'block' : 'none';
@@ -31,10 +33,10 @@ export function syncTileBoxResourceVisibility() {
 }
 
 function syncTileBoxButtons() {
-    document.querySelectorAll('.tile-box-button-grid').forEach(grid => {
+    editorElements(document, '.tile-box-button-grid', HTMLElement).forEach(grid => {
         const index = grid.dataset.boxIndex;
-        const selectedValue = document.querySelector(`.tile-box-type[data-box-index="${index}"]`)?.value || '';
-        grid.querySelectorAll('.tile-box-option').forEach(button => {
+        const selectedValue = optionalEditorElement(document, `.tile-box-type[data-box-index="${index}"]`, HTMLInputElement)?.value || '';
+        editorElements(grid, '.tile-box-option', HTMLButtonElement).forEach(button => {
             const isSelected = button.dataset.value === selectedValue;
             button.classList.toggle('active', isSelected);
             button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
@@ -43,30 +45,32 @@ function syncTileBoxButtons() {
 }
 
 export function setTileBoxValue(index, value) {
-    const typeInput = document.querySelector(`.tile-box-type[data-box-index="${index}"]`);
+    const typeInput = optionalEditorElement(document, `.tile-box-type[data-box-index="${index}"]`, HTMLInputElement);
     if (!typeInput) return;
     typeInput.value = value;
     typeInput.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** @returns {import('../../types.js').TileBox[]} */
 export function getFormBoxes() {
-    return Array.from(document.querySelectorAll('.tile-box-type')).map(typeSelect => {
+    const boxes = editorElements(document, '.tile-box-type', HTMLInputElement).map(typeSelect => {
         const value = typeSelect.value;
         const index = typeSelect.dataset.boxIndex;
-        const resource = document.querySelector(`.tile-box-resource[data-box-index="${index}"]`)?.value || '';
+        const resource = optionalEditorElement(document, `.tile-box-resource[data-box-index="${index}"]`, HTMLSelectElement)?.value || '';
         if (isShadowBoxValue(value)) return { type: 'shadow', kind: value, resource };
         if (value) return { type: 'color', color: value };
         return null;
-    }).filter(Boolean);
+    }).filter(box => box !== null);
+    return /** @type {import('../../types.js').TileBox[]} */ (serializeTileBoxes(boxes, 3));
 }
 
 export function setFormBoxes(boxes = []) {
     const normalized = serializeTileBoxes(boxes, 3);
-    document.querySelectorAll('.tile-box-type').forEach(typeSelect => {
-        const index = parseInt(typeSelect.dataset.boxIndex, 10);
+    editorElements(document, '.tile-box-type', HTMLInputElement).forEach(typeSelect => {
+        const index = parseInt(typeSelect.dataset.boxIndex || '', 10);
         const box = normalized[index] || null;
-        typeSelect.value = box ? (box.type === 'shadow' ? box.kind : box.color) : '';
-        const resourceSelect = document.querySelector(`.tile-box-resource[data-box-index="${index}"]`);
+        typeSelect.value = box ? (box.type === 'shadow' ? box.kind || '' : box.color || '') : '';
+        const resourceSelect = optionalEditorElement(document, `.tile-box-resource[data-box-index="${index}"]`, HTMLSelectElement);
         if (resourceSelect) resourceSelect.value = box?.type === 'shadow' ? box.resource || '' : '';
     });
     syncTileBoxResourceVisibility();

@@ -1,3 +1,4 @@
+// @ts-check
 // Tile modal main flow: open/close, type-section visibility, validation,
 // and save. Field readers live in formFields.js, the box editor in
 // boxes.js, tag editing in tagEditor.js, and the gear builder panels in
@@ -12,6 +13,7 @@ import {
     validateShadowTags
 } from '../../pool.js';
 import { uiState } from '../../state.js';
+import { editorElement, editorElements } from '../editorDom.js';
 import { els } from '../../els.js';
 import { renderArmorSoak } from '../armorSoak.js';
 import { renderCards } from '../cards.js';
@@ -75,26 +77,26 @@ function resetTileModalScroll() {
 }
 
 function syncTileTypeSections() {
-    const type = document.getElementById('tile-type').value;
-    const gearSubtype = document.getElementById('gear-subtype').value || 'Custom';
+    const type = editorElement('tile-type').value;
+    const gearSubtype = editorElement('gear-subtype').value || 'Custom';
     const isAmmo = type === 'Gear' && gearSubtype === 'Ammo';
 
-    document.getElementById('spellcast-skill-container').style.display = type === 'Skill' ? 'block' : 'none';
-    document.getElementById('exotic-skill-container').style.display = type === 'Skill' ? 'block' : 'none';
-    document.getElementById('gear-subtype-container').style.display = type === 'Gear' ? 'block' : 'none';
-    document.getElementById('gear-break-container').style.display = type === 'Gear' ? 'block' : 'none';
-    document.getElementById('weapon-builder-container').style.display = type === 'Gear' && gearSubtype === 'Weapon' ? 'block' : 'none';
-    document.getElementById('armor-base-container').style.display = type === 'Gear' && gearSubtype === 'Armor' ? 'block' : 'none';
-    document.getElementById('ammo-builder-container').style.display = isAmmo ? 'block' : 'none';
-    document.getElementById('hinder-builder-container').style.display = type === 'Gear' && gearSubtype === 'Hinder' ? 'block' : 'none';
+    editorElement('spellcast-skill-container').style.display = type === 'Skill' ? 'block' : 'none';
+    editorElement('exotic-skill-container').style.display = type === 'Skill' ? 'block' : 'none';
+    editorElement('gear-subtype-container').style.display = type === 'Gear' ? 'block' : 'none';
+    editorElement('gear-break-container').style.display = type === 'Gear' ? 'block' : 'none';
+    editorElement('weapon-builder-container').style.display = type === 'Gear' && gearSubtype === 'Weapon' ? 'block' : 'none';
+    editorElement('armor-base-container').style.display = type === 'Gear' && gearSubtype === 'Armor' ? 'block' : 'none';
+    editorElement('ammo-builder-container').style.display = isAmmo ? 'block' : 'none';
+    editorElement('hinder-builder-container').style.display = type === 'Gear' && gearSubtype === 'Hinder' ? 'block' : 'none';
 
-    const diceInput = document.getElementById('tile-dice');
-    const diceNote = document.getElementById('tile-dice-note');
+    const diceInput = editorElement('tile-dice');
+    const diceNote = editorElement('tile-dice-note');
     diceInput.required = !isAmmo;
     diceInput.placeholder = isAmmo ? 'Ammo has no dice' : 'd4';
     diceNote.textContent = isAmmo ? 'Ammo gear is saved without dice and does not contribute to resource pools.' : '';
     if (isAmmo) {
-        populateAmmoTargets(dataManager?.state?.tiles || [], document.getElementById('ammo-target').value, document.getElementById('tile-id').value);
+        populateAmmoTargets(dataManager?.state?.tiles || [], editorElement('ammo-target').value, editorElement('tile-id').value);
         syncAmmoNameFromTarget();
     }
     syncOptionGrids(els.modal);
@@ -116,7 +118,7 @@ export function init(deps) {
 
     // Long catalogs get a filter that appears on opening the picker.
     tagPicker = createSearchableSelect(els.tagSelect, { searchPlaceholder: 'Type to filter tags...' });
-    reagentPicker = createSearchableSelect(document.getElementById('ammo-reagent-template'), { searchPlaceholder: 'Type to filter templates...' });
+    reagentPicker = createSearchableSelect(editorElement('ammo-reagent-template'), { searchPlaceholder: 'Type to filter templates...' });
 
     // Info Modal
     els.btnInfo.addEventListener('click', () => els.infoModal.classList.add('active'));
@@ -129,7 +131,7 @@ export function init(deps) {
     els.btnAddTile.addEventListener('click', () => openModal());
     els.btnCancel.addEventListener('click', closeModal);
     els.btnDelete.addEventListener('click', () => {
-        const id = document.getElementById('tile-id').value;
+        const id = editorElement('tile-id').value;
         if (id) {
             dataManager.deleteTile(id);
             if (uiState.callTile && uiState.callTile.id === id) uiState.callTile = null;
@@ -148,42 +150,42 @@ export function init(deps) {
     });
 
     els.tileDice.addEventListener('input', renderTileTagLimitStatus);
-    document.getElementById('tile-type').addEventListener('change', syncTileTypeSections);
-    document.getElementById('tile-special-identity').addEventListener('change', () => {
+    editorElement('tile-type').addEventListener('change', syncTileTypeSections);
+    editorElement('tile-special-identity').addEventListener('change', () => {
         syncSpecialIdentityVisibility();
         renderTileTagLimitStatus();
     });
-    document.getElementById('gear-subtype').addEventListener('change', syncTileTypeSections);
-    document.getElementById('hinder-assault-type').addEventListener('change', renderHinderAssaultDetail);
-    document.getElementById('ammo-reagent-template').addEventListener('change', (e) => {
+    editorElement('gear-subtype').addEventListener('change', syncTileTypeSections);
+    editorElement('hinder-assault-type').addEventListener('change', renderHinderAssaultDetail);
+    editorElement('ammo-reagent-template').addEventListener('change', (e) => {
         applyReagentTemplate(e.target.value);
     });
-    document.getElementById('ammo-calculator').addEventListener('change', recalcAmmoBuilder);
-    document.getElementById('btn-ammo-apply-split').addEventListener('click', applyAmmoSplit);
-    document.getElementById('tile-exotic-skill').addEventListener('change', (e) => {
+    editorElement('ammo-calculator').addEventListener('change', recalcAmmoBuilder);
+    editorElement('btn-ammo-apply-split').addEventListener('click', applyAmmoSplit);
+    editorElement('tile-exotic-skill').addEventListener('change', (e) => {
         if (e.target.value.startsWith('arcana-')) {
-            document.getElementById('tile-is-spellcast').checked = true;
+            editorElement('tile-is-spellcast').checked = true;
         }
     });
-    document.getElementById('weapon-template').addEventListener('change', (e) => {
+    editorElement('weapon-template').addEventListener('change', (e) => {
         applyWeaponTemplate(e.target.value);
     });
-    document.getElementById('weapon-template-mode').addEventListener('change', () => {
-        renderWeaponTemplatePreview(document.getElementById('weapon-template').value);
+    editorElement('weapon-template-mode').addEventListener('change', () => {
+        renderWeaponTemplatePreview(editorElement('weapon-template').value);
     });
-    document.getElementById('ammo-target').addEventListener('change', () => {
+    editorElement('ammo-target').addEventListener('change', () => {
         syncAmmoNameFromTarget();
     });
-    document.getElementById('ammo-max-supply').addEventListener('input', () => {
-        const maxSupply = Math.max(0, parseInt(document.getElementById('ammo-max-supply').value, 10) || 0);
-        const currentInput = document.getElementById('ammo-current-supply');
+    editorElement('ammo-max-supply').addEventListener('input', () => {
+        const maxSupply = Math.max(0, parseInt(editorElement('ammo-max-supply').value, 10) || 0);
+        const currentInput = editorElement('ammo-current-supply');
         const currentSupply = Math.max(0, parseInt(currentInput.value, 10) || 0);
         if (currentSupply > maxSupply) currentInput.value = String(maxSupply);
     });
 
     // XP Estimation
     els.btnEstimateXp.addEventListener('click', () => {
-        const diceStr = document.getElementById('tile-dice').value.trim();
+        const diceStr = editorElement('tile-dice').value.trim();
         const { dice: diceArray, invalid } = parseDiceInput(diceStr);
         if (invalid.length > 0) {
             showAlert(getDiceValidationMessage('Tile dice'));
@@ -193,27 +195,27 @@ export function init(deps) {
             weapon: getFormWeapon(),
             exoticSkill: getFormExoticSkill(),
             boxes: getFormBoxes(),
-            tileType: document.getElementById('tile-type')?.value,
+            tileType: editorElement('tile-type')?.value,
             specialIdentity: getFormSpecialIdentity(),
-            gearSubtype: document.getElementById('tile-type')?.value === 'Gear' ? getFormGearSubtype() : null
+            gearSubtype: editorElement('tile-type')?.value === 'Gear' ? getFormGearSubtype() : null
         });
-        els.tileXp.value = xp;
+        els.tileXp.value = String(xp);
         renderXpEstimateNote(unknownTags);
     });
 
-    document.querySelectorAll('.tile-box-type').forEach(select => {
+    editorElements(document, '.tile-box-type', HTMLInputElement).forEach(select => {
         select.addEventListener('change', () => {
             syncTileBoxResourceVisibility();
             renderRulesReview();
         });
     });
-    document.querySelectorAll('.tile-box-button-grid .tile-box-option').forEach(button => {
+    editorElements(document, '.tile-box-button-grid .tile-box-option', HTMLButtonElement).forEach(button => {
         bindStableTouchButton(button, () => {
             setTileBoxValue(button.dataset.boxIndex, button.dataset.value || '');
         });
     });
     bindOptionGrids(els.modal);
-    document.querySelectorAll('.tile-box-resource').forEach(select => {
+    editorElements(document, '.tile-box-resource', HTMLSelectElement).forEach(select => {
         select.addEventListener('change', renderRulesReview);
     });
 }
@@ -229,33 +231,33 @@ export function openModal(tile = null) {
     // re-sync the searchable pickers' trigger labels.
     tagPicker?.sync();
     reagentPicker?.sync();
-    const hitchValue = document.getElementById('tag-hitch-value');
+    const hitchValue = editorElement('tag-hitch-value');
     if (hitchValue) {
         hitchValue.style.display = 'none';
         hitchValue.value = '3';
     }
     renderXpEstimateNote([]);
 
-    const armorMaterial = document.getElementById('armor-material');
-    const armorCoverage = document.getElementById('armor-coverage');
-    const gearSubtype = document.getElementById('gear-subtype');
-    const weaponTemplate = document.getElementById('weapon-template');
-    const weaponTemplateMode = document.getElementById('weapon-template-mode');
-    const weaponCategory = document.getElementById('weapon-category');
-    const weaponRange = document.getElementById('weapon-range');
-    const weaponSkill = document.getElementById('weapon-skill');
-    const ammoTarget = document.getElementById('ammo-target');
-    const ammoCurrentSupply = document.getElementById('ammo-current-supply');
-    const ammoMaxSupply = document.getElementById('ammo-max-supply');
-    const ammoReplacesTag = document.getElementById('ammo-replaces-tag');
-    const exoticSkill = document.getElementById('tile-exotic-skill');
-    const gearBroken = document.getElementById('gear-broken');
+    const armorMaterial = editorElement('armor-material');
+    const armorCoverage = editorElement('armor-coverage');
+    const gearSubtype = editorElement('gear-subtype');
+    const weaponTemplate = editorElement('weapon-template');
+    const weaponTemplateMode = editorElement('weapon-template-mode');
+    const weaponCategory = editorElement('weapon-category');
+    const weaponRange = editorElement('weapon-range');
+    const weaponSkill = editorElement('weapon-skill');
+    const ammoTarget = editorElement('ammo-target');
+    const ammoCurrentSupply = editorElement('ammo-current-supply');
+    const ammoMaxSupply = editorElement('ammo-max-supply');
+    const ammoReplacesTag = editorElement('ammo-replaces-tag');
+    const exoticSkill = editorElement('tile-exotic-skill');
+    const gearBroken = editorElement('gear-broken');
 
     if (tile) {
-        document.getElementById('modal-title').innerText = 'Edit Tile';
-        document.getElementById('tile-id').value = tile.id;
+        editorElement('modal-title').innerText = 'Edit Tile';
+        editorElement('tile-id').value = tile.id;
         const tileType = tile.type || 'Skill';
-        document.getElementById('tile-type').value = tileType;
+        editorElement('tile-type').value = tileType;
         gearSubtype.value = tile.gearSubtype || (tile.ammo ? 'Ammo' : tile.weapon ? 'Weapon' : tile.armorType ? 'Armor' : 'Custom');
         weaponTemplate.value = tile.weapon?.templateId || '';
         weaponTemplateMode.value = 'add';
@@ -270,12 +272,12 @@ export function openModal(tile = null) {
         armorMaterial.value = tile.armorType?.material || '';
         armorCoverage.value = tile.armorType?.coverage || '';
         gearBroken.checked = !!tile.gearBroken;
-        document.getElementById('tile-is-spellcast').checked = !!tile.isSpellcastSkill;
+        editorElement('tile-is-spellcast').checked = !!tile.isSpellcastSkill;
         exoticSkill.value = tile.exoticSkill?.id || '';
-        document.getElementById('tile-special-identity').value = tile.specialIdentity || '';
-        document.getElementById('tile-name').value = tile.name;
-        document.getElementById('tile-description').value = tile.description || '';
-        document.getElementById('tile-dice').value = (tile.dice || []).join(', ');
+        editorElement('tile-special-identity').value = tile.specialIdentity || '';
+        editorElement('tile-name').value = tile.name;
+        editorElement('tile-description').value = tile.description || '';
+        editorElement('tile-dice').value = (tile.dice || []).join(', ');
         if (Array.isArray(tile.tags)) {
             setFormTags(tile.tags.map(t => String(t).trim()).filter(Boolean));
         } else if (tile.tags) {
@@ -284,12 +286,12 @@ export function openModal(tile = null) {
         }
 
         setFormBoxes(getTileBoxes(tile));
-        els.tileXp.value = tile.xpCost || 0;
+        els.tileXp.value = String(tile.xpCost || 0);
         els.btnDelete.style.display = 'inline-block';
     } else {
-        document.getElementById('modal-title').innerText = 'Add Tile';
-        document.getElementById('tile-id').value = '';
-        document.getElementById('tile-type').value = 'Skill';
+        editorElement('modal-title').innerText = 'Add Tile';
+        editorElement('tile-id').value = '';
+        editorElement('tile-type').value = 'Skill';
         gearSubtype.value = 'Custom';
         weaponTemplate.value = '';
         weaponTemplateMode.value = 'add';
@@ -304,12 +306,12 @@ export function openModal(tile = null) {
         armorMaterial.value = '';
         armorCoverage.value = '';
         gearBroken.checked = false;
-        document.getElementById('tile-is-spellcast').checked = false;
+        editorElement('tile-is-spellcast').checked = false;
         exoticSkill.value = '';
-        document.getElementById('tile-special-identity').value = '';
-        document.getElementById('tile-description').value = '';
+        editorElement('tile-special-identity').value = '';
+        editorElement('tile-description').value = '';
         setFormBoxes([]);
-        els.tileXp.value = 0;
+        els.tileXp.value = '0';
         els.btnDelete.style.display = 'none';
     }
 
@@ -328,17 +330,17 @@ export function closeModal() {
 export async function saveTileFromForm() {
     if (!await confirmPendingTagBeforeTileSave()) return;
 
-    const id = document.getElementById('tile-id').value;
-    const type = document.getElementById('tile-type').value;
-    const isSpellcastSkill = type === 'Skill' && document.getElementById('tile-is-spellcast').checked;
-    const name = document.getElementById('tile-name').value.trim();
-    const description = document.getElementById('tile-description').value.trim();
-    const diceStr = document.getElementById('tile-dice').value.trim();
+    const id = editorElement('tile-id').value;
+    const type = editorElement('tile-type').value;
+    const isSpellcastSkill = type === 'Skill' && editorElement('tile-is-spellcast').checked;
+    const name = editorElement('tile-name').value.trim();
+    const description = editorElement('tile-description').value.trim();
+    const diceStr = editorElement('tile-dice').value.trim();
     const tags = [...currentFormTags];
     const xpCost = parseInt(els.tileXp.value, 10) || 0;
     const gearSubtype = getFormGearSubtype();
     const isAmmo = type === 'Gear' && gearSubtype === 'Ammo';
-    const gearBroken = type === 'Gear' && document.getElementById('gear-broken').checked;
+    const gearBroken = type === 'Gear' && editorElement('gear-broken').checked;
     const specialIdentity = getFormSpecialIdentity();
 
     const boxes = getFormBoxes();
@@ -390,8 +392,9 @@ export async function saveTileFromForm() {
     const exoticSkill = getFormExoticSkill();
 
     const existingTile = id ? dataManager.state.tiles.find(t => t.id === id) : null;
+    /** @type {import('../../types.js').Tile} */
     const tile = {
-        id: id || null,
+        id: id || crypto.randomUUID(),
         type,
         name,
         description,

@@ -1,3 +1,4 @@
+// @ts-check
 import { VALID_DICE } from './data.js';
 import {
     PoolEngine,
@@ -22,52 +23,60 @@ import {
 import { SPELL_METRIC_IDS, applySpellStateToForm, readSpellStateFromForm } from './ui/spellForm.js';
 import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, showPendingTagDialog } from './ui/modalWidgets.js';
 import { showAlert as showAlertDialog, showConfirm } from './ui/dialogService.js';
+import { editorElement, editorElements } from './ui/editorDom.js';
 
 export class SpellBuilder {
+    /**
+     * @param {import('./data.js').DataManager} dataManager
+     * @param {() => void} renderCallback
+     */
     constructor(dataManager, renderCallback) {
         this.dataManager = dataManager;
         this.renderCallback = renderCallback;
 
         this.currentStep = 1;
         this.totalSteps = 5;
+        /** @type {string|null} */
         this.editingTileId = null;
         this.poolEngine = new PoolEngine();
 
+        /** @type {Array<{name: string, xp: number}>} */
         this.currentFormTags = [];
 
-        this.modal = document.getElementById('spell-modal');
-        this.form = document.getElementById('spell-form');
-        this.btnNext = document.getElementById('btn-spell-next');
-        this.btnPrev = document.getElementById('btn-spell-prev');
-        this.btnSave = document.getElementById('btn-spell-save');
-        this.btnCancel = document.getElementById('btn-spell-cancel');
-        this.btnDelete = document.getElementById('btn-spell-delete');
-        this.xpBadge = document.getElementById('spell-xp-badge');
-        this.tagLimitStatus = document.getElementById('spell-tag-limit-status');
-        this.diceInput = document.getElementById('spell-dice');
+        this.modal = editorElement('spell-modal');
+        this.form = editorElement('spell-form');
+        this.btnNext = editorElement('btn-spell-next');
+        this.btnPrev = editorElement('btn-spell-prev');
+        this.btnSave = editorElement('btn-spell-save');
+        this.btnCancel = editorElement('btn-spell-cancel');
+        this.btnDelete = editorElement('btn-spell-delete');
+        this.xpBadge = editorElement('spell-xp-badge');
+        this.tagLimitStatus = editorElement('spell-tag-limit-status');
+        this.diceInput = editorElement('spell-dice');
         this.diceEditor = createDiceTokenEditor({
             input: this.diceInput,
-            chipsContainer: document.getElementById('spell-dice-selected'),
-            buttonsContainer: document.getElementById('spell-dice-buttons')
+            chipsContainer: editorElement('spell-dice-selected'),
+            buttonsContainer: editorElement('spell-dice-buttons')
         });
 
         // Tag Elements
-        this.tagSelect = document.getElementById('spell-tag-select');
-        this.tagCustomInput = document.getElementById('spell-tag-custom-input');
-        this.tagCustomXp = document.getElementById('spell-tag-custom-xp');
-        this.btnAddTag = document.getElementById('btn-spell-add-tag');
-        this.tagsContainer = document.getElementById('spell-tags-container');
+        this.tagSelect = editorElement('spell-tag-select');
+        this.tagCustomInput = editorElement('spell-tag-custom-input');
+        this.tagCustomXp = editorElement('spell-tag-custom-xp');
+        this.btnAddTag = editorElement('btn-spell-add-tag');
+        this.tagsContainer = editorElement('spell-tags-container');
 
-        this.actionSelect = document.getElementById('spell-action');
-        this.btnAddAction = document.getElementById('btn-spell-add-action');
-        this.actionsContainer = document.getElementById('spell-actions-container');
+        this.actionSelect = editorElement('spell-action');
+        this.btnAddAction = editorElement('btn-spell-add-action');
+        this.actionsContainer = editorElement('spell-actions-container');
+        /** @type {Array<{val: string, text: string, xp: number}>} */
         this.currentActions = [];
 
         this.bindEvents();
     }
 
     bindEvents() {
-        document.getElementById('btn-add-spell').addEventListener('click', () => {
+        editorElement('btn-add-spell').addEventListener('click', () => {
             this.openWizard();
         });
 
@@ -95,28 +104,28 @@ export class SpellBuilder {
             this.saveSpell();
         });
 
-        document.getElementById('spell-school').addEventListener('change', () => {
+        editorElement('spell-school').addEventListener('change', () => {
             syncColorCustomizationControls();
             this.calculateXP();
         });
-        document.getElementById('spell-custom-colors')?.addEventListener('change', () => {
+        editorElement('spell-custom-colors')?.addEventListener('change', () => {
             syncColorCustomizationControls();
             this.calculateXP();
         });
 
-        document.querySelectorAll('.spell-color-cb').forEach(cb => {
+        editorElements(document, '.spell-color-cb', HTMLInputElement).forEach(cb => {
             cb.addEventListener('change', () => {
                 syncShadowResourceControls();
                 renderColorCostNote();
                 this.calculateXP();
             });
         });
-        document.querySelectorAll('.spell-box-option').forEach(button => {
+        editorElements(document, '.spell-box-option', HTMLButtonElement).forEach(button => {
             bindStableTouchButton(button, () => {
                 toggleSpellBoxButton(button.dataset.value);
             });
         });
-        document.querySelectorAll('.spell-shadow-resource').forEach(select => {
+        editorElements(document, '.spell-shadow-resource', HTMLSelectElement).forEach(select => {
             select.addEventListener('change', () => {
                 renderColorCostNote();
                 this.calculateXP();
@@ -126,7 +135,7 @@ export class SpellBuilder {
         bindOptionGrids(this.modal);
 
         this.tagSelect.addEventListener('change', (e) => {
-            const hitchValue = document.getElementById('spell-tag-hitch-value');
+            const hitchValue = editorElement('spell-tag-hitch-value');
             if (e.target.value === 'Custom' || e.target.value === 'World') {
                 this.tagCustomInput.style.display = 'block';
                 this.tagCustomInput.placeholder = e.target.value === 'World' ? 'Tile Name to Link' : 'Custom Tag...';
@@ -171,13 +180,14 @@ export class SpellBuilder {
         });
     }
 
+    /** @param {import('./types.js').Tile|null} [tile] */
     openWizard(tile = null) {
         this.currentStep = 1;
         this.editingTileId = tile ? tile.id : null;
         this.currentFormTags = [];
         this.currentActions = [];
         this.form.reset();
-        const hitchValue = document.getElementById('spell-tag-hitch-value');
+        const hitchValue = editorElement('spell-tag-hitch-value');
         if (hitchValue) {
             hitchValue.style.display = 'none';
             hitchValue.value = '3';
@@ -186,11 +196,11 @@ export class SpellBuilder {
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
         SPELL_METRIC_IDS.forEach(id => {
-            const div = document.getElementById(`${id}-custom`);
+            const div = editorElement(`${id}-custom`);
             if (div) div.style.display = 'none';
         });
 
-        const chainTargetSelect = document.getElementById('spell-chain-target');
+        const chainTargetSelect = editorElement('spell-chain-target');
         if (chainTargetSelect) {
             chainTargetSelect.innerHTML = '<option value="">-- No Specific Spellcast Skill --</option>';
             const skills = (this.dataManager.state.tiles || []).filter(t => t.type === 'Skill' && t.isSpellcastSkill);
@@ -207,11 +217,11 @@ export class SpellBuilder {
             this.currentFormTags = restored.tags;
             this.currentActions = restored.actions;
 
-            const school = document.getElementById('spell-school').value;
+            const school = editorElement('spell-school').value;
             const shouldCustomizeColors = school === 'Divergent'
                 || Boolean(tile.spellState['spell-custom-colors'])
                 || spellBoxesDifferFromDefault(school, tile);
-            const customColors = document.getElementById('spell-custom-colors');
+            const customColors = editorElement('spell-custom-colors');
             if (customColors) customColors.checked = shouldCustomizeColors;
             syncColorCustomizationControls({ preserveSelection: true });
             if (isCustomColorMode()) {
@@ -318,7 +328,7 @@ export class SpellBuilder {
     updateWizardUI() {
         // Show/hide steps
         for (let i = 1; i <= this.totalSteps; i++) {
-            const stepEl = document.getElementById(`spell-step-${i}`);
+            const stepEl = editorElement(`spell-step-${i}`);
             if (stepEl) {
                 stepEl.style.display = (i === this.currentStep) ? 'block' : 'none';
             }
@@ -382,10 +392,10 @@ export class SpellBuilder {
         this.currentFormTags.forEach(t => xp += t.xp);
 
         const getSelectXP = (id) => {
-            const sel = document.getElementById(id);
+            const sel = editorElement(id);
             if (!sel) return 0;
             if (sel.value === 'custom') {
-                return parseInt(document.getElementById(`${id}-custom-xp`).value || 0, 10);
+                return parseInt(editorElement(`${id}-custom-xp`).value || 0, 10);
             }
             return parseInt(sel.value || 0, 10);
         };
@@ -396,17 +406,17 @@ export class SpellBuilder {
         });
 
         // Modifiers (number inputs)
-        document.querySelectorAll('.spell-mod').forEach(input => {
-            const count = parseInt(input.value || 0, 10);
+        editorElements(document, '.spell-mod', HTMLInputElement).forEach(input => {
+            const count = parseInt(input.value || '0', 10);
             if (count > 0) {
-                const cost = parseInt(input.dataset.xp || 0, 10);
+                const cost = parseInt(input.dataset.xp || '0', 10);
                 xp += (cost * count);
             }
         });
 
         // Chaining
-        if (document.getElementById('spell-unchained').checked) {
-            xp += parseInt(document.getElementById('spell-unchained').value, 10);
+        if (editorElement('spell-unchained').checked) {
+            xp += parseInt(editorElement('spell-unchained').value, 10);
         }
 
         return xp;
@@ -429,10 +439,10 @@ export class SpellBuilder {
         const actionText = actionTexts.length > 0 ? actionTexts.join(', ') : 'None';
 
         const getSelectText = (id) => {
-            const sel = document.getElementById(id);
+            const sel = editorElement(id);
             if (!sel) return '';
             if (sel.value === 'custom') {
-                const name = document.getElementById(`${id}-custom-name`).value.trim();
+                const name = editorElement(`${id}-custom-name`).value.trim();
                 return name || 'Custom';
             }
             return sel.options[sel.selectedIndex].text.split('(')[0].trim();
@@ -446,8 +456,8 @@ export class SpellBuilder {
         const durationText = getSelectText('spell-duration');
 
         let mods = [];
-        document.querySelectorAll('.spell-mod').forEach(input => {
-            const count = parseInt(input.value || 0, 10);
+        editorElements(document, '.spell-mod', HTMLInputElement).forEach(input => {
+            const count = parseInt(input.value || '0', 10);
             if (count > 0) {
                 const label = input.dataset.label;
                 mods.push(count > 1 ? `${label} x${count}` : label);
@@ -466,7 +476,7 @@ export class SpellBuilder {
         }
         if (mods.length > 0) desc += ` Modifiers: ${mods.join(', ')}.`;
 
-        document.getElementById('spell-preview-desc').textContent = desc;
+        editorElement('spell-preview-desc').textContent = desc;
     }
 
     resetPendingSpellTagControls() {
@@ -475,8 +485,8 @@ export class SpellBuilder {
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
         this.tagCustomXp.value = '2';
-        document.getElementById('spell-tag-exempt').checked = false;
-        const hitchValue = document.getElementById('spell-tag-hitch-value');
+        editorElement('spell-tag-exempt').checked = false;
+        const hitchValue = editorElement('spell-tag-hitch-value');
         if (hitchValue) {
             hitchValue.style.display = 'none';
             hitchValue.value = '3';
@@ -503,12 +513,12 @@ export class SpellBuilder {
                 reason = 'World needs a linked tile name.';
             }
         } else if (val === 'Hitch') {
-            const rebate = Math.min(6, Math.max(1, parseInt(document.getElementById('spell-tag-hitch-value').value, 10) || 3));
+            const rebate = Math.min(6, Math.max(1, parseInt(editorElement('spell-tag-hitch-value').value, 10) || 3));
             val = `Hitch ${rebate}`;
             xp = -rebate;
         }
 
-        if (val && document.getElementById('spell-tag-exempt').checked) {
+        if (val && editorElement('spell-tag-exempt').checked) {
             val = `${val} (Exempt)`;
         }
 
@@ -549,7 +559,7 @@ export class SpellBuilder {
     async saveSpell() {
         if (!await this.confirmPendingSpellTagBeforeSave()) return;
 
-        const name = document.getElementById('spell-name').value.trim() || 'Custom Spell';
+        const name = editorElement('spell-name').value.trim() || 'Custom Spell';
         const { diceArray, invalidDice } = this.getSpellDiceInfo();
 
         if (diceArray.length === 0 || invalidDice.length > 0) {
@@ -564,7 +574,7 @@ export class SpellBuilder {
             return;
         }
 
-        const school = document.getElementById('spell-school').value;
+        const school = editorElement('spell-school').value;
         const spellBoxes = getSpellBoxSelection();
         if (spellBoxes.error) {
             showAlertDialog(spellBoxes.error);
@@ -576,8 +586,8 @@ export class SpellBuilder {
         // Tags string
         let tagsArr = ["Spell"];
 
-        if (!document.getElementById('spell-unchained').checked) {
-            const chainTarget = document.getElementById('spell-chain-target');
+        if (!editorElement('spell-unchained').checked) {
+            const chainTarget = editorElement('spell-chain-target');
             if (chainTarget && chainTarget.value) {
                 tagsArr.push(`Chain ${chainTarget.value}`);
             } else if (school !== 'Divergent') {
@@ -585,7 +595,7 @@ export class SpellBuilder {
             }
         }
 
-        const customTags = document.getElementById('spell-custom-tags').value.trim();
+        const customTags = editorElement('spell-custom-tags').value.trim();
         if (customTags) {
             customTags.split(',').forEach(t => {
                 if(t.trim()) tagsArr.push(t.trim());
@@ -602,8 +612,8 @@ export class SpellBuilder {
         // pushed the preview sentence onto tagsArr, which polluted the tag
         // limit, the chain matcher, and the contextual-tag-bonus surface.)
         this.generatePreview();
-        const generatedPreview = document.getElementById('spell-preview-desc').textContent.trim();
-        const userDetails = document.getElementById('spell-description').value.trim();
+        const generatedPreview = editorElement('spell-preview-desc').textContent.trim();
+        const userDetails = editorElement('spell-description').value.trim();
         const description = [generatedPreview, userDetails].filter(Boolean).join('\n\n');
 
         // Spell State for editing

@@ -1,11 +1,16 @@
+// @ts-check
 // Form widgets shared by the tile modal and the spell builder (split
 // 2026-06-12; these were duplicated verbatim in both files).
 import { escapeHtml } from '../pool.js';
+import { editorElement, editorElements, optionalEditorElement } from './editorDom.js';
 
+/**
+ * @param {Element|null} element
+ * @returns {element is HTMLInputElement|HTMLTextAreaElement}
+ */
 function isTextEditingElement(element) {
-    if (!element) return false;
-    if (element.tagName === 'TEXTAREA') return true;
-    if (element.tagName !== 'INPUT') return false;
+    if (element instanceof HTMLTextAreaElement) return true;
+    if (!(element instanceof HTMLInputElement)) return false;
     return !['button', 'checkbox', 'color', 'file', 'hidden', 'radio', 'range', 'reset', 'submit'].includes(element.type);
 }
 
@@ -19,7 +24,7 @@ function dismissKeyboardPreservingScroll(button) {
     const windowScrollX = window.scrollX;
     const windowScrollY = window.scrollY;
 
-    active.blur();
+    if (active instanceof HTMLElement) active.blur();
 
     const restoreScroll = () => {
         if (modalContent) modalContent.scrollTop = modalScrollTop;
@@ -57,10 +62,11 @@ export function bindStableTouchButton(button, handler) {
 // listeners keep working. syncOptionGrids re-derives the highlighted
 // button from the control's value after programmatic writes (form.reset(),
 // edit-mode population), which never fire 'change' on their own.
+/** @param {ParentNode} [root] */
 export function syncOptionGrids(root = document) {
-    root.querySelectorAll('.tile-option-grid').forEach(grid => {
-        const value = document.getElementById(grid.dataset.target || '')?.value || '';
-        grid.querySelectorAll('.tile-box-option').forEach(button => {
+    editorElements(root, '.tile-option-grid', HTMLElement).forEach(grid => {
+        const value = editorElement(grid.dataset.target || '')?.value || '';
+        editorElements(grid, '.tile-box-option', HTMLButtonElement).forEach(button => {
             const isSelected = (button.dataset.value || '') === value;
             button.classList.toggle('active', isSelected);
             button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
@@ -70,11 +76,12 @@ export function syncOptionGrids(root = document) {
 
 // Scope `root` to the owning modal so two modals can bind independently
 // without double-binding each other's grids.
+/** @param {ParentNode} [root] */
 export function bindOptionGrids(root = document) {
-    root.querySelectorAll('.tile-option-grid').forEach(grid => {
-        grid.querySelectorAll('.tile-box-option').forEach(button => {
+    editorElements(root, '.tile-option-grid', HTMLElement).forEach(grid => {
+        editorElements(grid, '.tile-box-option', HTMLButtonElement).forEach(button => {
             bindStableTouchButton(button, () => {
-                const control = document.getElementById(grid.dataset.target || '');
+                const control = editorElement(grid.dataset.target || '');
                 if (!control) return;
                 control.value = button.dataset.value || '';
                 control.dispatchEvent(new Event('change', { bubbles: true }));
@@ -226,7 +233,7 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
         if (e.key === 'Enter') {
             // Enter takes the first visible match.
             e.preventDefault();
-            list.querySelector('.searchable-select-option')?.click();
+            optionalEditorElement(list, '.searchable-select-option', HTMLButtonElement)?.click();
         } else if (e.key === 'Escape') {
             close();
         }
@@ -290,7 +297,7 @@ export function createDiceTokenEditor({ input, chipsContainer, buttonsContainer 
     }
 
     buttonsContainer?.addEventListener('click', (e) => {
-        const button = e.target.closest('.dice-add-btn');
+        const button = e.target instanceof Element ? e.target.closest('.dice-add-btn') : null;
         if (!button || !buttonsContainer.contains(button)) return;
         addDie(button.dataset.die);
     });
@@ -332,13 +339,13 @@ export function showPendingTagDialog(pending, subjectLabel) {
 
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close('cancel');
-            const button = e.target.closest('button[data-choice]');
-            if (button && overlay.contains(button)) close(button.dataset.choice);
+            const button = e.target instanceof Element ? e.target.closest('button[data-choice]') : null;
+            if (button instanceof HTMLButtonElement && overlay.contains(button)) close(button.dataset.choice);
         });
         overlay.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') close('cancel');
         });
         document.body.appendChild(overlay);
-        overlay.querySelector('button[data-choice="cancel"]')?.focus();
+        optionalEditorElement(overlay, 'button[data-choice="cancel"]', HTMLButtonElement)?.focus();
     });
 }

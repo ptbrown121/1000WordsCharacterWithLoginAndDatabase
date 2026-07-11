@@ -1,3 +1,4 @@
+// @ts-check
 // Tag-list state and the pending-tag flow for the tile modal. The
 // "pending" tag is whatever the picker row currently describes but has
 // not been added; saving the tile asks about it instead of silently
@@ -9,6 +10,7 @@ import {
 } from '../../pool.js';
 import { els } from '../../els.js';
 import { showAlert as showAlertDialog } from '../dialogService.js';
+import { editorElement } from '../editorDom.js';
 import { showPendingTagDialog } from '../modalWidgets.js';
 import { getFormSpecialIdentity } from './formFields.js';
 
@@ -38,10 +40,10 @@ export function initTagEditor(deps) {
     poolEngine = deps.poolEngine;
     syncDiceChips = deps.syncDiceChips;
 
-    els.tagSelect.addEventListener('change', (e) => {
-        const val = e.target.value;
-        const motorizedStat = document.getElementById('tag-motorized-stat');
-        const hitchValue = document.getElementById('tag-hitch-value');
+    els.tagSelect.addEventListener('change', () => {
+        const val = els.tagSelect.value;
+        const motorizedStat = editorElement('tag-motorized-stat');
+        const hitchValue = editorElement('tag-hitch-value');
         if (val === 'Custom' || val === 'Chain' || val === 'World' || val === 'While') {
             els.tagCustomInput.style.display = 'inline-block';
             els.tagCustomInput.placeholder = val === 'Custom' ? 'Custom Tag Name' : val === 'While' ? 'Form name (e.g. Werewolf)' : 'Tile Name to Link';
@@ -106,8 +108,8 @@ export function renderTagLimitStatus(el, diceStr, tagsArray, limitOptions = {}) 
 
     el.classList.remove('valid', 'invalid');
 
-    const isAmmo = document.getElementById('tile-type')?.value === 'Gear'
-        && document.getElementById('gear-subtype')?.value === 'Ammo';
+    const isAmmo = editorElement('tile-type')?.value === 'Gear'
+        && editorElement('gear-subtype')?.value === 'Ammo';
     if (isAmmo && !diceStr.trim()) {
         const tagLimit = poolEngine.calculateTagLimit([], tagsArray, limitOptions);
         el.textContent = `Ammo has no dice. Countable tags: ${tagLimit.count}/0.`;
@@ -161,13 +163,13 @@ function resetPendingTagControls() {
     els.tagSelect.dispatchEvent(new Event('change', { bubbles: true }));
     els.tagCustomInput.value = '';
     els.tagCustomInput.style.display = 'none';
-    const motorizedStat = document.getElementById('tag-motorized-stat');
+    const motorizedStat = editorElement('tag-motorized-stat');
     motorizedStat.style.display = 'none';
     motorizedStat.value = '';
-    const hitchValue = document.getElementById('tag-hitch-value');
+    const hitchValue = editorElement('tag-hitch-value');
     hitchValue.style.display = 'none';
     hitchValue.value = '3';
-    document.getElementById('tag-exempt').checked = false;
+    editorElement('tag-exempt').checked = false;
 }
 
 function getPendingTileTag() {
@@ -195,20 +197,20 @@ function getPendingTileTag() {
             reason = 'While needs a form name (e.g. Werewolf).';
         }
     } else if (selVal === 'Motorized') {
-        const stat = document.getElementById('tag-motorized-stat').value;
+        const stat = editorElement('tag-motorized-stat').value;
         if (stat) {
             finalTag = `Motorized: ${stat}`;
         } else {
             reason = 'Motorized needs a stat.';
         }
     } else if (selVal === 'Hitch') {
-        const rebate = Math.min(6, Math.max(1, parseInt(document.getElementById('tag-hitch-value').value, 10) || 3));
+        const rebate = Math.min(6, Math.max(1, parseInt(editorElement('tag-hitch-value').value, 10) || 3));
         finalTag = `Hitch ${rebate}`;
     } else {
         finalTag = selVal;
     }
 
-    if (finalTag && document.getElementById('tag-exempt').checked) {
+    if (finalTag && editorElement('tag-exempt').checked) {
         finalTag = `${finalTag} (Exempt)`;
     }
 

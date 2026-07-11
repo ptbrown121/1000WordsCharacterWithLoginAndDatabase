@@ -55,7 +55,9 @@ export function serializeTileBoxes(boxes = [], maxBoxes = 2) {
 export function getTileColorsFromBoxes(boxes = []) {
     // Cap 3 covers special identity tiles; ordinary tiles never carry more
     // than 2 boxes by the time they reach here.
-    return serializeTileBoxes(boxes, 3).map(box => box.type === 'shadow' ? box.kind : box.color);
+    return serializeTileBoxes(boxes, 3)
+        .map(box => box.type === 'shadow' ? box.kind : box.color)
+        .filter(color => color !== undefined);
 }
 
 export function getTileNormalCallColors(tile) {

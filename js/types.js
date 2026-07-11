@@ -75,7 +75,9 @@
  * @property {boolean} [gearBroken]  BREAK-marked gear: tags are offline
  * @property {ArmorType|null} [armorType]
  * @property {TileWeapon|null} [weapon]
+ * @property {{targetTileId: string, targetName: string, currentSupply: number, maxSupply: number, replacesTag: string}|null} [ammo]
  * @property {ExoticSkill|null} [exoticSkill]
+ * @property {boolean} [isSpellcastSkill]
  * @property {'titan-identity'|'homeworld'|null} [specialIdentity]
  * @property {Object<string, any>} [spellState]
  * @property {string} [description]
