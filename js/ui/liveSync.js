@@ -1,3 +1,4 @@
+// @ts-check
 // Live sync over Supabase Realtime (Postgres Changes, RLS-checked):
 // - the active cloud character reloads when another tab/device saves it,
 //   so a GM watching a player's read-only sheet sees combat as it happens;
@@ -11,25 +12,36 @@
 import { els } from '../els.js';
 import { shouldApplyRemoteCharacterUpdate } from '../data.js';
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
-let supabaseClient;
+/** @type {import('@supabase/supabase-js').SupabaseClient<any>|null} */
+let supabaseClient = null;
+/** @type {() => void} */
 let renderAll;
 
+/** @type {import('@supabase/supabase-js').RealtimeChannel|null} */
 let characterChannel = null;
+/** @type {string|null} */
 let subscribedCharId = null;
+/** @type {import('@supabase/supabase-js').RealtimeChannel|null} */
 let rollChannel = null;
+/** @type {string|null} */
 let subscribedCampaignId = null;
 let reloadingCharacter = false;
+/** @type {ReturnType<typeof setTimeout>|null} */
 let rollRefreshTimer = null;
 
+/** @param {import('@supabase/supabase-js').RealtimeChannel|null} channel */
 function removeChannel(channel) {
-    if (channel) supabaseClient.removeChannel(channel);
+    if (channel && supabaseClient) supabaseClient.removeChannel(channel);
 }
 
+/** @param {string} charId @param {{announce: boolean}} options */
 async function reloadActiveCharacter(charId, { announce }) {
     if (reloadingCharacter) return;
     reloadingCharacter = true;
     try {
+        if (!dataManager.cloudStore) return;
         const loaded = await dataManager.cloudStore.loadCharacter(charId);
         // The user may have switched characters while the load was in flight.
         if (dataManager.activeCharId !== charId || dataManager.activeStorage !== 'cloud') return;
@@ -44,6 +56,7 @@ async function reloadActiveCharacter(charId, { announce }) {
     }
 }
 
+/** @param {{new?: {id?: string, updated_at?: string|null}}} payload */
 async function handleCharacterUpdate(payload) {
     const charId = payload?.new?.id;
     if (!charId || charId !== dataManager.activeCharId || dataManager.activeStorage !== 'cloud') return;
@@ -79,6 +92,7 @@ function handleRollInsert() {
 }
 
 function syncCharacterSubscription() {
+    if (!supabaseClient) return;
     const wanted = (dataManager.isSignedIn && dataManager.activeStorage === 'cloud' && !document.hidden)
         ? dataManager.activeCharId
         : null;
@@ -101,6 +115,7 @@ function syncCharacterSubscription() {
 }
 
 function syncRollLogSubscription() {
+    if (!supabaseClient) return;
     // campaign-manage-select only lists campaigns the user GMs.
     const wanted = (dataManager.isSignedIn && !document.hidden)
         ? (els.campaignManageSelect?.value || null)
@@ -148,6 +163,7 @@ async function catchUpAfterResume() {
     if (subscribedCampaignId) handleRollInsert();
 }
 
+/** @param {import('../types.js').AppDependencies} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     supabaseClient = deps.supabaseClient;

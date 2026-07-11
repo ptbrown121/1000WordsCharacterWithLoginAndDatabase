@@ -1,9 +1,13 @@
+// @ts-check
 import { els } from '../els.js';
 import { SupabaseCharacterStore } from '../supabaseStore.js';
 import { showConfirm } from './dialogService.js';
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
-let supabaseClient;
+/** @type {import('@supabase/supabase-js').SupabaseClient<any>|null} */
+let supabaseClient = null;
+/** @type {() => void} */
 let renderAll;
 
 // Email a magic link was last sent to this page load. While set (and signed
@@ -16,6 +20,7 @@ const PANEL_COLLAPSED_KEY = '1000words_cloud_panel_collapsed';
 
 function initPanelToggle() {
     if (!els.btnCloudToggle || !els.cloudPanelBody) return;
+    /** @param {boolean} collapsed */
     const applyCollapsed = (collapsed) => {
         els.cloudPanelBody.hidden = collapsed;
         els.btnCloudToggle.setAttribute('aria-expanded', String(!collapsed));
@@ -39,6 +44,7 @@ function initPanelToggle() {
     });
 }
 
+/** @param {HTMLButtonElement|null|undefined} button @param {boolean} busy @param {string} [label] */
 function setBusy(button, busy, label) {
     if (!button) return;
     button.disabled = busy;
@@ -201,7 +207,9 @@ export function applyReadOnlyMode() {
             // Before the Campaign tab existed this markup sat outside
             // <main> and was never disabled; keep that behavior.
             if (node.closest('#campaign-section')) return;
-            node.disabled = readOnly;
+            if (node instanceof HTMLInputElement || node instanceof HTMLButtonElement || node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement) {
+                node.disabled = readOnly;
+            }
         });
 
     const importLabel = document.querySelector('label[for="file-import"]');
@@ -258,8 +266,10 @@ async function loadSelectedCampaignMembers() {
     renderCloudControls();
 }
 
+/** @param {import('@supabase/supabase-js').Session|null} session */
 async function handleSession(session) {
     if (session?.user) {
+        if (!supabaseClient) throw new Error('Cloud client is unavailable.');
         pendingOtpEmail = '';
         const store = new SupabaseCharacterStore(supabaseClient, session.user);
         await dataManager.connectCloud(store);
@@ -277,14 +287,16 @@ async function handleSession(session) {
     renderAll();
 }
 
+/** @param {import('../types.js').AppDependencies} deps */
 export async function init(deps) {
     dataManager = deps.dataManager;
-    supabaseClient = deps.supabaseClient;
+    const client = deps.supabaseClient;
+    supabaseClient = client;
     renderAll = deps.renderAll;
 
     initPanelToggle();
 
-    if (!supabaseClient) {
+    if (!client) {
         dataManager.setCloudStatus('local-only', 'Cloud save is not configured.');
         renderCloudControls();
         return;
@@ -296,7 +308,7 @@ export async function init(deps) {
         setBusy(els.btnAuthGoogle, true, 'Sign in with Google');
         try {
             const redirectTo = window.location.origin + window.location.pathname;
-            const { error } = await supabaseClient.auth.signInWithOAuth({
+            const { error } = await client.auth.signInWithOAuth({
                 provider: 'google',
                 options: { redirectTo }
             });
@@ -304,7 +316,7 @@ export async function init(deps) {
             // On success the browser navigates to Google; the OAuth callback
             // is absorbed by detectSessionInUrl and lands in handleSession.
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Google sign-in failed.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Google sign-in failed.');
             setBusy(els.btnAuthGoogle, false, 'Sign in with Google');
             renderCloudControls();
         }
@@ -317,7 +329,7 @@ export async function init(deps) {
         setBusy(els.btnAuthSendLink, true, 'Send magic link');
         try {
             const redirectTo = window.location.origin + window.location.pathname;
-            const { error } = await supabaseClient.auth.signInWithOtp({
+            const { error } = await client.auth.signInWithOtp({
                 email,
                 options: { emailRedirectTo: redirectTo }
             });
@@ -325,7 +337,7 @@ export async function init(deps) {
             pendingOtpEmail = email;
             dataManager.setCloudStatus('link-sent', 'Email sent. Click the link, or type the code from it below.');
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Could not send magic link.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Could not send magic link.');
         } finally {
             setBusy(els.btnAuthSendLink, false, 'Send magic link');
             renderCloudControls();
@@ -341,7 +353,7 @@ export async function init(deps) {
         if (!token || !pendingOtpEmail) return;
         setBusy(els.btnAuthVerifyCode, true, 'Sign in with code');
         try {
-            const { error } = await supabaseClient.auth.verifyOtp({
+            const { error } = await client.auth.verifyOtp({
                 email: pendingOtpEmail,
                 token,
                 type: 'email'
@@ -350,7 +362,7 @@ export async function init(deps) {
             els.authCode.value = '';
             // Success lands in onAuthStateChange -> handleSession.
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Code sign-in failed. Codes expire and are single-use; send a fresh email if needed.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Code sign-in failed. Codes expire and are single-use; send a fresh email if needed.');
         } finally {
             setBusy(els.btnAuthVerifyCode, false, 'Sign in with code');
             renderCloudControls();
@@ -358,7 +370,7 @@ export async function init(deps) {
     });
 
     els.btnAuthSignOut?.addEventListener('click', async () => {
-        await supabaseClient.auth.signOut();
+        await client.auth.signOut();
     });
 
     els.btnUploadLocal?.addEventListener('click', async () => {
@@ -367,7 +379,7 @@ export async function init(deps) {
             await dataManager.uploadLocalCharacters();
             renderAll();
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Upload failed.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Upload failed.');
         } finally {
             setBusy(els.btnUploadLocal, false, 'Upload local characters');
             renderCloudControls();
@@ -384,7 +396,7 @@ export async function init(deps) {
             renderAll();
             await loadSelectedCampaignMembers();
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Could not create campaign.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Could not create campaign.');
         } finally {
             setBusy(els.btnCreateCampaign, false, 'Create campaign');
             renderCloudControls();
@@ -400,7 +412,7 @@ export async function init(deps) {
             els.campaignCodeInput.value = '';
             renderAll();
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Could not join campaign.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Could not join campaign.');
         } finally {
             setBusy(els.btnJoinCampaign, false, 'Join campaign');
             renderCloudControls();
@@ -421,7 +433,8 @@ export async function init(deps) {
     // after we loaded it. The snapshot in the event lets "overwrite" work
     // even if the user has switched characters since the save was queued.
     window.addEventListener('cloud-save-conflict', async (event) => {
-        const { charId, state, draftRevision } = event.detail || {};
+        const detail = event instanceof CustomEvent ? event.detail : null;
+        const { charId, state, draftRevision } = detail || {};
         if (!charId) return;
         const reloadNewer = await showConfirm(
             'This character was changed in another tab or on another device since you loaded it.\n\n' +
@@ -442,17 +455,17 @@ export async function init(deps) {
             }
             renderAll();
         } catch (err) {
-            dataManager.setCloudStatus('error', err.message || 'Could not resolve the save conflict.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Could not resolve the save conflict.');
         }
         renderCloudControls();
     });
 
-    const { data } = await supabaseClient.auth.getSession();
+    const { data } = await client.auth.getSession();
     await handleSession(data.session);
 
-    supabaseClient.auth.onAuthStateChange((_event, session) => {
+    client.auth.onAuthStateChange((_event, session) => {
         handleSession(session).catch(err => {
-            dataManager.setCloudStatus('error', err.message || 'Cloud session failed.');
+            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Cloud session failed.');
             renderCloudControls();
         });
     });

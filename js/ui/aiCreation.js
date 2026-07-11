@@ -1,10 +1,38 @@
+// @ts-check
 import { els } from '../els.js';
+import { normalizeImportedState } from '../data.js';
+import { isRecord, parseAiBundle, parseAiDocuments, parseAiSettings } from '../ai-ui-payloads.js';
 import { showConfirm, showPrompt } from './dialogService.js';
 import { renderJournal } from './journal.js';
 
-let dataManager;
-let supabaseClient;
+/**
+ * @typedef {import('../ai-ui-payloads.js').AiThread} AiThread
+ * @typedef {import('../ai-ui-payloads.js').AiMessage} AiMessage
+ * @typedef {import('../ai-ui-payloads.js').AiBundle} AiBundle
+ * @typedef {import('../ai-ui-payloads.js').AiSettings} AiSettings
+ * @typedef {import('../ai-ui-payloads.js').AiDocument} AiDocument
+ * @typedef {{threadId: string, requestId: string, message?: string}} PendingAiRequest
+ * @typedef {Object} AiUiState
+ * @property {string|null} activeCharacterId
+ * @property {AiBundle|null} activeBundle
+ * @property {boolean} loadingThread
+ * @property {boolean} busyThread
+ * @property {string} threadStatus
+ * @property {string|null} docsCampaignId
+ * @property {AiDocument[]} documents
+ * @property {AiSettings|null} settings
+ * @property {boolean} loadingDocs
+ * @property {string} docsStatus
+ * @property {PendingAiRequest|null} pendingMessageRequest
+ * @property {PendingAiRequest|null} pendingFinalizeRequest
+ */
 
+/** @type {import('../data.js').DataManager} */
+let dataManager;
+/** @type {import('@supabase/supabase-js').SupabaseClient<any>|null} */
+let supabaseClient = null;
+
+/** @type {AiUiState} */
 const aiState = {
     activeCharacterId: null,
     activeBundle: null,
@@ -34,6 +62,7 @@ function selectedGmCampaignId() {
     return els.campaignManageSelect && !els.campaignManageSelect.disabled ? els.campaignManageSelect.value : '';
 }
 
+/** @param {string} path @param {RequestInit} [options] @returns {Promise<Record<string, unknown>>} */
 async function apiFetch(path, options = {}) {
     if (!supabaseClient) throw new Error('Cloud sign-in is required.');
     const { data } = await supabaseClient.auth.getSession();
@@ -48,34 +77,41 @@ async function apiFetch(path, options = {}) {
             ...(options.headers || {})
         }
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || 'Campaign AI request failed.');
+    const rawPayload = await response.json().catch(() => ({}));
+    const payload = isRecord(rawPayload) ? rawPayload : {};
+    if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Campaign AI request failed.');
     return payload;
 }
 
+/** @param {string} message */
 function setThreadStatus(message) {
     aiState.threadStatus = message;
     if (els.aiCreationStatus) els.aiCreationStatus.textContent = message;
 }
 
+/** @param {string} message */
 function setDocsStatus(message) {
     aiState.docsStatus = message;
     if (els.campaignAiDocsStatus) els.campaignAiDocsStatus.textContent = message;
 }
 
+/** @param {AiBundle|null|undefined} bundle */
 function applyBundle(bundle) {
     aiState.activeBundle = bundle || null;
     renderAiCreation();
 }
 
+/** @param {AiThread|null|undefined} [thread] */
 function isClosedThread(thread = aiState.activeBundle?.thread) {
-    return ['completed', 'cancelled'].includes(thread?.status);
+    return Boolean(thread && ['completed', 'cancelled'].includes(thread.status));
 }
 
+/** @param {AiThread|null|undefined} [thread] */
 function canWriteThread(thread = aiState.activeBundle?.thread) {
-    return ['active', 'ready_for_summary'].includes(thread?.status);
+    return Boolean(thread && ['active', 'ready_for_summary'].includes(thread.status));
 }
 
+/** @param {AiBundle|null|undefined} bundle */
 function statusForBundle(bundle) {
     const status = bundle?.thread?.status;
     if (!bundle) return 'Start a guided creation chat for this campaign character.';
@@ -86,17 +122,19 @@ function statusForBundle(bundle) {
     return 'Continue guided character creation.';
 }
 
+/** @param {string} characterId */
 async function loadActiveThread(characterId) {
     if (!characterId || aiState.loadingThread) return;
     aiState.loadingThread = true;
     renderAiCreation();
     try {
         const payload = await apiFetch(`/api/ai/threads?characterId=${encodeURIComponent(characterId)}`);
-        applyBundle(payload.bundle);
-        setThreadStatus(statusForBundle(payload.bundle));
+        const bundle = parseAiBundle(payload.bundle);
+        applyBundle(bundle);
+        setThreadStatus(statusForBundle(bundle));
     } catch (error) {
         applyBundle(null);
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not load AI creation chat.');
     } finally {
         aiState.loadingThread = false;
         renderAiCreation();
@@ -127,26 +165,28 @@ async function startThread() {
             method: 'POST',
             body: JSON.stringify({ characterId: entry.id, campaignId: entry.campaignId })
         });
-        applyBundle(payload.bundle);
+        applyBundle(parseAiBundle(payload.bundle));
         setThreadStatus('AI creation chat is ready.');
     } catch (error) {
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not start AI creation chat.');
     } finally {
         aiState.busyThread = false;
         renderAiCreation();
     }
 }
 
+/** @param {SubmitEvent} event */
 async function sendMessage(event) {
     event.preventDefault();
-    if (aiState.busyThread || !canWriteThread()) return;
+    const activeBundle = aiState.activeBundle;
+    if (aiState.busyThread || !activeBundle || !canWriteThread(activeBundle.thread)) return;
     const message = els.aiCreationInput.value.trim();
     if (!message) return;
     aiState.busyThread = true;
     els.aiCreationInput.value = '';
     setThreadStatus('Thinking through the scene...');
     renderAiCreation();
-    const threadId = aiState.activeBundle.thread.id;
+    const threadId = activeBundle.thread.id;
     const pending = aiState.pendingMessageRequest;
     const requestId = pending?.threadId === threadId && pending.message === message
         ? pending.requestId
@@ -158,13 +198,13 @@ async function sendMessage(event) {
             body: JSON.stringify({ threadId, message, requestId })
         });
         aiState.pendingMessageRequest = null;
-        applyBundle(payload.bundle);
+        applyBundle(parseAiBundle(payload.bundle));
         setThreadStatus('Scene chat updated.');
     } catch (error) {
         // Failed sends are not persisted server-side, so put the message back
         // in the input for an easy retry.
         if (els.aiCreationInput && !els.aiCreationInput.value) els.aiCreationInput.value = message;
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not send this response.');
     } finally {
         aiState.busyThread = false;
         renderAiCreation();
@@ -172,11 +212,12 @@ async function sendMessage(event) {
 }
 
 async function finalizeScene() {
-    if (aiState.busyThread || !canWriteThread()) return;
+    const activeBundle = aiState.activeBundle;
+    if (aiState.busyThread || !activeBundle || !canWriteThread(activeBundle.thread)) return;
     aiState.busyThread = true;
     setThreadStatus('Orchestrator and validator are drafting the scene summary...');
     renderAiCreation();
-    const threadId = aiState.activeBundle.thread.id;
+    const threadId = activeBundle.thread.id;
     const pending = aiState.pendingFinalizeRequest;
     const requestId = pending?.threadId === threadId ? pending.requestId : operationId();
     aiState.pendingFinalizeRequest = { threadId, requestId };
@@ -186,10 +227,10 @@ async function finalizeScene() {
             body: JSON.stringify({ threadId, requestId })
         });
         aiState.pendingFinalizeRequest = null;
-        applyBundle(payload.bundle);
+        applyBundle(parseAiBundle(payload.bundle));
         setThreadStatus('Scene summary is ready for review.');
     } catch (error) {
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not finalize this scene.');
     } finally {
         aiState.busyThread = false;
         renderAiCreation();
@@ -197,7 +238,9 @@ async function finalizeScene() {
 }
 
 async function cancelScene() {
-    if (aiState.busyThread || !aiState.activeBundle?.thread || isClosedThread()) return;
+    const thread = aiState.activeBundle?.thread;
+    if (aiState.busyThread || !thread || isClosedThread(thread)) return;
+    const threadId = thread.id;
     if (!await showConfirm('Cancel this AI scene? The chat will stay visible for reference, but it will not be finalized or saved to the journal.', { title: 'Cancel AI scene?', confirmLabel: 'Cancel scene', danger: true })) return;
     aiState.busyThread = true;
     setThreadStatus('Cancelling this scene...');
@@ -205,18 +248,19 @@ async function cancelScene() {
     try {
         const payload = await apiFetch('/api/ai/cancel-scene', {
             method: 'POST',
-            body: JSON.stringify({ threadId: aiState.activeBundle.thread.id })
+            body: JSON.stringify({ threadId })
         });
-        applyBundle(payload.bundle);
+        applyBundle(parseAiBundle(payload.bundle));
         setThreadStatus('Scene cancelled. You can start a new guided scene.');
     } catch (error) {
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not cancel this scene.');
     } finally {
         aiState.busyThread = false;
         renderAiCreation();
     }
 }
 
+/** @param {string} summaryId */
 async function acceptSummary(summaryId) {
     if (aiState.busyThread) return;
     aiState.busyThread = true;
@@ -231,19 +275,23 @@ async function acceptSummary(summaryId) {
             method: 'POST',
             body: JSON.stringify({ summaryId, appendToJournal: true })
         });
-        if (payload.characterState && payload.bundle?.thread?.character_id === dataManager.activeCharId) {
-            if (dataManager.mergeServerJournalEntries(payload.characterState, payload.characterUpdatedAt)) renderJournal();
+        const bundle = parseAiBundle(payload.bundle);
+        const characterState = normalizeImportedState(payload.characterState);
+        if (characterState && bundle?.thread.character_id === dataManager.activeCharId) {
+            const updatedAt = typeof payload.characterUpdatedAt === 'string' ? payload.characterUpdatedAt : null;
+            if (dataManager.mergeServerJournalEntries(characterState, updatedAt)) renderJournal();
         }
-        applyBundle(payload.bundle);
+        applyBundle(bundle);
         setThreadStatus('Scene accepted and saved.');
     } catch (error) {
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not accept this summary.');
     } finally {
         aiState.busyThread = false;
         renderAiCreation();
     }
 }
 
+/** @param {AiMessage} message */
 async function editMessage(message) {
     if (aiState.busyThread || !message?.id || isClosedThread()) return;
     const edited = await showPrompt('Edit your response:', { title: 'Edit response', defaultValue: message.content || '' });
@@ -259,24 +307,27 @@ async function editMessage(message) {
             method: 'POST',
             body: JSON.stringify({ messageId: message.id, content })
         });
-        applyBundle(payload.bundle);
+        applyBundle(parseAiBundle(payload.bundle));
         setThreadStatus('Response edited and scene chat regenerated.');
     } catch (error) {
         // The rewind may have committed even though the AI reply failed, so
         // refresh the thread instead of leaving deleted replies on screen.
         try {
-            const refreshed = await apiFetch(`/api/ai/threads?characterId=${encodeURIComponent(aiState.activeCharacterId)}`);
-            applyBundle(refreshed.bundle);
+            if (aiState.activeCharacterId) {
+                const refreshed = await apiFetch(`/api/ai/threads?characterId=${encodeURIComponent(aiState.activeCharacterId)}`);
+                applyBundle(parseAiBundle(refreshed.bundle));
+            }
         } catch {
             // Keep the existing view if the refresh also fails.
         }
-        setThreadStatus(error.message);
+        setThreadStatus(error instanceof Error ? error.message : 'Could not edit this response.');
     } finally {
         aiState.busyThread = false;
         renderAiCreation();
     }
 }
 
+/** @param {string} campaignId */
 async function loadCampaignAiDocs(campaignId) {
     if (!campaignId || aiState.loadingDocs) return;
     aiState.loadingDocs = true;
@@ -286,13 +337,13 @@ async function loadCampaignAiDocs(campaignId) {
             apiFetch(`/api/ai/campaign-documents?campaignId=${encodeURIComponent(campaignId)}`),
             apiFetch(`/api/ai/campaign-settings?campaignId=${encodeURIComponent(campaignId)}`)
         ]);
-        aiState.documents = docsPayload.documents || [];
-        aiState.settings = settingsPayload.settings || null;
+        aiState.documents = parseAiDocuments(docsPayload.documents);
+        aiState.settings = parseAiSettings(settingsPayload.settings);
         setDocsStatus('AI guidance loaded.');
     } catch (error) {
         aiState.documents = [];
         aiState.settings = null;
-        setDocsStatus(error.message);
+        setDocsStatus(error instanceof Error ? error.message : 'Could not load AI guidance.');
     } finally {
         aiState.loadingDocs = false;
         renderCampaignAiDocs();
@@ -324,10 +375,10 @@ async function saveCampaignAiSettings() {
                 gmInstructions: els.campaignAiGmInstructions.value
             })
         });
-        aiState.settings = payload.settings;
+        aiState.settings = parseAiSettings(payload.settings);
         setDocsStatus('AI guidance saved.');
     } catch (error) {
-        setDocsStatus(error.message);
+        setDocsStatus(error instanceof Error ? error.message : 'Could not save AI guidance.');
     } finally {
         aiState.loadingDocs = false;
         renderCampaignAiDocs();
@@ -355,19 +406,20 @@ async function uploadCampaignAiDoc() {
                 source: file ? 'text-file' : 'pasted-text'
             })
         });
-        aiState.documents = [payload.document, ...aiState.documents];
+        aiState.documents = [...parseAiDocuments([payload.document]), ...aiState.documents];
         els.campaignAiDocTitle.value = '';
         els.campaignAiDocText.value = '';
         els.campaignAiDocFile.value = '';
         setDocsStatus('Campaign note saved.');
     } catch (error) {
-        setDocsStatus(error.message);
+        setDocsStatus(error instanceof Error ? error.message : 'Could not save this campaign note.');
     } finally {
         aiState.loadingDocs = false;
         renderCampaignAiDocs();
     }
 }
 
+/** @param {HTMLElement} container @param {string} text */
 function appendEmptyState(container, text) {
     const empty = document.createElement('p');
     empty.className = 'ai-empty-state';
@@ -565,6 +617,7 @@ export function renderAiCreation() {
     renderSummaries();
 }
 
+/** @param {import('../types.js').AppDependencies} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     supabaseClient = deps.supabaseClient;

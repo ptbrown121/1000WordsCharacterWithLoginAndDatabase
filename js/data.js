@@ -767,6 +767,7 @@ export class DataManager {
     // Folds journal entries a server route appended into the local state without
     // replacing it wholesale, so edits made while the request was in flight
     // survive. The follow-up saveState() re-syncs the merged state to the cloud.
+    /** @param {import('./types.js').CharacterState} serverState @param {string|null} [serverUpdatedAt] */
     mergeServerJournalEntries(serverState, serverUpdatedAt = null) {
         if (!this.canEditActiveCharacter()) return false;
         const serverJournal = Array.isArray(serverState?.journal) ? serverState.journal : [];
