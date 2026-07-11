@@ -1,3 +1,4 @@
+// @ts-check
 // App tab shell (UI tabs plan PR 1). Every section stays in the DOM and
 // keeps rendering; switching tabs only toggles [hidden] on the tabpanels,
 // so els.js lookups and the render loop are unaffected.
@@ -7,16 +8,19 @@
 // read-only: the hash is never written, so Supabase auth callback
 // fragments (#access_token=...) are left alone.
 
+import { editorElements, optionalEditorElement, requiredEditorElement } from './editorDom.js';
+
 const STORAGE_KEY = '1000words_active_tab';
 
 export function init() {
-    const nav = document.querySelector('.app-tabs');
-    if (!nav) return;
-    const tabs = [...nav.querySelectorAll('[role="tab"]')];
+    const nav = requiredEditorElement(document, '.app-tabs', HTMLElement);
+    const tabs = editorElements(nav, '[role="tab"]', HTMLButtonElement);
     if (!tabs.length) return;
 
-    const panelFor = (tab) => document.getElementById(tab.getAttribute('aria-controls') || '');
+    /** @param {HTMLButtonElement} tab */
+    const panelFor = (tab) => optionalEditorElement(document, `#${tab.getAttribute('aria-controls') || ''}`, HTMLElement);
 
+    /** @param {HTMLButtonElement} tab @param {{focus?: boolean}} [options] */
     function activate(tab, { focus = false } = {}) {
         tabs.forEach(button => {
             const selected = button === tab;
@@ -34,13 +38,14 @@ export function init() {
     }
 
     nav.addEventListener('click', (e) => {
-        const tab = e.target.closest('[role="tab"]');
-        if (tab) activate(tab);
+        const tab = e.target instanceof Element ? e.target.closest('[role="tab"]') : null;
+        if (tab instanceof HTMLButtonElement) activate(tab);
     });
 
     nav.addEventListener('keydown', (e) => {
-        const index = tabs.indexOf(document.activeElement);
+        const index = tabs.findIndex(tab => tab === document.activeElement);
         if (index === -1) return;
+        /** @type {HTMLButtonElement|null|undefined} */
         let target = null;
         if (e.key === 'ArrowRight') target = tabs[(index + 1) % tabs.length];
         else if (e.key === 'ArrowLeft') target = tabs[(index - 1 + tabs.length) % tabs.length];
@@ -64,5 +69,6 @@ export function init() {
     } catch {
         // ignore; fall through to the default tab
     }
-    activate(tabFromHash() || tabs.find(tab => tab.id === stored) || tabs[0]);
+    const initialTab = tabFromHash() || tabs.find(tab => tab.id === stored) || tabs[0];
+    if (initialTab) activate(initialTab);
 }

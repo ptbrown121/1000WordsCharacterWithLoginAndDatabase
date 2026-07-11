@@ -1,3 +1,4 @@
+// @ts-check
 // Persistent storage-error banner.
 //
 // data.js dispatches `window.dispatchEvent(new CustomEvent('storage-error',
@@ -18,15 +19,19 @@
 
 import { els } from '../els.js';
 
+/** @typedef {{exportState: () => void}} NotificationDataManager */
+/** @type {NotificationDataManager} */
 let dataManager;
 let dismissed = false;
 
+/** @type {Object<string, string>} */
 const OPERATION_LABELS = {
     saveState: 'saving your character',
     saveRoster: 'saving your character roster',
     loadRoster: 'migrating an older save'
 };
 
+/** @param {{operation?: string}|null|undefined} detail */
 function showBanner(detail) {
     const banner = els.storageErrorBanner;
     if (!banner) return;
@@ -34,7 +39,7 @@ function showBanner(detail) {
     const detailEl = els.storageErrorBannerDetail;
     if (detailEl) {
         const op = detail?.operation;
-        const label = OPERATION_LABELS[op] || 'using browser storage';
+        const label = op ? OPERATION_LABELS[op] || 'using browser storage' : 'using browser storage';
         // textContent is safe against any HTML in error.message.
         detailEl.textContent = ` Browser storage is unavailable while ${label}.`;
     }
@@ -47,6 +52,7 @@ function hideBanner() {
     if (banner) banner.hidden = true;
 }
 
+/** @param {{dataManager: NotificationDataManager}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
 
@@ -55,28 +61,24 @@ export function init(deps) {
         // Once dismissed, the user has acknowledged the situation; don't
         // re-pop on every subsequent failed write. They can refresh to reset.
         if (dismissed) return;
-        showBanner(e.detail);
+        showBanner(e instanceof CustomEvent ? e.detail : null);
     });
 
-    if (els.btnStorageErrorDismiss) {
-        els.btnStorageErrorDismiss.addEventListener('click', () => {
-            dismissed = true;
-            hideBanner();
-        });
-    }
+    els.btnStorageErrorDismiss.addEventListener('click', () => {
+        dismissed = true;
+        hideBanner();
+    });
 
-    if (els.btnStorageErrorExport) {
-        els.btnStorageErrorExport.addEventListener('click', () => {
-            // exportState builds a data: URL and triggers download. This
-            // does NOT touch localStorage, so it works even when the
-            // banner is up.
-            try {
-                dataManager.exportState();
-            } catch (err) {
-                // Last-ditch: if export itself fails (e.g. download blocked),
-                // log so the user has something to copy from devtools.
-                console.error('Export from storage-error banner failed', err);
-            }
-        });
-    }
+    els.btnStorageErrorExport.addEventListener('click', () => {
+        // exportState builds a data: URL and triggers download. This
+        // does NOT touch localStorage, so it works even when the
+        // banner is up.
+        try {
+            dataManager.exportState();
+        } catch (err) {
+            // Last-ditch: if export itself fails (e.g. download blocked),
+            // log so the user has something to copy from devtools.
+            console.error('Export from storage-error banner failed', err);
+        }
+    });
 }

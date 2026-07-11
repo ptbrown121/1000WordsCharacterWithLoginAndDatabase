@@ -204,10 +204,10 @@ export const els = {
 
     // Storage-error banner (surfaced by js/ui/notifications.js when
     // data.js dispatches a 'storage-error' CustomEvent).
-    storageErrorBanner: document.getElementById('storage-error-banner'),
-    storageErrorBannerDetail: document.getElementById('storage-error-banner-detail'),
-    btnStorageErrorDismiss: document.getElementById('btn-storage-error-dismiss'),
-    btnStorageErrorExport: document.getElementById('btn-storage-error-export'),
+    storageErrorBanner: requiredElement('storage-error-banner', HTMLElement),
+    storageErrorBannerDetail: requiredElement('storage-error-banner-detail', HTMLElement),
+    btnStorageErrorDismiss: requiredElement('btn-storage-error-dismiss', HTMLButtonElement),
+    btnStorageErrorExport: requiredElement('btn-storage-error-export', HTMLButtonElement),
 
     cloudPanel: document.getElementById('cloud-panel'),
     btnCloudToggle: requiredElement('btn-cloud-toggle', HTMLButtonElement),
