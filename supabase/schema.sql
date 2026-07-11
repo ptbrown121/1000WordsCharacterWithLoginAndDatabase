@@ -301,9 +301,14 @@ security definer
 set search_path = public
 as $$
 declare
+    current_user_id uuid := auth.uid();
     target_campaign_id uuid;
     membership public.campaign_memberships;
 begin
+    if current_user_id is null then
+        raise exception 'Authentication is required';
+    end if;
+
     select id
     into target_campaign_id
     from public.campaigns
@@ -314,14 +319,14 @@ begin
     end if;
 
     insert into public.campaign_memberships (campaign_id, user_id, role)
-    values (target_campaign_id, auth.uid(), 'player')
+    values (target_campaign_id, current_user_id, 'player')
     on conflict (campaign_id, user_id) do nothing;
 
     select *
     into membership
     from public.campaign_memberships
     where campaign_id = target_campaign_id
-      and user_id = auth.uid();
+      and user_id = current_user_id;
 
     return membership;
 end;
@@ -497,18 +502,18 @@ to authenticated
 using (user_id = auth.uid() or public.is_campaign_member(campaign_id));
 
 drop policy if exists "memberships_insert_self_or_campaign_owner" on public.campaign_memberships;
-create policy "memberships_insert_self_or_campaign_owner"
+drop policy if exists "memberships_insert_campaign_owner" on public.campaign_memberships;
+create policy "memberships_insert_campaign_owner"
 on public.campaign_memberships for insert
 to authenticated
 with check (
     user_id = auth.uid()
-    and (
-        role = 'player'
-        or exists (
-            select 1 from public.campaigns
-            where campaigns.id = campaign_memberships.campaign_id
-              and campaigns.owner_id = auth.uid()
-        )
+    and role = 'gm'
+    and exists (
+        select 1
+        from public.campaigns
+        where campaigns.id = campaign_memberships.campaign_id
+          and campaigns.owner_id = auth.uid()
     )
 );
 
@@ -813,6 +818,7 @@ using (
     )
 );
 
+revoke all on function public.join_campaign_by_code(text) from public;
 grant execute on function public.join_campaign_by_code(text) to authenticated;
 grant execute on function public.can_create_campaign() to authenticated;
 grant execute on function public.rewind_ai_thread_from_message(uuid, text) to authenticated;
