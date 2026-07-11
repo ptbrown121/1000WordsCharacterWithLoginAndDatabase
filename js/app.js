@@ -1,3 +1,4 @@
+// @ts-check
 import { DataManager } from './data.js';
 import { PoolEngine } from './pool.js';
 import { SpellBuilder } from './spellBuilder.js';
@@ -32,7 +33,15 @@ const supabaseClient = await createSupabaseBrowserClient();
 
 setDataManager(dataManager);
 
-const deps = { dataManager, poolEngine, spellBuilder, renderAll, renderCards, openTileModal, supabaseClient };
+const deps = /** @satisfies {import('./types.js').AppDependencies} */ ({
+    dataManager,
+    poolEngine,
+    spellBuilder,
+    renderAll,
+    renderCards,
+    openTileModal,
+    supabaseClient
+});
 
 initCards(deps);
 initPool(deps);

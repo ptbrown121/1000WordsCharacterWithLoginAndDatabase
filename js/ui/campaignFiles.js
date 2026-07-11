@@ -1,3 +1,4 @@
+// @ts-check
 // Campaign files panel (GM-side): PowerPoint battle maps and slide decks
 // stored in the private campaign-files bucket so a GM can fetch them from
 // any computer. Scoped to the campaign picked in the "Manage members"
@@ -7,8 +8,10 @@ import { showConfirm } from './dialogService.js';
 
 const POWERPOINT_EXTENSIONS = ['ppt', 'pptx', 'ppsx'];
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
 
+/** @type {{campaignId: string|null, files: import('../types.js').CampaignFile[], status: string, busy: boolean}} */
 const state = {
     campaignId: null,
     files: [],
@@ -21,20 +24,23 @@ function selectedGmCampaignId() {
     return els.campaignManageSelect?.value || null;
 }
 
+/** @param {string} text */
 function setStatus(text) {
     state.status = text || '';
     if (els.campaignFilesStatus) els.campaignFilesStatus.textContent = state.status;
 }
 
+/** @param {number|string} bytes */
 function formatSize(bytes) {
-    const size = parseInt(bytes, 10) || 0;
+    const size = parseInt(String(bytes), 10) || 0;
     if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     if (size >= 1024) return `${Math.round(size / 1024)} KB`;
     return `${size} B`;
 }
 
+/** @param {string} name */
 function hasPowerPointExtension(name) {
-    const extension = String(name || '').split('.').pop().toLowerCase();
+    const extension = String(name || '').split('.').pop()?.toLowerCase() || '';
     return POWERPOINT_EXTENSIONS.includes(extension);
 }
 
@@ -96,6 +102,7 @@ export function renderCampaignFiles() {
     renderFileList();
 }
 
+/** @param {string} campaignId */
 async function loadFiles(campaignId) {
     state.busy = true;
     state.files = [];
@@ -105,7 +112,7 @@ async function loadFiles(campaignId) {
         state.files = await dataManager.cloudStore.listCampaignFiles(campaignId);
         setStatus(state.files.length === 0 ? '' : `${state.files.length} file${state.files.length === 1 ? '' : 's'}`);
     } catch (error) {
-        setStatus(error.message || 'Could not load campaign files.');
+        setStatus(error instanceof Error ? error.message : 'Could not load campaign files.');
     } finally {
         state.busy = false;
         renderCampaignFiles();
@@ -157,13 +164,14 @@ async function uploadFile() {
         if (els.campaignFileTitle) els.campaignFileTitle.value = '';
         setStatus(`${saved.title} uploaded.`);
     } catch (error) {
-        setStatus(error.message || 'Upload failed.');
+        setStatus(error instanceof Error ? error.message : 'Upload failed.');
     } finally {
         state.busy = false;
         renderCampaignFiles();
     }
 }
 
+/** @param {import('../types.js').CampaignFile} file */
 async function downloadFile(file) {
     setStatus(`Fetching ${file.fileName}...`);
     try {
@@ -174,10 +182,11 @@ async function downloadFile(file) {
         link.click();
         setStatus('');
     } catch (error) {
-        setStatus(error.message || `Could not download ${file.fileName}.`);
+        setStatus(error instanceof Error ? error.message : `Could not download ${file.fileName}.`);
     }
 }
 
+/** @param {import('../types.js').CampaignFile} file */
 async function deleteFile(file) {
     if (state.busy) return;
     if (!await showConfirm(`Delete ${file.title} from the campaign?`, { title: 'Delete campaign file?', confirmLabel: 'Delete file', danger: true })) return;
@@ -189,13 +198,14 @@ async function deleteFile(file) {
         state.files = state.files.filter(entry => entry.id !== file.id);
         setStatus('');
     } catch (error) {
-        setStatus(error.message || `Could not delete ${file.title}.`);
+        setStatus(error instanceof Error ? error.message : `Could not delete ${file.title}.`);
     } finally {
         state.busy = false;
         renderCampaignFiles();
     }
 }
 
+/** @param {import('../types.js').AppDependencies} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
 

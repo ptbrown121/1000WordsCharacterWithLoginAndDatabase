@@ -1,10 +1,34 @@
+// @ts-check
+/**
+ * @typedef {'alert'|'confirm'|'prompt'} DialogKind
+ * @typedef {Object} DialogRequest
+ * @property {DialogKind} kind
+ * @property {string} title
+ * @property {string} message
+ * @property {string} confirmLabel
+ * @property {string} cancelLabel
+ * @property {unknown} cancelValue
+ * @property {boolean} danger
+ * @property {string} defaultValue
+ * @property {string} inputLabel
+ * @property {(value: unknown) => void} resolve
+ */
+
+/** @type {HTMLDivElement} */
 let dialog;
+/** @type {HTMLHeadingElement} */
 let titleElement;
+/** @type {HTMLParagraphElement} */
 let messageElement;
+/** @type {HTMLInputElement} */
 let inputElement;
+/** @type {HTMLButtonElement} */
 let cancelButton;
+/** @type {HTMLButtonElement} */
 let confirmButton;
+/** @type {DialogRequest|null} */
 let activeRequest = null;
+/** @type {DialogRequest[]} */
 const requestQueue = [];
 
 function ensureDialog() {
@@ -66,6 +90,7 @@ function ensureDialog() {
     });
 }
 
+/** @param {unknown} value */
 function settle(value) {
     if (!activeRequest) return;
     const { resolve } = activeRequest;
@@ -78,7 +103,9 @@ function settle(value) {
 function showNext() {
     if (activeRequest || requestQueue.length === 0) return;
     ensureDialog();
-    activeRequest = requestQueue.shift();
+    const nextRequest = requestQueue.shift();
+    if (!nextRequest) return;
+    activeRequest = nextRequest;
     const request = activeRequest;
 
     titleElement.textContent = request.title;
@@ -100,6 +127,7 @@ function showNext() {
     dialog.classList.add('active');
 }
 
+/** @param {Omit<DialogRequest, 'resolve'>} request @returns {Promise<unknown>} */
 function enqueue(request) {
     return new Promise(resolve => {
         requestQueue.push({ ...request, resolve });
@@ -107,8 +135,9 @@ function enqueue(request) {
     });
 }
 
+/** @param {unknown} message @param {{title?: string, confirmLabel?: string}} [options] @returns {Promise<void>} */
 export function showAlert(message, { title = 'Notice', confirmLabel = 'OK' } = {}) {
-    return enqueue({
+    return /** @type {Promise<void>} */ (enqueue({
         kind: 'alert',
         title,
         message: String(message || ''),
@@ -118,9 +147,14 @@ export function showAlert(message, { title = 'Notice', confirmLabel = 'OK' } = {
         danger: false,
         defaultValue: '',
         inputLabel: ''
-    });
+    }));
 }
 
+/**
+ * @param {unknown} message
+ * @param {{title?: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean, dismissValue?: boolean|null}} [options]
+ * @returns {Promise<boolean|null>}
+ */
 export function showConfirm(message, {
     title = 'Confirm',
     confirmLabel = 'Confirm',
@@ -128,7 +162,7 @@ export function showConfirm(message, {
     danger = false,
     dismissValue = false
 } = {}) {
-    return enqueue({
+    return /** @type {Promise<boolean|null>} */ (enqueue({
         kind: 'confirm',
         title,
         message: String(message || ''),
@@ -138,9 +172,14 @@ export function showConfirm(message, {
         danger,
         defaultValue: '',
         inputLabel: ''
-    });
+    }));
 }
 
+/**
+ * @param {unknown} message
+ * @param {{title?: string, defaultValue?: string, inputLabel?: string, confirmLabel?: string, cancelLabel?: string}} [options]
+ * @returns {Promise<string|null>}
+ */
 export function showPrompt(message, {
     title = 'Enter a value',
     defaultValue = '',
@@ -148,7 +187,7 @@ export function showPrompt(message, {
     confirmLabel = 'Save',
     cancelLabel = 'Cancel'
 } = {}) {
-    return enqueue({
+    return /** @type {Promise<string|null>} */ (enqueue({
         kind: 'prompt',
         title,
         message: String(message || ''),
@@ -158,5 +197,5 @@ export function showPrompt(message, {
         danger: false,
         defaultValue: String(defaultValue || ''),
         inputLabel
-    });
+    }));
 }

@@ -1,5 +1,5 @@
 // @ts-check
-// Central JSDoc typedefs for the rules engine and persisted shapes.
+// Central JSDoc typedefs for rules, persisted shapes, and application boundaries.
 // No runtime code: this file only feeds `npm run typecheck` (tsc with
 // checkJs) and editor IntelliSense. Files opt in with `// @ts-check` and
 // import these via `@typedef {import('./types.js').Tile} Tile` comments.
@@ -243,6 +243,26 @@
  * @property {string} contentType
  * @property {number} sizeBytes
  * @property {string} createdAt
+ */
+
+/**
+ * @typedef {Object} CampaignSummary
+ * @property {string} id
+ * @property {string} name
+ * @property {string} inviteCode
+ * @property {'player'|'gm'} role
+ */
+
+/**
+ * Shared object assembled by app.js and injected into UI modules.
+ * @typedef {Object} AppDependencies
+ * @property {import('./data.js').DataManager} dataManager
+ * @property {import('./pool.js').PoolEngine} poolEngine
+ * @property {import('./spellBuilder.js').SpellBuilder} spellBuilder
+ * @property {() => void} renderAll
+ * @property {() => void} renderCards
+ * @property {(tile?: Tile|null) => void} openTileModal
+ * @property {import('@supabase/supabase-js').SupabaseClient<any>|null} supabaseClient
  */
 
 export {};

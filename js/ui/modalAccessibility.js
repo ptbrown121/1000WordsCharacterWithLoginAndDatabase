@@ -1,3 +1,4 @@
+// @ts-check
 const FOCUSABLE_SELECTOR = [
     'a[href]',
     'button:not([disabled])',
@@ -7,14 +8,18 @@ const FOCUSABLE_SELECTOR = [
     '[tabindex]:not([tabindex="-1"])'
 ].join(',');
 
+/** @typedef {{isOpen: boolean, returnFocus: HTMLElement|null}} ModalFocusState */
+/** @type {WeakMap<HTMLElement, ModalFocusState>} */
 const modalState = new WeakMap();
 
+/** @param {Element|null|undefined} element @returns {element is HTMLElement} */
 function isVisible(element) {
     return element instanceof HTMLElement
         && !element.hidden
         && element.getClientRects().length > 0;
 }
 
+/** @param {HTMLElement} modal */
 function focusableElements(modal) {
     return [...modal.querySelectorAll(FOCUSABLE_SELECTOR)].filter(isVisible);
 }
@@ -23,6 +28,7 @@ function openModals() {
     return [...document.querySelectorAll('.modal.active')].filter(isVisible);
 }
 
+/** @param {HTMLElement} modal */
 function focusModal(modal) {
     const preferred = modal.dataset.initialFocus
         ? modal.querySelector(modal.dataset.initialFocus)
@@ -31,6 +37,7 @@ function focusModal(modal) {
     target.focus({ preventScroll: true });
 }
 
+/** @param {HTMLElement} modal */
 function syncModal(modal) {
     const state = modalState.get(modal);
     if (!state) return;
@@ -58,6 +65,7 @@ function syncModal(modal) {
     });
 }
 
+/** @param {Element} modal */
 function registerModal(modal) {
     if (!(modal instanceof HTMLElement) || modalState.has(modal)) return;
     const isOpen = modal.classList.contains('active');
@@ -74,6 +82,7 @@ function registerModal(modal) {
     if (isOpen) focusModal(modal);
 }
 
+/** @param {HTMLElement} modal */
 function closeFromKeyboard(modal) {
     const selector = modal.dataset.modalClose;
     if (!selector) return false;
@@ -85,6 +94,7 @@ function closeFromKeyboard(modal) {
     return false;
 }
 
+/** @param {HTMLElement} modal @param {KeyboardEvent} event */
 function trapTab(modal, event) {
     const focusable = focusableElements(modal);
     if (focusable.length === 0) {

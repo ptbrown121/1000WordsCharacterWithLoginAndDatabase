@@ -1,3 +1,4 @@
+// @ts-check
 // Centralized DOM element cache.
 //
 // This file replaces the scattered `document.getElementById(...)` calls
@@ -11,8 +12,22 @@
 // design - tests should import pure-logic modules (resolution-rules.js,
 // pool.js, data.js) that do not touch the DOM.
 
+/**
+ * Required shell elements fail fast with a useful error instead of causing
+ * a distant null dereference during UI initialization.
+ * @template {HTMLElement} T
+ * @param {string} id
+ * @param {new (...args: any[]) => T} ElementType
+ * @returns {T}
+ */
+function requiredElement(id, ElementType) {
+    const element = document.getElementById(id);
+    if (!(element instanceof ElementType)) throw new Error(`Missing or invalid required element #${id}`);
+    return element;
+}
+
 export const els = {
-    charName: document.getElementById('char-name'),
+    charName: requiredElement('char-name', HTMLInputElement),
     valXpEarned: document.getElementById('val-xp-earned'),
     valXpSpent: document.getElementById('val-xp-spent'),
     valStoryPointsSpent: document.getElementById('val-story-points-spent'),
@@ -43,7 +58,7 @@ export const els = {
     shadowInfoModal: document.getElementById('shadow-info-modal'),
     btnShadowInfoClose: document.getElementById('btn-shadow-info-close'),
     btnRest: document.getElementById('btn-rest'),
-    btnNewChar: document.getElementById('btn-new-char'),
+    btnNewChar: requiredElement('btn-new-char', HTMLButtonElement),
     btnCalcXp: document.getElementById('btn-calc-xp'),
     btnCalcVitals: document.getElementById('btn-calc-vitals'),
     toggleOptionalStats: document.getElementById('toggle-optional-stats'),
@@ -67,7 +82,7 @@ export const els = {
     optionalStatBoxes: document.querySelectorAll('.optional-stat'),
     cardContainer: document.getElementById('card-container'),
     btnAddTile: document.getElementById('btn-add-tile'),
-    charRosterList: document.getElementById('char-roster-list'),
+    charRosterList: requiredElement('char-roster-list', HTMLDivElement),
     btnDelChar: document.getElementById('btn-del-char'),
     searchTiles: document.getElementById('search-tiles'),
     btnReorderTiles: document.getElementById('btn-reorder-tiles'),
@@ -166,8 +181,8 @@ export const els = {
     resolutionControls: document.getElementById('resolution-controls'),
     resultDetails: document.getElementById('result-details'),
 
-    btnExport: document.getElementById('btn-export'),
-    fileImport: document.getElementById('file-import'),
+    btnExport: requiredElement('btn-export', HTMLButtonElement),
+    fileImport: requiredElement('file-import', HTMLInputElement),
 
     // Vital Modal
     vitalModal: document.getElementById('vital-modal'),
@@ -216,15 +231,15 @@ export const els = {
     campaignPanel: document.getElementById('campaign-panel'),
     campaignSignedOutNote: document.getElementById('campaign-signed-out-note'),
     characterCampaignSelect: document.getElementById('character-campaign-select'),
-    campaignManageSelect: document.getElementById('campaign-manage-select'),
+    campaignManageSelect: requiredElement('campaign-manage-select', HTMLSelectElement),
     campaignMemberList: document.getElementById('campaign-member-list'),
     rollLogList: document.getElementById('roll-log-list'),
-    campaignFilesPanel: document.getElementById('campaign-files-panel'),
-    campaignFilesStatus: document.getElementById('campaign-files-status'),
-    campaignFileInput: document.getElementById('campaign-file-input'),
-    campaignFileTitle: document.getElementById('campaign-file-title'),
-    btnCampaignFileUpload: document.getElementById('btn-campaign-file-upload'),
-    campaignFileList: document.getElementById('campaign-file-list'),
+    campaignFilesPanel: requiredElement('campaign-files-panel', HTMLDivElement),
+    campaignFilesStatus: requiredElement('campaign-files-status', HTMLElement),
+    campaignFileInput: requiredElement('campaign-file-input', HTMLInputElement),
+    campaignFileTitle: requiredElement('campaign-file-title', HTMLInputElement),
+    btnCampaignFileUpload: requiredElement('btn-campaign-file-upload', HTMLButtonElement),
+    campaignFileList: requiredElement('campaign-file-list', HTMLDivElement),
     campaignAiDocsPanel: document.getElementById('campaign-ai-docs-panel'),
     campaignAiDocsStatus: document.getElementById('campaign-ai-docs-status'),
     campaignAiScenarioSeed: document.getElementById('campaign-ai-scenario-seed'),

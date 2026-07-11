@@ -218,6 +218,7 @@ export function init(deps) {
     });
 }
 
+/** @param {import('../../types.js').Tile|null} [tile] */
 export function openModal(tile = null) {
     els.modal.classList.add('active');
     els.form.reset();

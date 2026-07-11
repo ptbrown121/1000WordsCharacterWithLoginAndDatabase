@@ -1,8 +1,17 @@
+// @ts-check
 import { normalizeImportedState } from './data.js';
 
+/** @template T @param {{ error: unknown, data: T }} result @returns {T} */
 function assertNoError(result) {
     if (result.error) throw result.error;
     return result.data;
+}
+
+/** @template T @param {{ error: unknown, data: T }} result @returns {NonNullable<T>} */
+function assertData(result) {
+    const data = assertNoError(result);
+    if (data === null || data === undefined) throw new Error('Supabase returned no data.');
+    return /** @type {NonNullable<T>} */ (data);
 }
 
 // Thrown when a guarded save finds the row was changed by someone else
@@ -22,11 +31,16 @@ function generateInviteCode() {
     return Array.from(bytes, b => b.toString(36).padStart(2, '0')).join('').slice(0, 10).toUpperCase();
 }
 
+/** @param {import('./types.js').CampaignSummary[]} campaigns */
 function campaignNameById(campaigns) {
     return new Map(campaigns.map(campaign => [campaign.id, campaign.name]));
 }
 
 export class SupabaseCharacterStore {
+    /**
+     * @param {import('@supabase/supabase-js').SupabaseClient<any>} client
+     * @param {import('@supabase/supabase-js').User} user
+     */
     constructor(client, user) {
         this.client = client;
         this.user = user;
@@ -54,23 +68,22 @@ export class SupabaseCharacterStore {
             console.warn('Could not load campaign creation permission', error);
         }
 
-        const memberships = assertNoError(await this.client
+        const memberships = /** @type {Array<{campaign_id: string, role: 'player'|'gm', campaigns: {id: string, name: string, invite_code: string}|null}>} */ (/** @type {unknown} */ (assertData(await this.client
             .from('campaign_memberships')
             .select('campaign_id, role, campaigns(id, name, invite_code)')
-            .eq('user_id', this.user.id));
+            .eq('user_id', this.user.id))));
 
         const campaigns = memberships
-            .filter(row => row.campaigns)
-            .map(row => ({
+            .flatMap(row => row.campaigns ? [{
                 id: row.campaign_id,
                 name: row.campaigns.name,
                 inviteCode: row.campaigns.invite_code,
                 role: row.role
-            }))
+            }] : [])
             .sort((a, b) => a.name.localeCompare(b.name));
 
         const nameMap = campaignNameById(campaigns);
-        const owned = assertNoError(await this.client
+        const owned = assertData(await this.client
             .from('characters')
             .select('id, name, owner_id, campaign_id, updated_at')
             .eq('owner_id', this.user.id)
@@ -83,7 +96,7 @@ export class SupabaseCharacterStore {
 
         let campaignCharacters = [];
         if (gmCampaignIds.length > 0) {
-            campaignCharacters = assertNoError(await this.client
+            campaignCharacters = assertData(await this.client
                 .from('characters')
                 .select('id, name, owner_id, campaign_id, updated_at')
                 .in('campaign_id', gmCampaignIds)
@@ -122,8 +135,9 @@ export class SupabaseCharacterStore {
     // Returns { state, updatedAt }. updatedAt is the server's timestamp and
     // is later passed back to saveCharacter as the optimistic-concurrency
     // guard, so it must always be a value the server itself produced.
+    /** @param {string} id */
     async loadCharacter(id) {
-        const row = assertNoError(await this.client
+        const row = assertData(await this.client
             .from('characters')
             .select('state, updated_at')
             .eq('id', id)
@@ -142,8 +156,14 @@ export class SupabaseCharacterStore {
      * last-write-wins save (used for the user's explicit "overwrite" choice).
      * Returns the new server updated_at.
      */
+    /**
+     * @param {string} id
+     * @param {import('./types.js').CharacterState} state
+     * @param {{ ifUnmodifiedSince?: string|null }} [options]
+     */
     async saveCharacter(id, state, { ifUnmodifiedSince = null } = {}) {
         const cleanState = normalizeImportedState(JSON.parse(JSON.stringify(state)));
+        if (!cleanState) throw new Error('Cannot save an invalid character state.');
         let query = this.client
             .from('characters')
             .update({
@@ -161,10 +181,12 @@ export class SupabaseCharacterStore {
         return rows?.[0]?.updated_at || null;
     }
 
+    /** @param {string} name @param {import('./types.js').CharacterState} state @param {string|null} [campaignId] */
     async createCharacter(name, state, campaignId = null) {
         const cleanState = normalizeImportedState(JSON.parse(JSON.stringify(state)));
+        if (!cleanState) throw new Error('Cannot create a character from invalid state.');
         cleanState.name = name || cleanState.name || 'Hero Name';
-        const row = assertNoError(await this.client
+        const row = assertData(await this.client
             .from('characters')
             .insert({
                 owner_id: this.user.id,
@@ -177,6 +199,7 @@ export class SupabaseCharacterStore {
         return row.id;
     }
 
+    /** @param {string} id */
     async archiveCharacter(id) {
         assertNoError(await this.client
             .from('characters')
@@ -185,6 +208,7 @@ export class SupabaseCharacterStore {
             .eq('owner_id', this.user.id));
     }
 
+    /** @param {string} characterId @param {string|null} campaignId */
     async assignCharacterToCampaign(characterId, campaignId) {
         assertNoError(await this.client
             .from('characters')
@@ -193,13 +217,14 @@ export class SupabaseCharacterStore {
             .eq('owner_id', this.user.id));
     }
 
+    /** @param {string} name */
     async createCampaign(name) {
         if (!await this.canCreateCampaign()) {
             throw new Error('Your account is not allowed to create campaigns.');
         }
 
         const cleanName = String(name || '').trim() || 'New Campaign';
-        const campaign = assertNoError(await this.client
+        const campaign = assertData(await this.client
             .from('campaigns')
             .insert({
                 name: cleanName,
@@ -234,17 +259,19 @@ export class SupabaseCharacterStore {
         }
     }
 
+    /** @param {string} inviteCode */
     async joinCampaign(inviteCode) {
         const code = String(inviteCode || '').trim().toUpperCase();
         return assertNoError(await this.client.rpc('join_campaign_by_code', { invite_code_input: code }));
     }
 
+    /** @param {string} campaignId */
     async listCampaignMembers(campaignId) {
-        const rows = assertNoError(await this.client
+        const rows = /** @type {Array<{campaign_id: string, user_id: string, role: 'player'|'gm', profiles: {email: string, display_name: string}|null}>} */ (/** @type {unknown} */ (assertData(await this.client
             .from('campaign_memberships')
             .select('campaign_id, user_id, role, profiles(email, display_name)')
             .eq('campaign_id', campaignId)
-            .order('role', { ascending: true }));
+            .order('role', { ascending: true }))));
 
         return rows.map(row => ({
             campaignId: row.campaign_id,
@@ -255,6 +282,7 @@ export class SupabaseCharacterStore {
         }));
     }
 
+    /** @param {string} campaignId @param {string} userId @param {'player'|'gm'} role */
     async setCampaignMemberRole(campaignId, userId, role) {
         assertNoError(await this.client
             .from('campaign_memberships')
@@ -266,8 +294,9 @@ export class SupabaseCharacterStore {
     // Campaign NPCs (GM-only; RLS rejects every operation for non-GMs). The
     // row id doubles as the NPC id so the browser's list and the table stay
     // in one-to-one correspondence.
+    /** @param {string} campaignId */
     async listCampaignNpcs(campaignId) {
-        const rows = assertNoError(await this.client
+        const rows = assertData(await this.client
             .from('campaign_npcs')
             .select('id, data')
             .eq('campaign_id', campaignId)
@@ -275,6 +304,7 @@ export class SupabaseCharacterStore {
         return rows.map(row => ({ ...(row.data || {}), id: row.id }));
     }
 
+    /** @param {string} campaignId @param {import('./types.js').Npc} npc */
     async saveCampaignNpc(campaignId, npc) {
         assertNoError(await this.client
             .from('campaign_npcs')
@@ -288,6 +318,7 @@ export class SupabaseCharacterStore {
             }, { onConflict: 'id' }));
     }
 
+    /** @param {string} npcId */
     async deleteCampaignNpc(npcId) {
         assertNoError(await this.client
             .from('campaign_npcs')
@@ -298,14 +329,16 @@ export class SupabaseCharacterStore {
     // Campaign files (GM-only): PowerPoint maps/decks as storage objects
     // plus a metadata row. Paths start with the campaign id so the storage
     // RLS policies can authorize from the path alone.
+    /** @param {string} campaignId @returns {Promise<import('./types.js').CampaignFile[]>} */
     async listCampaignFiles(campaignId) {
-        const rows = assertNoError(await this.client
+        const rows = assertData(await this.client
             .from('campaign_files')
             .select('id, title, file_name, storage_path, content_type, size_bytes, created_at')
             .eq('campaign_id', campaignId)
             .order('created_at', { ascending: false }));
         return rows.map(row => ({
             id: row.id,
+            campaignId,
             title: row.title || row.file_name,
             fileName: row.file_name,
             storagePath: row.storage_path,
@@ -315,6 +348,7 @@ export class SupabaseCharacterStore {
         }));
     }
 
+    /** @param {string} campaignId @param {File} file @param {string} title @returns {Promise<import('./types.js').CampaignFile>} */
     async uploadCampaignFile(campaignId, file, title) {
         // Some platforms report an empty mime type; infer it from the
         // extension so the bucket's allowlist can still accept the upload.
@@ -323,7 +357,7 @@ export class SupabaseCharacterStore {
             pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             ppsx: 'application/vnd.openxmlformats-officedocument.presentationml.slideshow'
         };
-        const extension = (file.name || '').split('.').pop().toLowerCase();
+        const extension = (file.name || '').split('.').pop()?.toLowerCase() || '';
         const contentType = file.type || mimeByExtension[extension] || '';
         const safeName = String(file.name || 'presentation.pptx').replace(/[^\w.\- ]+/g, '_');
         const storagePath = `${campaignId}/${crypto.randomUUID()}-${safeName}`;
@@ -333,7 +367,7 @@ export class SupabaseCharacterStore {
             .upload(storagePath, file, { contentType, upsert: false }));
 
         try {
-            const row = assertNoError(await this.client
+            const row = assertData(await this.client
                 .from('campaign_files')
                 .insert({
                     campaign_id: campaignId,
@@ -348,6 +382,7 @@ export class SupabaseCharacterStore {
                 .single());
             return {
                 id: row.id,
+                campaignId,
                 title: row.title || row.file_name,
                 fileName: row.file_name,
                 storagePath: row.storage_path,
@@ -363,13 +398,15 @@ export class SupabaseCharacterStore {
         }
     }
 
+    /** @param {string} storagePath @param {string} downloadName */
     async getCampaignFileDownloadUrl(storagePath, downloadName) {
-        const data = assertNoError(await this.client.storage
+        const data = assertData(await this.client.storage
             .from('campaign-files')
             .createSignedUrl(storagePath, 300, { download: downloadName || true }));
         return data.signedUrl;
     }
 
+    /** @param {import('./types.js').CampaignFile} file */
     async deleteCampaignFile(file) {
         assertNoError(await this.client.storage
             .from('campaign-files')
@@ -380,15 +417,17 @@ export class SupabaseCharacterStore {
             .eq('id', file.id));
     }
 
+    /** @param {Record<string, unknown>} log */
     async recordRollLog(log) {
         assertNoError(await this.client
             .from('roll_logs')
             .insert(log));
     }
 
+    /** @param {string|null} campaignId @param {number} [limit] */
     async listRecentRollLogs(campaignId, limit = 50) {
         if (!campaignId) return [];
-        const rows = assertNoError(await this.client
+        const rows = assertData(await this.client
             .from('roll_logs')
             .select('id, character_name, roll_mode, call_colors, called_tiles, total, adds, haywire, rolled_at')
             .eq('campaign_id', campaignId)

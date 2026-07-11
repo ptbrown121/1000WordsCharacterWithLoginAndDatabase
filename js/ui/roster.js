@@ -1,25 +1,33 @@
+// @ts-check
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showAlert, showConfirm, showPrompt } from './dialogService.js';
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
+/** @type {() => void} */
 let renderAll;
 
+/** @param {import('../types.js').AppDependencies} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     renderAll = deps.renderAll;
 
     // Character name blur
     els.charName.addEventListener('blur', (e) => {
-        dataManager.updateName(e.target.value);
+        const input = /** @type {HTMLInputElement} */ (e.currentTarget);
+        dataManager.updateName(input.value);
         renderRosterSelect();
     });
 
     if (els.charRosterList) {
         els.charRosterList.addEventListener('click', async (e) => {
+            if (!(e.target instanceof Element)) return;
             const button = e.target.closest('.char-roster-btn');
-            if (!button || button.classList.contains('active')) return;
-            await dataManager.switchCharacter(button.dataset.charId);
+            if (!(button instanceof HTMLButtonElement) || button.classList.contains('active')) return;
+            const charId = button.dataset.charId;
+            if (!charId) return;
+            await dataManager.switchCharacter(charId);
             uiState.callTile = null;
             uiState.hitchCallTiles = [];
             uiState.burnTiles = [];
@@ -54,12 +62,15 @@ export function init(deps) {
     // Export/Import
     els.btnExport.addEventListener('click', () => dataManager.exportState());
     els.fileImport.addEventListener('change', (e) => {
-        const file = e.target.files[0];
+        const fileInput = /** @type {HTMLInputElement} */ (e.currentTarget);
+        const file = fileInput.files?.[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => {
             const overwrite = await showConfirm('Choose where to import this character.', { title: 'Import character', confirmLabel: 'Overwrite current', cancelLabel: 'Create new slot' });
-            if (await dataManager.importState(ev.target.result, overwrite)) {
+            if (overwrite === null) return;
+            const contents = ev.target?.result;
+            if (typeof contents === 'string' && await dataManager.importState(contents, overwrite)) {
                 uiState.callTile = null;
                 uiState.hitchCallTiles = [];
                 uiState.burnTiles = [];
@@ -67,7 +78,7 @@ export function init(deps) {
             } else {
                 showAlert('Failed to import invalid file.');
             }
-            els.fileImport.value = '';
+            fileInput.value = '';
         };
         reader.readAsText(file);
     });
@@ -78,6 +89,7 @@ export function init(deps) {
 export function renderRosterSelect() {
     if (!els.charRosterList) return;
     els.charRosterList.innerHTML = '';
+    /** @type {Map<string, HTMLDivElement>} */
     const groups = new Map();
     dataManager.roster.forEach(r => {
         const groupName = r.group || (r.source === 'cloud' ? 'My Characters' : 'Local Characters');
@@ -100,7 +112,7 @@ export function renderRosterSelect() {
         const isActive = r.id === dataManager.activeCharId;
         button.classList.toggle('active', isActive);
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        groups.get(groupName).appendChild(button);
+        groups.get(groupName)?.appendChild(button);
     });
     // A lone group's label ("Local Characters") is just noise.
     if (groups.size === 1) {

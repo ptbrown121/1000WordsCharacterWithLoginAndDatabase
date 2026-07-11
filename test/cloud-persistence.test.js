@@ -124,6 +124,17 @@ describe('SupabaseCharacterStore optimistic concurrency', () => {
         assert.equal(newStamp, null);
         assert.deepEqual(calls.filters, [['id', 'char-1'], ['owner_id', 'user-1']]);
     });
+
+    it('rejects malformed character state before writing it to Supabase', async () => {
+        const { client, calls } = makeUpdateClient([{ updated_at: 'unused' }]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        await assert.rejects(
+            store.saveCharacter('char-1', { name: 'Missing required state fields' }),
+            /invalid character state/
+        );
+        assert.equal(calls.update, null);
+    });
 });
 
 describe('shouldApplyRemoteCharacterUpdate (live sync policy)', () => {
