@@ -431,6 +431,54 @@ export class LocalCharacterStore {
     deleteState(charId) {
         this.storage.removeItem('1000words_state_' + charId);
     }
+
+    cloudDraftKey(userId, charId) {
+        return `1000words_cloud_draft_${userId}_${charId}`;
+    }
+
+    saveCloudDraft(userId, charId, state, baseUpdatedAt) {
+        const draft = {
+            userId,
+            charId,
+            state,
+            baseUpdatedAt: baseUpdatedAt || null,
+            revision: crypto.randomUUID(),
+            savedAt: new Date().toISOString()
+        };
+        this.storage.setItem(this.cloudDraftKey(userId, charId), JSON.stringify(draft));
+        return draft;
+    }
+
+    loadCloudDraft(userId, charId) {
+        const saved = this.storage.getItem(this.cloudDraftKey(userId, charId));
+        if (!saved) return null;
+        try {
+            const draft = JSON.parse(saved);
+            if (draft?.userId !== userId || draft?.charId !== charId || !draft?.state || !draft?.revision) return null;
+            return draft;
+        } catch (e) {
+            console.error('Failed to parse cloud draft', e);
+            return null;
+        }
+    }
+
+    advanceCloudDraftBase(userId, charId, expectedBaseUpdatedAt, newBaseUpdatedAt) {
+        const draft = this.loadCloudDraft(userId, charId);
+        if (!draft || draft.baseUpdatedAt !== expectedBaseUpdatedAt) return false;
+        draft.baseUpdatedAt = newBaseUpdatedAt || null;
+        this.storage.setItem(this.cloudDraftKey(userId, charId), JSON.stringify(draft));
+        return true;
+    }
+
+    /** @param {string} userId @param {string} charId @param {string | null} [expectedRevision] */
+    deleteCloudDraft(userId, charId, expectedRevision = null) {
+        if (expectedRevision) {
+            const current = this.loadCloudDraft(userId, charId);
+            if (!current || current.revision !== expectedRevision) return false;
+        }
+        this.storage.removeItem(this.cloudDraftKey(userId, charId));
+        return true;
+    }
 }
 
 export class DataManager {
@@ -559,29 +607,96 @@ export class DataManager {
         }
     }
 
+    saveCloudDraft(charId, state) {
+        const userId = this.cloudUser?.id;
+        if (!userId) return null;
+        try {
+            return this.localStore.saveCloudDraft(userId, charId, state, this.cloudUpdatedAt);
+        } catch (e) {
+            console.error('Failed to preserve cloud draft in localStorage', e);
+            dispatchAppEvent('storage-error', { error: e, operation: 'saveCloudDraft' });
+            return null;
+        }
+    }
+
+    loadCloudDraft(charId) {
+        const userId = this.cloudUser?.id;
+        if (!userId) return null;
+        try {
+            return this.localStore.loadCloudDraft(userId, charId);
+        } catch (e) {
+            console.error('Failed to load cloud draft from localStorage', e);
+            dispatchAppEvent('storage-error', { error: e, operation: 'loadCloudDraft' });
+            return null;
+        }
+    }
+
+    /** @param {string} charId @param {string | null} [expectedRevision] */
+    clearCloudDraft(charId, expectedRevision = null) {
+        const userId = this.cloudUser?.id;
+        if (!userId) return false;
+        try {
+            return this.localStore.deleteCloudDraft(userId, charId, expectedRevision);
+        } catch (e) {
+            console.error('Failed to clear cloud draft from localStorage', e);
+            dispatchAppEvent('storage-error', { error: e, operation: 'clearCloudDraft' });
+            return false;
+        }
+    }
+
+    advanceCloudDraftBase(charId, expectedBaseUpdatedAt, newBaseUpdatedAt) {
+        const userId = this.cloudUser?.id;
+        if (!userId) return false;
+        try {
+            return this.localStore.advanceCloudDraftBase(userId, charId, expectedBaseUpdatedAt, newBaseUpdatedAt);
+        } catch (e) {
+            console.error('Failed to update cloud draft metadata', e);
+            dispatchAppEvent('storage-error', { error: e, operation: 'advanceCloudDraftBase' });
+            return false;
+        }
+    }
+
+    hasCloudDraft(charId = this.activeCharId) {
+        return Boolean(charId && this.loadCloudDraft(charId));
+    }
+
     scheduleCloudSave() {
         if (!this.cloudStore || this.activeStorage !== 'cloud') return;
         clearTimeout(this.pendingSaveTimer ?? undefined);
         this.setCloudStatus('saving', 'Saving to cloud...');
         const charId = this.activeCharId;
         const state = JSON.parse(JSON.stringify(this.state));
+        const draft = this.saveCloudDraft(charId, state);
         this.pendingSaveTimer = setTimeout(() => {
-            this.queueCloudSave(charId, state);
+            this.pendingSaveTimer = null;
+            this.queueCloudSave(charId, state, { draftRevision: draft?.revision || null });
         }, this.saveDebounceMs);
     }
 
     async flushCloudSave() {
-        if (!this.pendingSaveTimer || !this.cloudStore || this.activeStorage !== 'cloud') return;
-        clearTimeout(this.pendingSaveTimer);
-        this.pendingSaveTimer = null;
-        if (!this.canEditActiveCharacter()) return;
-        await this.queueCloudSave(this.activeCharId, JSON.parse(JSON.stringify(this.state)));
+        if (!this.cloudStore || this.activeStorage !== 'cloud') return;
+        if (this.pendingSaveTimer) {
+            clearTimeout(this.pendingSaveTimer);
+            this.pendingSaveTimer = null;
+            if (this.canEditActiveCharacter()) {
+                const charId = this.activeCharId;
+                const state = JSON.parse(JSON.stringify(this.state));
+                const draft = this.saveCloudDraft(charId, state);
+                await this.queueCloudSave(charId, state, { draftRevision: draft?.revision || null });
+            }
+        }
+        await this.cloudSaveChain;
     }
 
     // All cloud saves go through this chain so they run one at a time and
     // each reads the guard value left by the previous save. The guard is
     // read at run time (not schedule time) for the same reason.
-    queueCloudSave(charId, state) {
+    /**
+     * @param {string} charId
+     * @param {import('./types.js').CharacterState} state
+     * @param {{ draftRevision?: string | null }} [options]
+     */
+    queueCloudSave(charId, state, { draftRevision = null } = {}) {
         const run = async () => {
             // cloudSaveInFlight tells live sync to ignore realtime echoes of
             // this write (and rival writes - the guard handles those).
@@ -590,6 +705,10 @@ export class DataManager {
                 const guard = this.activeCharId === charId ? this.cloudUpdatedAt : null;
                 const newUpdatedAt = await this.cloudStore.saveCharacter(charId, state, { ifUnmodifiedSince: guard });
                 if (this.activeCharId === charId && newUpdatedAt) this.cloudUpdatedAt = newUpdatedAt;
+                if (draftRevision) {
+                    const cleared = this.clearCloudDraft(charId, draftRevision);
+                    if (!cleared && newUpdatedAt) this.advanceCloudDraftBase(charId, guard, newUpdatedAt);
+                }
                 await this.refreshCloudRoster({ keepActive: true });
                 this.setCloudStatus('saved', 'Cloud save complete.');
             } finally {
@@ -598,16 +717,22 @@ export class DataManager {
         };
         this.cloudSaveChain = this.cloudSaveChain
             .then(run)
-            .catch(e => this.handleCloudSaveError(e, charId, state));
+            .catch(e => this.handleCloudSaveError(e, charId, state, draftRevision));
         return this.cloudSaveChain;
     }
 
-    handleCloudSaveError(e, charId, state) {
-        if (e?.isCloudSaveConflict) {
+    /** @param {unknown} e @param {string} charId @param {import('./types.js').CharacterState} state @param {string | null} [draftRevision] */
+    handleCloudSaveError(e, charId, state, draftRevision = null) {
+        if (e && typeof e === 'object' && 'isCloudSaveConflict' in e && e.isCloudSaveConflict) {
             // The state snapshot rides along so the user can still choose
             // "overwrite" even if they have switched characters meanwhile.
+            const currentDraft = this.loadCloudDraft(charId);
             this.setCloudStatus('error', 'This character changed somewhere else.');
-            dispatchAppEvent('cloud-save-conflict', { charId, state });
+            dispatchAppEvent('cloud-save-conflict', {
+                charId,
+                state: currentDraft?.state || state,
+                draftRevision: currentDraft?.revision || draftRevision
+            });
             return;
         }
         console.error('Failed to save cloud character', e);
@@ -623,16 +748,18 @@ export class DataManager {
             this.state = loaded.state;
             this.cloudUpdatedAt = loaded.updatedAt || null;
         }
+        this.clearCloudDraft(charId);
         this.setCloudStatus('saved', 'Loaded the newer cloud version.');
     }
 
-    async resolveCloudConflictByOverwriting(charId, stateSnapshot = null) {
+    async resolveCloudConflictByOverwriting(charId, stateSnapshot = null, draftRevision = null) {
         if (!this.cloudStore) return;
         const state = stateSnapshot || (this.activeCharId === charId ? this.state : null);
         if (!state) return;
         // No guard: the user explicitly chose to replace the newer copy.
         const updatedAt = await this.cloudStore.saveCharacter(charId, state);
         if (this.activeCharId === charId && updatedAt) this.cloudUpdatedAt = updatedAt;
+        if (draftRevision) this.clearCloudDraft(charId, draftRevision);
         await this.refreshCloudRoster({ keepActive: true });
         this.setCloudStatus('saved', 'Cloud copy replaced with this version.');
     }
@@ -742,6 +869,22 @@ export class DataManager {
             this.state = loaded.state;
             this.cloudUpdatedAt = loaded.updatedAt || null;
             this.setCloudStatus(cloudEntry.readOnly ? 'read-only' : 'saved', cloudEntry.readOnly ? 'Viewing read-only campaign character.' : 'Cloud character loaded.');
+            const draft = cloudEntry.readOnly ? null : this.loadCloudDraft(id);
+            if (draft) {
+                this.state = mergeStateWithDefaults(draft.state);
+                if (draft.baseUpdatedAt === this.cloudUpdatedAt) {
+                    this.setCloudStatus('saving', 'Recovered unsaved browser edits. Saving to cloud...');
+                    this.queueCloudSave(id, JSON.parse(JSON.stringify(this.state)), { draftRevision: draft.revision });
+                } else {
+                    this.cloudUpdatedAt = draft.baseUpdatedAt || null;
+                    this.setCloudStatus('error', 'Recovered browser edits conflict with a newer cloud copy.');
+                    dispatchAppEvent('cloud-save-conflict', {
+                        charId: id,
+                        state: JSON.parse(JSON.stringify(this.state)),
+                        draftRevision: draft.revision
+                    });
+                }
+            }
             dispatchAppEvent('readonly-character-change');
             return;
         }
@@ -792,7 +935,9 @@ export class DataManager {
         }
 
         if (this.activeStorage === 'cloud' && this.cloudStore) {
-            await this.cloudStore.archiveCharacter(this.activeCharId);
+            const archivedId = this.activeCharId;
+            await this.cloudStore.archiveCharacter(archivedId);
+            this.clearCloudDraft(archivedId);
             await this.refreshCloudRoster();
             if (this.roster.length > 0) {
                 await this.switchCharacter(this.roster[0].id);

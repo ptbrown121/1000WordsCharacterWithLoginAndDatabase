@@ -51,7 +51,7 @@ async function handleCharacterUpdate(payload) {
     const apply = shouldApplyRemoteCharacterUpdate({
         remoteUpdatedAt: payload?.new?.updated_at || null,
         ownUpdatedAt: dataManager.cloudUpdatedAt,
-        savePending: Boolean(dataManager.pendingSaveTimer),
+        savePending: Boolean(dataManager.pendingSaveTimer) || dataManager.hasCloudDraft(charId),
         saveInFlight: Boolean(dataManager.cloudSaveInFlight)
     });
     if (!apply) return;

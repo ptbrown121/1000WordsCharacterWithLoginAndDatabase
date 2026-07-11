@@ -420,7 +420,7 @@ export async function init(deps) {
     // after we loaded it. The snapshot in the event lets "overwrite" work
     // even if the user has switched characters since the save was queued.
     window.addEventListener('cloud-save-conflict', async (event) => {
-        const { charId, state } = event.detail || {};
+        const { charId, state, draftRevision } = event.detail || {};
         if (!charId) return;
         const reloadNewer = confirm(
             'This character was changed in another tab or on another device since you loaded it.\n\n' +
@@ -431,7 +431,7 @@ export async function init(deps) {
             if (reloadNewer) {
                 await dataManager.resolveCloudConflictByReloading(charId);
             } else {
-                await dataManager.resolveCloudConflictByOverwriting(charId, state);
+                await dataManager.resolveCloudConflictByOverwriting(charId, state, draftRevision);
             }
             renderAll();
         } catch (err) {

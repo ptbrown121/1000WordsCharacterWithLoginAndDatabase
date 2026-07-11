@@ -162,9 +162,116 @@ describe('LocalCharacterStore', () => {
         assert.equal(store.loadState(activeCharId).name, 'Saved Hero');
         assert.deepEqual(JSON.parse(storage.getItem('1000words_roster')), [{ id: activeCharId, name: 'Saved Hero' }]);
     });
+
+    it('keeps cloud drafts isolated by user and clears only the acknowledged revision', () => {
+        const store = new LocalCharacterStore(new MemoryStorage());
+        const first = store.saveCloudDraft('user-1', 'cloud-1', { name: 'First edit' }, 't-0');
+        const second = store.saveCloudDraft('user-1', 'cloud-1', { name: 'Newer edit' }, 't-0');
+
+        assert.equal(store.loadCloudDraft('user-2', 'cloud-1'), null);
+        assert.equal(store.deleteCloudDraft('user-1', 'cloud-1', first.revision), false);
+        assert.equal(store.loadCloudDraft('user-1', 'cloud-1').revision, second.revision);
+
+        assert.equal(store.advanceCloudDraftBase('user-1', 'cloud-1', 't-0', 't-1'), true);
+        assert.equal(store.loadCloudDraft('user-1', 'cloud-1').baseUpdatedAt, 't-1');
+        assert.equal(store.deleteCloudDraft('user-1', 'cloud-1', second.revision), true);
+        assert.equal(store.loadCloudDraft('user-1', 'cloud-1'), null);
+    });
 });
 
 describe('DataManager cloud behavior', () => {
+    it('writes cloud edits to a browser draft immediately and recovers them after a reload', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        const state = cloneDefaultState();
+        state.name = 'Cloud Hero';
+        cloud.characters.push({ id: 'cloud-1', name: state.name, state: JSON.parse(JSON.stringify(state)), updatedAt: 't-0' });
+
+        const firstManager = new DataManager({
+            localStore: new LocalCharacterStore(storage),
+            saveDebounceMs: 60_000
+        });
+        await firstManager.connectCloud(cloud);
+        firstManager.updateName('Recovered Hero');
+
+        const storedDraft = firstManager.loadCloudDraft('cloud-1');
+        assert.equal(storedDraft.state.name, 'Recovered Hero');
+        assert.equal(cloud.characters[0].state.name, 'Cloud Hero');
+
+        // Simulate the page disappearing before its debounce timer fires.
+        clearTimeout(firstManager.pendingSaveTimer);
+        firstManager.pendingSaveTimer = null;
+
+        const reloadedManager = new DataManager({
+            localStore: new LocalCharacterStore(storage),
+            saveDebounceMs: 60_000
+        });
+        await reloadedManager.connectCloud(cloud);
+        assert.equal(reloadedManager.state.name, 'Recovered Hero');
+        await reloadedManager.cloudSaveChain;
+
+        assert.equal(cloud.characters[0].state.name, 'Recovered Hero');
+        assert.equal(reloadedManager.loadCloudDraft('cloud-1'), null);
+    });
+
+    it('keeps a failed cloud save as a recoverable browser draft', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        const state = cloneDefaultState();
+        cloud.characters.push({ id: 'cloud-1', name: state.name, state, updatedAt: 't-0' });
+        cloud.saveCharacter = async () => { throw new Error('offline'); };
+
+        const manager = new DataManager({
+            localStore: new LocalCharacterStore(storage),
+            saveDebounceMs: 0
+        });
+        await manager.connectCloud(cloud);
+        manager.updateName('Offline Edit');
+        await new Promise(resolve => setTimeout(resolve, 10));
+        await manager.cloudSaveChain;
+
+        assert.equal(manager.cloudStatus, 'error');
+        assert.equal(manager.loadCloudDraft('cloud-1').state.name, 'Offline Edit');
+    });
+
+    it('surfaces recovered drafts as conflicts when the cloud changed meanwhile', async () => {
+        const events = [];
+        const previousWindow = globalThis.window;
+        globalThis.window = {
+            dispatchEvent(event) { events.push(event); return true; },
+            addEventListener() {},
+            removeEventListener() {}
+        };
+
+        try {
+            const storage = new MemoryStorage();
+            const localStore = new LocalCharacterStore(storage);
+            const draftState = cloneDefaultState();
+            draftState.name = 'Unsaved Browser Edit';
+            localStore.saveCloudDraft('user-1', 'cloud-1', draftState, 't-0');
+
+            const cloud = new FakeCloudStore();
+            const remoteState = cloneDefaultState();
+            remoteState.name = 'Newer Cloud Edit';
+            cloud.characters.push({ id: 'cloud-1', name: remoteState.name, state: remoteState, updatedAt: 't-1' });
+
+            const manager = new DataManager({ localStore });
+            await manager.connectCloud(cloud);
+
+            assert.equal(manager.state.name, 'Unsaved Browser Edit');
+            assert.equal(cloud.characters[0].state.name, 'Newer Cloud Edit');
+            assert.equal(manager.cloudStatus, 'error');
+            const conflict = events.find(event => event.type === 'cloud-save-conflict');
+            assert.equal(conflict.detail.state.name, 'Unsaved Browser Edit');
+
+            await manager.resolveCloudConflictByReloading('cloud-1');
+            assert.equal(manager.state.name, 'Newer Cloud Edit');
+            assert.equal(manager.loadCloudDraft('cloud-1'), null);
+        } finally {
+            globalThis.window = previousWindow;
+        }
+    });
+
     it('blocks writes while viewing a read-only campaign character', () => {
         const manager = new DataManager({ localStore: new LocalCharacterStore(new MemoryStorage()) });
         manager.activeStorage = 'cloud';
