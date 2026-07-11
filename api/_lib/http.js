@@ -39,6 +39,9 @@ export function requireMethod(req, methods) {
 
 export function handleApiError(res, error) {
     if (error instanceof ApiError) {
+        if (error.status === 429 && error.details?.retryAfterSeconds) {
+            res.setHeader('Retry-After', String(error.details.retryAfterSeconds));
+        }
         sendJson(res, error.status, {
             error: error.message,
             details: error.details

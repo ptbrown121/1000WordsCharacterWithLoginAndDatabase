@@ -16,6 +16,7 @@ import {
 import { extractBearerToken, safeFileName } from '../api/_lib/supabase.js';
 import { describeStructuredFailure, resolveMaxOutputTokens } from '../api/_lib/openaiWorkflow.js';
 import { readJson } from '../api/_lib/http.js';
+import { enforceAiRateLimit, getAiRateLimitConfig } from '../api/_lib/aiRateLimit.js';
 
 describe('AI workflow prompt helpers', () => {
     it('builds campaign context from settings and documents', () => {
@@ -216,5 +217,66 @@ describe('OpenAI agent runtime helpers', () => {
         assert.match(describeStructuredFailure('max_output_tokens', 2500), /reasoning/);
         assert.match(describeStructuredFailure('content_filter', 2500), /incomplete \(content_filter\)/);
         assert.match(describeStructuredFailure('', 2500), /could not be parsed/);
+    });
+});
+
+describe('optional AI request rate limiting', () => {
+    it('is unlimited by default and does not call Supabase', async () => {
+        let rpcCalled = false;
+        const client = { rpc: async () => { rpcCalled = true; } };
+
+        assert.deepEqual(getAiRateLimitConfig({}), {
+            enabled: false,
+            requests: 0,
+            windowSeconds: 3600
+        });
+        const result = await enforceAiRateLimit(client, {});
+        assert.equal(result.enabled, false);
+        assert.equal(rpcCalled, false);
+    });
+
+    it('uses the configured request count and window', async () => {
+        let call = null;
+        const client = {
+            rpc: async (name, args) => {
+                call = { name, args };
+                return {
+                    data: [{ allowed: true, remaining: 7, reset_at: '2099-01-01T00:00:00Z' }],
+                    error: null
+                };
+            }
+        };
+
+        const result = await enforceAiRateLimit(client, {
+            AI_RATE_LIMIT_REQUESTS: '10',
+            AI_RATE_LIMIT_WINDOW_SECONDS: '900'
+        });
+        assert.deepEqual(call, {
+            name: 'consume_ai_rate_limit',
+            args: { max_requests: 10, window_seconds: 900 }
+        });
+        assert.equal(result.remaining, 7);
+    });
+
+    it('returns a 429 with retry details after the limit is consumed', async () => {
+        const client = {
+            rpc: async () => ({
+                data: [{ allowed: false, remaining: 0, reset_at: '2099-01-01T00:00:00Z' }],
+                error: null
+            })
+        };
+
+        await assert.rejects(
+            enforceAiRateLimit(client, { AI_RATE_LIMIT_REQUESTS: '2' }),
+            error => error.status === 429 && error.details.retryAfterSeconds > 0
+        );
+    });
+
+    it('fails closed only when limiting was explicitly enabled', async () => {
+        const client = { rpc: async () => ({ data: null, error: { message: 'missing RPC' } }) };
+        await assert.rejects(
+            enforceAiRateLimit(client, { AI_RATE_LIMIT_REQUESTS: '5' }),
+            error => error.status === 503
+        );
     });
 });

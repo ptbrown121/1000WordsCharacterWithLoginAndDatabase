@@ -2,6 +2,7 @@ import { ApiError, handleApiError, readJson, requireMethod, sendJson } from '../
 import { fetchCampaignContext, fetchThreadBundle, insertAgentLog } from '../_lib/aiData.js';
 import { runSceneAgent } from '../_lib/openaiWorkflow.js';
 import { cleanText, truncateText } from '../_lib/aiWorkflow.js';
+import { enforceAiRateLimit } from '../_lib/aiRateLimit.js';
 import { assertNoSupabaseError, loadVisibleCharacter, requireUser } from '../_lib/supabase.js';
 
 export default async function handler(req, res) {
@@ -21,6 +22,8 @@ export default async function handler(req, res) {
         if (['completed', 'cancelled'].includes(bundle.thread.status)) {
             throw new ApiError(400, 'This scene is already closed. Start a new scene to continue chatting.');
         }
+
+        await enforceAiRateLimit(client);
 
         const character = await loadVisibleCharacter(client, bundle.thread.character_id);
         const context = await fetchCampaignContext(client, bundle.thread.campaign_id);

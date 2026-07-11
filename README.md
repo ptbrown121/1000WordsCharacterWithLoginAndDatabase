@@ -106,6 +106,7 @@ The AI character creation MVP runs through Vercel API routes so model and servic
    - Optional: `OPENAI_VALIDATOR_MODEL` (defaults to the orchestrator model)
    - Optional: `OPENAI_SCENE_MODEL` (defaults to `gpt-5.4-mini`)
    - Optional output budgets (shared between reasoning and the reply, so keep them generous): `OPENAI_SCENE_MAX_OUTPUT_TOKENS` (default 2500), `OPENAI_ORCHESTRATOR_MAX_OUTPUT_TOKENS` (default 6000), `OPENAI_VALIDATOR_MAX_OUTPUT_TOKENS` (default 4000)
+   - Optional AI request limiting: leave `AI_RATE_LIMIT_REQUESTS` unset or set to `0` for unlimited use (the default). Set it to a positive per-user request count to enable a fixed-window limit; `AI_RATE_LIMIT_WINDOW_SECONDS` defaults to `3600`. A chat turn, edited-message regeneration, or scene finalization consumes one request.
 3. Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as the browser-visible Supabase values. If you prefer separate server names, the API routes also read `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 4. GM users can use the campaign panel to save short text/Markdown setting notes and AI guidance. The MVP intentionally supports pasted text plus `.txt`/`.md` files; PDF/DOCX extraction is a later upgrade.
 5. Players start the guided AI chat from a cloud character assigned to a campaign. Finalized summaries are saved in Supabase first, then accepted summaries are appended to the character journal. Players can also cancel an unfinished scene or edit a previous response; editing rewinds later AI replies and supersedes any pending summary for that scene.

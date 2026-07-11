@@ -3,6 +3,7 @@ import { fetchCampaignContext, fetchThreadBundle, insertAgentLog } from '../_lib
 import { cleanText, truncateText } from '../_lib/aiWorkflow.js';
 import { runSceneAgent } from '../_lib/openaiWorkflow.js';
 import { assertNoSupabaseError, loadVisibleCharacter, requireUser } from '../_lib/supabase.js';
+import { enforceAiRateLimit } from '../_lib/aiRateLimit.js';
 
 export default async function handler(req, res) {
     try {
@@ -31,6 +32,8 @@ export default async function handler(req, res) {
         if (['completed', 'cancelled'].includes(bundle.thread.status)) {
             throw new ApiError(400, 'This scene is already closed. Start a new scene for new changes.');
         }
+
+        await enforceAiRateLimit(client);
 
         // One transactional RPC applies the edit, deletes later replies,
         // supersedes pending summaries, and reopens the thread; a failure

@@ -2,6 +2,7 @@ import { ApiError, handleApiError, readJson, requireMethod, sendJson } from '../
 import { fetchCampaignContext, fetchThreadBundle, insertAgentLog } from '../_lib/aiData.js';
 import { runSummaryAgent, runValidationAgent } from '../_lib/openaiWorkflow.js';
 import { assertNoSupabaseError, loadVisibleCharacter, requireUser } from '../_lib/supabase.js';
+import { enforceAiRateLimit } from '../_lib/aiRateLimit.js';
 
 export default async function handler(req, res) {
     try {
@@ -21,6 +22,8 @@ export default async function handler(req, res) {
         if (!bundle.messages.some(message => message.role === 'user')) {
             throw new ApiError(400, 'Add at least one player message before finalizing a scene.');
         }
+
+        await enforceAiRateLimit(client);
 
         const character = await loadVisibleCharacter(client, bundle.thread.character_id);
         const context = await fetchCampaignContext(client, bundle.thread.campaign_id);

@@ -156,6 +156,15 @@ create table if not exists public.ai_agent_run_logs (
     created_at timestamptz not null default now()
 );
 
+-- Optional per-user AI request windows. API routes only consume these rows
+-- when AI_RATE_LIMIT_REQUESTS is configured as a positive integer.
+create table if not exists public.ai_rate_limit_windows (
+    user_id uuid primary key references public.profiles(id) on delete cascade,
+    window_started_at timestamptz not null default now(),
+    request_count integer not null default 0 check (request_count >= 0),
+    updated_at timestamptz not null default now()
+);
+
 create index if not exists characters_owner_idx on public.characters(owner_id);
 create index if not exists characters_campaign_idx on public.characters(campaign_id);
 create index if not exists campaign_memberships_user_idx on public.campaign_memberships(user_id);
@@ -318,6 +327,51 @@ begin
 end;
 $$;
 
+create or replace function public.consume_ai_rate_limit(max_requests integer, window_seconds integer)
+returns table (allowed boolean, remaining integer, reset_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    current_user_id uuid := auth.uid();
+    current_time timestamptz := now();
+    bounded_requests integer := greatest(1, least(coalesce(max_requests, 1), 1000000));
+    bounded_window integer := greatest(1, least(coalesce(window_seconds, 3600), 2592000));
+    current_window public.ai_rate_limit_windows;
+begin
+    if current_user_id is null then
+        raise exception 'Authentication is required';
+    end if;
+
+    insert into public.ai_rate_limit_windows as windows (
+        user_id,
+        window_started_at,
+        request_count,
+        updated_at
+    )
+    values (current_user_id, current_time, 1, current_time)
+    on conflict (user_id) do update
+    set window_started_at = case
+            when windows.window_started_at + make_interval(secs => bounded_window) <= current_time
+                then current_time
+            else windows.window_started_at
+        end,
+        request_count = case
+            when windows.window_started_at + make_interval(secs => bounded_window) <= current_time
+                then 1
+            else windows.request_count + 1
+        end,
+        updated_at = current_time
+    returning * into current_window;
+
+    allowed := current_window.request_count <= bounded_requests;
+    remaining := greatest(0, bounded_requests - current_window.request_count);
+    reset_at := current_window.window_started_at + make_interval(secs => bounded_window);
+    return next;
+end;
+$$;
+
 -- Atomically applies a player's message edit: updates the message, deletes the
 -- later replies, supersedes pending summaries, and reopens the thread in one
 -- transaction so a mid-sequence failure cannot leave the thread inconsistent.
@@ -386,6 +440,7 @@ alter table public.ai_creation_threads enable row level security;
 alter table public.ai_creation_messages enable row level security;
 alter table public.ai_scene_summaries enable row level security;
 alter table public.ai_agent_run_logs enable row level security;
+alter table public.ai_rate_limit_windows enable row level security;
 
 drop policy if exists "profiles_select_self_or_campaign_peers" on public.profiles;
 create policy "profiles_select_self_or_campaign_peers"
@@ -761,6 +816,8 @@ using (
 grant execute on function public.join_campaign_by_code(text) to authenticated;
 grant execute on function public.can_create_campaign() to authenticated;
 grant execute on function public.rewind_ai_thread_from_message(uuid, text) to authenticated;
+revoke all on function public.consume_ai_rate_limit(integer, integer) from public;
+grant execute on function public.consume_ai_rate_limit(integer, integer) to authenticated;
 
 -- Campaign NPC roster (GM-side). Each row is one NPC; the full stat block
 -- lives in `data` as the same JSON shape the browser keeps in localStorage.
