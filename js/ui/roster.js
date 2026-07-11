@@ -1,5 +1,6 @@
 import { uiState } from '../state.js';
 import { els } from '../els.js';
+import { showAlert, showConfirm, showPrompt } from './dialogService.js';
 
 let dataManager;
 let renderAll;
@@ -28,7 +29,7 @@ export function init(deps) {
 
     if (els.btnDelChar) {
         els.btnDelChar.addEventListener('click', async () => {
-            if (confirm("WARNING: Are you sure you want to delete this character permanently?")) {
+            if (await showConfirm('Are you sure you want to delete this character permanently?', { title: 'Delete character?', confirmLabel: 'Delete permanently', danger: true })) {
                 await dataManager.deleteCurrentCharacter();
                 uiState.callTile = null;
                 uiState.hitchCallTiles = [];
@@ -40,7 +41,7 @@ export function init(deps) {
 
     // New Character Button
     els.btnNewChar.addEventListener('click', async () => {
-        const name = prompt("Enter a name for your new character:");
+        const name = await showPrompt('Enter a name for your new character:', { title: 'New character', confirmLabel: 'Create character' });
         if (name) {
             await dataManager.createNewCharacter(name);
             uiState.callTile = null;
@@ -57,14 +58,14 @@ export function init(deps) {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => {
-            const overwrite = confirm("Do you want to overwrite your current character? (Click 'Cancel' to import as a new character slot)");
+            const overwrite = await showConfirm('Choose where to import this character.', { title: 'Import character', confirmLabel: 'Overwrite current', cancelLabel: 'Create new slot' });
             if (await dataManager.importState(ev.target.result, overwrite)) {
                 uiState.callTile = null;
                 uiState.hitchCallTiles = [];
                 uiState.burnTiles = [];
                 renderAll();
             } else {
-                alert("Failed to import invalid file.");
+                showAlert('Failed to import invalid file.');
             }
             els.fileImport.value = '';
         };

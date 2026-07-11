@@ -6,6 +6,7 @@ import { updatePoolPreview } from './pool.js';
 import { updateShadowMax } from './vitals.js';
 import { renderCards } from './cards.js';
 import { renderRulesReview } from './rulesReview.js';
+import { showAlert } from './dialogService.js';
 
 let dataManager;
 let poolEngine;
@@ -25,7 +26,7 @@ function refreshAfterStatChange() {
 function saveStatDice(stat, value, { resetOnInvalid = false } = {}) {
     const { dice, invalid } = parseDiceInput(value);
     if (invalid.length > 0) {
-        alert(getDiceValidationMessage('Stats'));
+        showAlert(getDiceValidationMessage('Stats'));
         if (resetOnInvalid) {
             const input = getStatInput(stat);
             if (input) input.value = dataManager.state.stats[stat] || '';

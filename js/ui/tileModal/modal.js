@@ -19,6 +19,7 @@ import { updatePoolPreview } from '../pool.js';
 import { updateXpTracker } from '../stats.js';
 import { renderRulesReview } from '../rulesReview.js';
 import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, createSearchableSelect, syncOptionGrids } from '../modalWidgets.js';
+import { showAlert } from '../dialogService.js';
 import {
     getFormArmorType,
     getFormAmmo,
@@ -185,7 +186,7 @@ export function init(deps) {
         const diceStr = document.getElementById('tile-dice').value.trim();
         const { dice: diceArray, invalid } = parseDiceInput(diceStr);
         if (invalid.length > 0) {
-            alert(getDiceValidationMessage('Tile dice'));
+            showAlert(getDiceValidationMessage('Tile dice'));
             return;
         }
         const { xp, unknownTags } = poolEngine.estimateTileXpDetails(diceArray, currentFormTags, getFormArmorType(), {
@@ -344,41 +345,41 @@ export async function saveTileFromForm() {
     const requiredBoxes = specialIdentity ? 3 : 2;
 
     if (!isAmmo && boxes.length !== requiredBoxes) {
-        alert(`Please select exactly ${requiredBoxes} tile boxes${specialIdentity ? ' (special identity tiles gain a third box)' : ''}.`);
+        showAlert(`Please select exactly ${requiredBoxes} tile boxes${specialIdentity ? ' (special identity tiles gain a third box)' : ''}.`);
         return;
     }
     if (isAmmo && ![0, 2].includes(boxes.length)) {
-        alert('Ammo can have no boxes or exactly 2 boxes.');
+        showAlert('Ammo can have no boxes or exactly 2 boxes.');
         return;
     }
     if (specialIdentity === 'homeworld' && type !== 'Story') {
-        alert('Homeworld is a Story tile (p.63).');
+        showAlert('Homeworld is a Story tile (p.63).');
         return;
     }
     if (specialIdentity === 'titan-identity' && !['Gear', 'Story'].includes(type)) {
-        alert('Titan Identity is a Gear or Story tile (p.69).');
+        showAlert('Titan Identity is a Gear or Story tile (p.69).');
         return;
     }
     const missingShadowResource = boxes.find(box => box.type === 'shadow' && !box.resource);
     if (missingShadowResource) {
-        alert(`${missingShadowResource.kind} boxes must choose Health, Energy, or Reflex.`);
+        showAlert(`${missingShadowResource.kind} boxes must choose Health, Energy, or Reflex.`);
         return;
     }
 
     const { dice: diceArray, invalid } = parseDiceInput(diceStr);
     if (invalid.length > 0 || (!isAmmo && diceArray.length === 0)) {
-        alert(getDiceValidationMessage('Tile dice'));
+        showAlert(getDiceValidationMessage('Tile dice'));
         return;
     }
     if (isAmmo && diceArray.length > 0) {
-        alert('Ammo gear does not use dice. Leave the Dice field blank.');
+        showAlert('Ammo gear does not use dice. Leave the Dice field blank.');
         return;
     }
 
     const tagLimit = poolEngine.calculateTagLimit(diceArray, currentFormTags, { specialIdentity });
     renderTileTagLimitStatus();
     if (!tagLimit.valid) {
-        alert(tagLimitErrorMessage('This tile', tagLimit));
+        showAlert(tagLimitErrorMessage('This tile', tagLimit));
         return;
     }
 
@@ -412,7 +413,7 @@ export async function saveTileFromForm() {
 
     const shadowTagIssues = validateShadowTags(tile);
     if (shadowTagIssues.length > 0) {
-        alert(shadowTagIssues.map(issue => issue.message).join('\n'));
+        showAlert(shadowTagIssues.map(issue => issue.message).join('\n'));
         return;
     }
 
@@ -422,7 +423,7 @@ export async function saveTileFromForm() {
         : [...(dataManager.state.tiles || []), tile];
     const nextHitchTotal = calculateHitchRebateTotal(nextTiles);
     if (nextHitchTotal > 6 && nextHitchTotal > currentHitchTotal) {
-        alert(`Hitch rebates are capped at 6 XP per sheet. This would make ${nextHitchTotal} XP of Hitch rebates.`);
+        showAlert(`Hitch rebates are capped at 6 XP per sheet. This would make ${nextHitchTotal} XP of Hitch rebates.`);
         return;
     }
 

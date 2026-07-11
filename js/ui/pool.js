@@ -16,6 +16,7 @@ import { renderCondition } from './condition.js';
 import { renderArmorSoak } from './armorSoak.js';
 import { updateShadowMax } from './vitals.js';
 import { renderRulesReview } from './rulesReview.js';
+import { showAlert, showConfirm } from './dialogService.js';
 
 let dataManager;
 let poolEngine;
@@ -396,7 +397,7 @@ function getAmmoResolutionOptions(calledTileIds = []) {
         }));
 }
 
-function applyResourceCosts(resourceCosts = []) {
+async function applyResourceCosts(resourceCosts = []) {
     const totals = resourceCosts.reduce((acc, cost) => {
         const resource = cost.resource;
         const amount = parseInt(cost.amount, 10) || 0;
@@ -415,12 +416,12 @@ function applyResourceCosts(resourceCosts = []) {
     for (const [resource, amount] of entries) {
         const current = parseInt(dataManager.state[resource], 10) || 0;
         if (current < amount && !dataManager.state.gmOverride) {
-            alert(`Calling ${costText} requires ${amount} ${RESOURCE_LABELS[resource] || resource.toUpperCase()}, but only ${current} is available.`);
+            showAlert(`Calling ${costText} requires ${amount} ${RESOURCE_LABELS[resource] || resource.toUpperCase()}, but only ${current} is available.`);
             return false;
         }
     }
 
-    const spend = confirm(`Calling ${costText}. Spend these resources now?`);
+    const spend = await showConfirm(`Calling ${costText}. Spend these resources now?`, { title: 'Spend call resources?' });
     if (!spend) return false;
 
     entries.forEach(([resource, amount]) => {
@@ -695,21 +696,21 @@ export function renderManualInputs() {
     });
 }
 
-export function executeVirtualRoll() {
+export async function executeVirtualRoll() {
     const colors = getSelectedCallColors();
     const extraDice = getExtraDice();
     if (extraDice.error) {
-        alert(extraDice.error);
+        showAlert(extraDice.error);
         return;
     }
 
     const res = poolEngine.compilePool(colors, dataManager.state.stats, uiState.callTile, uiState.burnTiles, dataManager.state.tiles, extraDice.dice, getPoolOptions());
     
     if (res.error || res.dice.length === 0) {
-        alert(res.error || "No dice to roll.");
+        showAlert(res.error || 'No dice to roll.');
         return;
     }
-    if (!applyResourceCosts(res.resourceCosts || [])) return;
+    if (!await applyResourceCosts(res.resourceCosts || [])) return;
 
     let rolled = poolEngine.rollPool(res.dice);
     let titanRerolls = [];
@@ -734,7 +735,7 @@ export function executeVirtualRoll() {
     finalizeRoll(result, res, 'virtual', colors);
 }
 
-export function executeManualCalculate() {
+export async function executeManualCalculate() {
     const inputs = els.manualInputsContainer.querySelectorAll('.manual-val');
     let rolled = [];
     let hasError = false;
@@ -757,23 +758,23 @@ export function executeManualCalculate() {
     });
 
     if (hasError) {
-        alert("Please enter a valid roll for every die, within that die's range.");
+        showAlert("Please enter a valid roll for every die, within that die's range.");
         return;
     }
 
     const colors = getSelectedCallColors();
     const extraDice = getExtraDice();
     if (extraDice.error) {
-        alert(extraDice.error);
+        showAlert(extraDice.error);
         return;
     }
 
     const res = poolEngine.compilePool(colors, dataManager.state.stats, uiState.callTile, uiState.burnTiles, dataManager.state.tiles, extraDice.dice, getPoolOptions());
     if (res.error || res.dice.length === 0) {
-        alert(res.error || "No dice to calculate.");
+        showAlert(res.error || 'No dice to calculate.');
         return;
     }
-    if (!applyResourceCosts(res.resourceCosts || [])) return;
+    if (!await applyResourceCosts(res.resourceCosts || [])) return;
 
     const result = poolEngine.calculateOptimalTotal(rolled, res.adds, { haywireThreshold: res.haywireThreshold });
     const appliedTagBonuses = getSelectedTagBonuses(res.tagBonuses || []);

@@ -8,6 +8,7 @@ import {
     parseDiceInput
 } from '../../pool.js';
 import { els } from '../../els.js';
+import { showAlert as showAlertDialog } from '../dialogService.js';
 import { showPendingTagDialog } from '../modalWidgets.js';
 import { getFormSpecialIdentity } from './formFields.js';
 
@@ -223,7 +224,7 @@ export function addPendingTileTag({ showAlert = true } = {}) {
     const pending = getPendingTileTag();
     if (!pending) return false;
     if (!pending.canAdd) {
-        if (showAlert) alert(pending.reason || 'Complete the selected tag before adding it.');
+        if (showAlert) showAlertDialog(pending.reason || 'Complete the selected tag before adding it.');
         return false;
     }
 

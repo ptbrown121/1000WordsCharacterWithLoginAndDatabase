@@ -1,6 +1,7 @@
 import { els } from '../els.js';
 import { getEffectiveMax } from '../data.js';
 import { calculateCoreMax, formatAberration, getAvailableShadowAbilities, getShadowTagCounts } from '../pool.js';
+import { showConfirm } from './dialogService.js';
 
 let dataManager;
 let poolEngine;
@@ -103,8 +104,8 @@ export function init(deps) {
     });
 
     // Rest Button
-    els.btnRest.addEventListener('click', () => {
-        if (!confirm("Rest and recover all resources? This will un-burn all tiles and clear tracked crits and the Press counter.")) return;
+    els.btnRest.addEventListener('click', async () => {
+        if (!await showConfirm('Rest and recover all resources? This will un-burn all tiles and clear tracked crits and the Press counter.', { title: 'Rest character?' })) return;
         const state = dataManager.state;
         state.hp = getEffectiveMax(state, 'hp');
         state.en = getEffectiveMax(state, 'en');

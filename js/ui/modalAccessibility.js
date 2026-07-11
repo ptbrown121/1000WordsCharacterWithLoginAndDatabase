@@ -51,7 +51,8 @@ function syncModal(modal) {
     const returnFocus = state.returnFocus;
     state.returnFocus = null;
     requestAnimationFrame(() => {
-        if (openModals().length === 0 && returnFocus?.isConnected) {
+        const remainingModal = openModals().at(-1);
+        if (returnFocus?.isConnected && (!remainingModal || remainingModal.contains(returnFocus))) {
             returnFocus.focus({ preventScroll: true });
         }
     });
@@ -59,16 +60,18 @@ function syncModal(modal) {
 
 function registerModal(modal) {
     if (!(modal instanceof HTMLElement) || modalState.has(modal)) return;
+    const isOpen = modal.classList.contains('active');
+    const active = document.activeElement;
     modalState.set(modal, {
-        isOpen: modal.classList.contains('active'),
-        returnFocus: null
+        isOpen,
+        returnFocus: isOpen && active instanceof HTMLElement && !modal.contains(active) ? active : null
     });
-    modal.setAttribute('aria-hidden', String(!modal.classList.contains('active')));
+    modal.setAttribute('aria-hidden', String(!isOpen));
     new MutationObserver(() => syncModal(modal)).observe(modal, {
         attributes: true,
         attributeFilter: ['class']
     });
-    if (modal.classList.contains('active')) focusModal(modal);
+    if (isOpen) focusModal(modal);
 }
 
 function closeFromKeyboard(modal) {

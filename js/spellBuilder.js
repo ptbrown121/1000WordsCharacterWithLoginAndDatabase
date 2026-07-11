@@ -21,6 +21,7 @@ import {
 } from './ui/spellColors.js';
 import { SPELL_METRIC_IDS, applySpellStateToForm, readSpellStateFromForm } from './ui/spellForm.js';
 import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, showPendingTagDialog } from './ui/modalWidgets.js';
+import { showAlert as showAlertDialog, showConfirm } from './ui/dialogService.js';
 
 export class SpellBuilder {
     constructor(dataManager, renderCallback) {
@@ -161,8 +162,8 @@ export class SpellBuilder {
             this.addPendingSpellTag({ showAlert: true });
         });
 
-        this.btnDelete.addEventListener('click', () => {
-            if (confirm("Delete this spell?")) {
+        this.btnDelete.addEventListener('click', async () => {
+            if (await showConfirm('Delete this spell?', { title: 'Delete spell?', confirmLabel: 'Delete spell', danger: true })) {
                 this.dataManager.deleteTile(this.editingTileId);
                 this.closeWizard();
                 this.renderCallback();
@@ -524,7 +525,7 @@ export class SpellBuilder {
         const pending = this.getPendingSpellTag();
         if (!pending) return false;
         if (!pending.canAdd) {
-            if (showAlert) alert(pending.reason || 'Complete the selected tag before adding it.');
+            if (showAlert) showAlertDialog(pending.reason || 'Complete the selected tag before adding it.');
             return false;
         }
 
@@ -552,21 +553,21 @@ export class SpellBuilder {
         const { diceArray, invalidDice } = this.getSpellDiceInfo();
 
         if (diceArray.length === 0 || invalidDice.length > 0) {
-            alert('Spell dice must use only: d3, d4, d6, d8, d10, d12, d14, or d16.');
+            showAlertDialog('Spell dice must use only: d3, d4, d6, d8, d10, d12, d14, or d16.');
             return;
         }
 
         const tagLimit = this.poolEngine.calculateTagLimit(diceArray, this.currentFormTags);
         this.renderTagLimitStatus();
         if (!tagLimit.valid) {
-            alert(buildTagLimitErrorMessage('This spell', tagLimit));
+            showAlertDialog(buildTagLimitErrorMessage('This spell', tagLimit));
             return;
         }
 
         const school = document.getElementById('spell-school').value;
         const spellBoxes = getSpellBoxSelection();
         if (spellBoxes.error) {
-            alert(spellBoxes.error);
+            showAlertDialog(spellBoxes.error);
             return;
         }
         const boxes = spellBoxes.boxes;
@@ -635,7 +636,7 @@ export class SpellBuilder {
 
         const shadowTagIssues = validateShadowTags(newSpell);
         if (shadowTagIssues.length > 0) {
-            alert(shadowTagIssues.map(issue => issue.message).join('\n'));
+            showAlertDialog(shadowTagIssues.map(issue => issue.message).join('\n'));
             return;
         }
 
@@ -645,7 +646,7 @@ export class SpellBuilder {
             : [...(this.dataManager.state.tiles || []), newSpell];
         const nextHitchTotal = calculateHitchRebateTotal(nextTiles);
         if (nextHitchTotal > 6 && nextHitchTotal > currentHitchTotal) {
-            alert(`Hitch rebates are capped at 6 XP per sheet. This would make ${nextHitchTotal} XP of Hitch rebates.`);
+            showAlertDialog(`Hitch rebates are capped at 6 XP per sheet. This would make ${nextHitchTotal} XP of Hitch rebates.`);
             return;
         }
 

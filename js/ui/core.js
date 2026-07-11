@@ -4,6 +4,7 @@
 import { els } from '../els.js';
 import { getEffectiveMax } from '../data.js';
 import { calculateCoreMax, escapeHtml, getCoreAbilities } from '../pool.js';
+import { showAlert, showConfirm } from './dialogService.js';
 
 let dataManager;
 let renderAll;
@@ -17,7 +18,7 @@ export function getCoreEffectiveMax(state) {
     return getEffectiveMax(state, 'core', calculateCoreMax(state?.tiles || []));
 }
 
-function spendCore(abilityId) {
+async function spendCore(abilityId) {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
     const current = toInt(state.core);
@@ -25,10 +26,10 @@ function spendCore(abilityId) {
     if (!ability) return;
 
     if (current <= 0 && !state.gmOverride) {
-        alert('No Core available to spend.');
+        showAlert('No Core available to spend.');
         return;
     }
-    if (!confirm(`Spend 1 Core on ${ability.label}? (${ability.effect})`)) return;
+    if (!await showConfirm(`Spend 1 Core on ${ability.label}? (${ability.effect})`, { title: 'Spend Core?' })) return;
 
     state.core = Math.max(0, current - 1);
     dataManager.saveState();

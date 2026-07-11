@@ -21,6 +21,27 @@
     scrollbar-gutter: stable;
 }
 
+.app-dialog-content {
+    width: min(92vw, 460px);
+}
+
+.app-dialog-message {
+    margin: 0 0 1rem;
+    white-space: pre-line;
+}
+
+.app-dialog-input {
+    box-sizing: border-box;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.app-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.65rem;
+}
+
 /* Modals float over the full sheet, where the shared 5%-white glass
    tint lets the page text bleed through. Use the same near-opaque dark
    as the tile modal's sticky header/footer instead. */

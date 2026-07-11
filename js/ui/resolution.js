@@ -3,6 +3,7 @@ import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
+import { showAlert, showConfirm } from './dialogService.js';
 import {
     RESOLUTION_MODES,
     RESOLUTION_PLUS_BUCKETS,
@@ -416,14 +417,14 @@ function getTitanEffectiveMaxValue() {
     return getEffectiveMax(dataManager.state, 'titan', calculateTitanMax(dataManager.state.tiles || []));
 }
 
-function spendOneTitan(reason) {
+async function spendOneTitan(reason) {
     const state = dataManager.state;
     const current = parseInt(state.titan, 10) || 0;
     if (current <= 0 && !state.gmOverride) {
-        alert('No Titan available to spend.');
+        showAlert('No Titan available to spend.');
         return false;
     }
-    if (!confirm(`Spend 1 Titan to ${reason}?`)) return false;
+    if (!await showConfirm(`Spend 1 Titan to ${reason}?`, { title: 'Spend Titan?' })) return false;
     state.titan = Math.max(0, current - 1);
     dataManager.saveState();
     if (renderAll) renderAll();
@@ -437,10 +438,10 @@ function recalculateRollTotals(result) {
     Object.assign(result, recalculated);
 }
 
-function spendTitanOnAdd() {
+async function spendTitanOnAdd() {
     const result = uiState.lastRollResult;
     if (!result || !poolEngine) return;
-    if (!spendOneTitan('gain +1 Add')) return;
+    if (!await spendOneTitan('gain +1 Add')) return;
     result.adds = (result.adds ?? 2) + 1;
     recalculateRollTotals(result);
     renderResolution();
@@ -461,14 +462,14 @@ function getTitanMaximizeCandidates(result) {
         .filter(entry => result.titanActive || ['grit', 'impact'].includes(entry.assignment));
 }
 
-function spendTitanOnMaximize() {
+async function spendTitanOnMaximize() {
     const result = uiState.lastRollResult;
     if (!result || !poolEngine) return;
 
     const rollId = document.getElementById('titan-maximize-die')?.value || '';
     const candidate = getTitanMaximizeCandidates(result).find(entry => entry.rollId === rollId);
     if (!candidate) return;
-    if (!spendOneTitan(`maximize the ${candidate.roll.die} (${candidate.roll.val} -> ${candidate.faces})`)) return;
+    if (!await spendOneTitan(`maximize the ${candidate.roll.die} (${candidate.roll.val} -> ${candidate.faces})`)) return;
 
     candidate.roll.val = candidate.faces;
     recalculateRollTotals(result);
@@ -569,7 +570,7 @@ function renderChainCostPanel(result) {
     `;
 }
 
-function payChainCost() {
+async function payChainCost() {
     const result = uiState.lastRollResult;
     if (!result || result.chainCostPaid || !dataManager) return;
 
@@ -591,14 +592,14 @@ function payChainCost() {
             .filter(([key, amount]) => (parseInt(state[key], 10) || 0) < amount)
             .map(([key, amount]) => `${RESOURCE_LABELS[key]} (need ${amount}, have ${parseInt(state[key], 10) || 0})`);
         if (short.length > 0) {
-            alert(`Not enough resources for the chain cost: ${short.join(', ')}. Pick different resources or set maxed dice to Unused.`);
+            showAlert(`Not enough resources for the chain cost: ${short.join(', ')}. Pick different resources or set maxed dice to Unused.`);
             return;
         }
     }
 
     const detail = Object.entries(breakdown)
         .map(([key, amount]) => `${amount} ${RESOURCE_LABELS[key]}`).join(', ');
-    if (!confirm(`Spend ${detail} for ${due.length} maxed ${due.length === 1 ? 'die' : 'dice'} in this chained check?`)) return;
+    if (!await showConfirm(`Spend ${detail} for ${due.length} maxed ${due.length === 1 ? 'die' : 'dice'} in this chained check?`, { title: 'Pay chain cost?' })) return;
 
     Object.entries(breakdown).forEach(([key, amount]) => {
         state[key] = Math.max(0, (parseInt(state[key], 10) || 0) - amount);
@@ -609,7 +610,7 @@ function payChainCost() {
     renderResolution();
 }
 
-function rollPostRollFreebie(die) {
+async function rollPostRollFreebie(die) {
     const result = uiState.lastRollResult;
     if (!result || result.freebieUsed || !poolEngine) return;
 
@@ -624,11 +625,11 @@ function rollPostRollFreebie(die) {
     if (cost > 0 && dataManager) {
         const currentEn = parseInt(dataManager.state.en, 10) || 0;
         if (currentEn < cost && !dataManager.state.gmOverride) {
-            alert(`A Freebie ${die} costs ${cost} Energy, but only ${currentEn} is available.`);
+            showAlert(`A Freebie ${die} costs ${cost} Energy, but only ${currentEn} is available.`);
             return;
         }
         const pushNote = rollAs !== die ? ` (rolls as ${rollAs} in the blast zone)` : '';
-        if (!confirm(`Spend ${cost} Energy for a Freebie ${die}${pushNote}?`)) return;
+        if (!await showConfirm(`Spend ${cost} Energy for a Freebie ${die}${pushNote}?`, { title: 'Buy Freebie die?' })) return;
         dataManager.state.en = Math.max(0, currentEn - cost);
         dataManager.saveState();
         if (renderAll) renderAll();

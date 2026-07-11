@@ -3,6 +3,7 @@
 // any computer. Scoped to the campaign picked in the "Manage members"
 // selector, same as the member list.
 import { els } from '../els.js';
+import { showConfirm } from './dialogService.js';
 
 const POWERPOINT_EXTENSIONS = ['ppt', 'pptx', 'ppsx'];
 
@@ -179,7 +180,7 @@ async function downloadFile(file) {
 
 async function deleteFile(file) {
     if (state.busy) return;
-    if (!confirm(`Delete ${file.title} from the campaign?`)) return;
+    if (!await showConfirm(`Delete ${file.title} from the campaign?`, { title: 'Delete campaign file?', confirmLabel: 'Delete file', danger: true })) return;
     state.busy = true;
     setStatus(`Deleting ${file.title}...`);
     renderCampaignFiles();

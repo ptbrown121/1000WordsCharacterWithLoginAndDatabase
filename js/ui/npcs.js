@@ -4,10 +4,10 @@
 // in the campaign_npcs table, so a campaign keeps one shared NPC roster.
 import { els } from '../els.js';
 import { escapeHtml } from '../pool.js';
+import { showAlert, showConfirm } from './dialogService.js';
 import {
     NPC_RANK_EXAMPLES,
     getDescriptorDie,
-    getNpcBudgets,
     normalizeNpc,
     normalizeNpcBlastZone,
     normalizeNpcList,
@@ -115,7 +115,7 @@ async function copyLocalNpcsToCampaign() {
     if (!isCampaignStorage()) return;
     const locals = readLocalNpcs();
     if (locals.length === 0) return;
-    if (!confirm(`Copy ${locals.length} browser NPC${locals.length === 1 ? '' : 's'} into this campaign? The browser copies stay.`)) return;
+    if (!await showConfirm(`Copy ${locals.length} browser NPC${locals.length === 1 ? '' : 's'} into this campaign? The browser copies stay.`, { title: 'Copy browser NPCs?' })) return;
 
     storageError = '';
     for (const local of locals) {
@@ -187,7 +187,7 @@ function applyRankExample() {
 function addNpcFromForm() {
     const name = document.getElementById('npc-name')?.value.trim();
     if (!name) {
-        alert('Give the NPC a name.');
+        showAlert('Give the NPC a name.');
         return;
     }
     const descriptors = (document.getElementById('npc-descriptors')?.value || '')
@@ -217,12 +217,12 @@ function setNpcNote(npc, text) {
     npc.notes = text;
 }
 
-function handleNpcAction(npcId, action, payload) {
+async function handleNpcAction(npcId, action, payload) {
     const npc = findNpc(npcId);
     if (!npc) return;
 
     if (action === 'delete') {
-        if (!confirm(`Delete ${npc.name}?`)) return;
+        if (!await showConfirm(`Delete ${npc.name}?`, { title: 'Delete NPC?', confirmLabel: 'Delete NPC', danger: true })) return;
         npcs = npcs.filter(entry => entry.id !== npcId);
         removeNpc(npcId);
         renderNpcs();

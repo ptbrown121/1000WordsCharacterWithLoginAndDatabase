@@ -2,6 +2,7 @@
 // Dashboard counters, and the Press tracker. Rules math lives in
 // js/status-rules.js; this module only renders and persists.
 import { els } from '../els.js';
+import { showAlert, showConfirm } from './dialogService.js';
 import { escapeHtml, getCoreAbilities } from '../pool.js';
 import {
     CRIT_DASHBOARD,
@@ -45,7 +46,7 @@ function adjustCrit(critId, step) {
     renderCondition();
 }
 
-function executePress(kind) {
+async function executePress(kind) {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
     const toggles = getPressToggles();
@@ -56,17 +57,17 @@ function executePress(kind) {
     const useReticle = toggles.reticle && hasReticleAbility() && toInt(state.core) > 0;
 
     if (currentRx <= 0) {
-        alert('Cornered (0 Reflex): the character cannot Press.');
+        showAlert('Cornered (0 Reflex): the character cannot Press.');
         return;
     }
     if (currentRx < cost && !state.gmOverride) {
-        alert(`This Press costs ${cost} RX, but only ${currentRx} is available.`);
+        showAlert(`This Press costs ${cost} RX, but only ${currentRx} is available.`);
         return;
     }
     const counterText = useReticle
         ? `1 Core (Reticle) keeps the press counter at ${toInt(state.pressCount)}`
         : `the press counter rises to ${toInt(state.pressCount) + 1}`;
-    if (!confirm(`Press for a${kind === 'move' ? ' Move' : 'n Action'}: spend ${cost} RX? ${counterText}.`)) return;
+    if (!await showConfirm(`Press for a${kind === 'move' ? ' Move' : 'n Action'}: spend ${cost} RX? ${counterText}.`, { title: 'Spend Reflex?' })) return;
 
     state.rx = Math.max(0, currentRx - cost);
     if (useReticle) {

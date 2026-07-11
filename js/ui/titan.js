@@ -5,6 +5,7 @@
 import { els } from '../els.js';
 import { getEffectiveMax } from '../data.js';
 import { calculateTitanMax, escapeHtml, getTitanAbilities } from '../pool.js';
+import { showAlert, showConfirm, showPrompt } from './dialogService.js';
 
 let dataManager;
 let renderAll;
@@ -24,7 +25,7 @@ function formatHvScore(score) {
     return 'Balanced 0';
 }
 
-function spendTitanAbility(abilityId) {
+async function spendTitanAbility(abilityId) {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
     const current = toInt(state.titan);
@@ -32,7 +33,7 @@ function spendTitanAbility(abilityId) {
     if (!ability) return;
 
     if (current <= 0 && !state.gmOverride) {
-        alert('No Titan available to spend.');
+        showAlert('No Titan available to spend.');
         return;
     }
 
@@ -41,7 +42,7 @@ function spendTitanAbility(abilityId) {
         : ability.hv !== 0
             ? ` ${ability.hv > 0 ? `+${ability.hv} Heroism` : `${-ability.hv} Villainy`} is recorded.`
             : '';
-    if (!confirm(`Spend 1 Titan on ${ability.label}? (${ability.effect})${hvText}`)) return;
+    if (!await showConfirm(`Spend 1 Titan on ${ability.label}? (${ability.effect})${hvText}`, { title: 'Spend Titan?' })) return;
 
     state.titan = Math.max(0, current - 1);
     if (typeof ability.hv === 'number' && ability.hv !== 0) {
@@ -63,16 +64,18 @@ function adjustHv(step) {
 
 // Story beat (p.69): "the GM can reset the score in exchange for some or all
 // Titan points." The granted amount is GM-set; current Titan caps at max.
-function tradeHvForTitan() {
+async function tradeHvForTitan() {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
     const score = toInt(state.titanHV);
     if (score === 0) {
-        alert('No Heroism/Villainy score to trade.');
+        showAlert('No Heroism/Villainy score to trade.');
         return;
     }
 
-    const granted = parseInt(prompt(`Story beat: the GM resets ${formatHvScore(score)} in exchange for Titan points. How many points are granted?`, String(Math.abs(score))), 10);
+    const response = await showPrompt(`Story beat: the GM resets ${formatHvScore(score)} in exchange for Titan points. How many points are granted?`, { title: 'Trade H/V for Titan', defaultValue: String(Math.abs(score)), inputLabel: 'Titan points granted' });
+    if (response === null) return;
+    const granted = parseInt(response, 10);
     if (!Number.isFinite(granted) || granted < 0) return;
 
     state.titanHV = 0;

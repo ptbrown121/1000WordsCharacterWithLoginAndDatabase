@@ -1,5 +1,6 @@
 import { els } from '../els.js';
 import { SupabaseCharacterStore } from '../supabaseStore.js';
+import { showConfirm } from './dialogService.js';
 
 let dataManager;
 let supabaseClient;
@@ -422,11 +423,17 @@ export async function init(deps) {
     window.addEventListener('cloud-save-conflict', async (event) => {
         const { charId, state, draftRevision } = event.detail || {};
         if (!charId) return;
-        const reloadNewer = confirm(
+        const reloadNewer = await showConfirm(
             'This character was changed in another tab or on another device since you loaded it.\n\n' +
-            'OK: load the newer cloud version (recommended - unsaved edits here are discarded).\n' +
-            'Cancel: overwrite the cloud with this copy.'
+            'Choose which copy to keep.',
+            {
+                title: 'Cloud save conflict',
+                confirmLabel: 'Load cloud version',
+                cancelLabel: 'Overwrite cloud',
+                dismissValue: null
+            }
         );
+        if (reloadNewer === null) return;
         try {
             if (reloadNewer) {
                 await dataManager.resolveCloudConflictByReloading(charId);

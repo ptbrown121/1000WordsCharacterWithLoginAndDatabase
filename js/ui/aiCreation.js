@@ -1,4 +1,5 @@
 import { els } from '../els.js';
+import { showConfirm, showPrompt } from './dialogService.js';
 import { renderJournal } from './journal.js';
 
 let dataManager;
@@ -197,7 +198,7 @@ async function finalizeScene() {
 
 async function cancelScene() {
     if (aiState.busyThread || !aiState.activeBundle?.thread || isClosedThread()) return;
-    if (!confirm('Cancel this AI scene? The chat will stay visible for reference, but it will not be finalized or saved to the journal.')) return;
+    if (!await showConfirm('Cancel this AI scene? The chat will stay visible for reference, but it will not be finalized or saved to the journal.', { title: 'Cancel AI scene?', confirmLabel: 'Cancel scene', danger: true })) return;
     aiState.busyThread = true;
     setThreadStatus('Cancelling this scene...');
     renderAiCreation();
@@ -245,7 +246,7 @@ async function acceptSummary(summaryId) {
 
 async function editMessage(message) {
     if (aiState.busyThread || !message?.id || isClosedThread()) return;
-    const edited = prompt('Edit your response:', message.content || '');
+    const edited = await showPrompt('Edit your response:', { title: 'Edit response', defaultValue: message.content || '' });
     if (edited === null) return;
     const content = edited.trim();
     if (!content || content === message.content) return;

@@ -1,14 +1,15 @@
 import { escapeHtml } from '../pool.js';
 import { els } from '../els.js';
+import { showConfirm, showPrompt } from './dialogService.js';
 
 let dataManager;
 
 export function init(deps) {
     dataManager = deps.dataManager;
 
-    els.btnAddJournal.addEventListener('click', () => {
+    els.btnAddJournal.addEventListener('click', async () => {
         if (!dataManager.state.journal) dataManager.state.journal = [];
-        const title = prompt('Enter a title for this journal entry:', 'Session Notes');
+        const title = await showPrompt('Enter a title for this journal entry:', { title: 'New journal entry', defaultValue: 'Session Notes' });
         if (!title) return;
         dataManager.state.journal.push({
             id: crypto.randomUUID(),
@@ -67,9 +68,9 @@ export function renderJournal() {
         });
         
         // Rename
-        div.querySelector('.btn-rename-journal').addEventListener('click', (e) => {
+        div.querySelector('.btn-rename-journal').addEventListener('click', async (e) => {
             e.stopPropagation();
-            const newTitle = prompt('Rename this entry:', entry.title);
+            const newTitle = await showPrompt('Rename this entry:', { title: 'Rename journal entry', defaultValue: entry.title });
             if (newTitle) {
                 entry.title = newTitle;
                 dataManager.saveState();
@@ -78,9 +79,9 @@ export function renderJournal() {
         });
         
         // Delete
-        div.querySelector('.btn-delete-journal').addEventListener('click', (e) => {
+        div.querySelector('.btn-delete-journal').addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (!confirm(`Delete journal entry "${entry.title}"?`)) return;
+            if (!await showConfirm(`Delete journal entry "${entry.title}"?`, { title: 'Delete journal entry?', confirmLabel: 'Delete entry', danger: true })) return;
             dataManager.state.journal.splice(idx, 1);
             dataManager.saveState();
             renderJournal();
