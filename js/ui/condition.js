@@ -1,9 +1,11 @@
+// @ts-check
 // Condition panel: derived status conditions (0-pool states), the Crits
 // Dashboard counters, and the Press tracker. Rules math lives in
 // js/status-rules.js; this module only renders and persists.
 import { els } from '../els.js';
 import { showAlert, showConfirm } from './dialogService.js';
 import { escapeHtml, getCoreAbilities } from '../pool.js';
+import { optionalEditorElement } from './editorDom.js';
 import {
     CRIT_DASHBOARD,
     calculatePressCost,
@@ -11,7 +13,10 @@ import {
     normalizeActiveCrits
 } from '../status-rules.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, canEditActiveCharacter: () => boolean, saveState: () => void}} ConditionDataManager */
+/** @type {ConditionDataManager} */
 let dataManager;
+/** @type {() => void} */
 let renderAll;
 
 const toInt = (value) => {
@@ -21,10 +26,10 @@ const toInt = (value) => {
 
 function getPressToggles() {
     return {
-        repeatPrevious: Boolean(document.getElementById('press-repeat')?.checked),
-        fastWeapon: Boolean(document.getElementById('press-fast')?.checked),
-        recoilWeapon: Boolean(document.getElementById('press-recoil')?.checked),
-        reticle: Boolean(document.getElementById('press-reticle')?.checked)
+        repeatPrevious: Boolean(optionalEditorElement(document, '#press-repeat', HTMLInputElement)?.checked),
+        fastWeapon: Boolean(optionalEditorElement(document, '#press-fast', HTMLInputElement)?.checked),
+        recoilWeapon: Boolean(optionalEditorElement(document, '#press-recoil', HTMLInputElement)?.checked),
+        reticle: Boolean(optionalEditorElement(document, '#press-reticle', HTMLInputElement)?.checked)
     };
 }
 
@@ -50,7 +55,7 @@ async function executePress(kind) {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
     const toggles = getPressToggles();
-    const cost = calculatePressCost({ kind, pressCount: state.pressCount, ...toggles });
+    const cost = calculatePressCost({ kind, pressCount: toInt(state.pressCount), ...toggles });
     const currentRx = toInt(state.rx);
     // Reticle (Cyber, p.64): spend 1 Core to Press without increasing the
     // Press counter.
@@ -151,8 +156,8 @@ function renderPressTracker() {
     if (!els.pressTracker) return;
     const state = dataManager.state;
     const toggles = getPressToggles();
-    const moveCost = calculatePressCost({ kind: 'move', pressCount: state.pressCount, ...toggles });
-    const actionCost = calculatePressCost({ kind: 'action', pressCount: state.pressCount, ...toggles });
+    const moveCost = calculatePressCost({ kind: 'move', pressCount: toInt(state.pressCount), ...toggles });
+    const actionCost = calculatePressCost({ kind: 'action', pressCount: toInt(state.pressCount), ...toggles });
 
     els.pressTracker.innerHTML = `
         <small>Press the Initiative (spends RX; each Press or Haywire raises later Press costs by 1)</small>
@@ -179,6 +184,7 @@ export function renderCondition() {
     renderPressTracker();
 }
 
+/** @param {{dataManager: ConditionDataManager, renderAll: () => void}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     renderAll = deps.renderAll;
@@ -193,31 +199,32 @@ export function init(deps) {
     }
 
     els.conditionPanelBody?.addEventListener('click', (e) => {
-        const critStep = e.target.closest('.crit-step');
-        if (critStep) {
+        const target = e.target instanceof Element ? e.target : null;
+        const critStep = target?.closest('.crit-step');
+        if (critStep instanceof HTMLButtonElement) {
             adjustCrit(critStep.dataset.crit, toInt(critStep.dataset.step));
             return;
         }
-        const pressButton = e.target.closest('.btn-press');
-        if (pressButton) {
+        const pressButton = target?.closest('.btn-press');
+        if (pressButton instanceof HTMLButtonElement) {
             executePress(pressButton.dataset.pressKind);
             return;
         }
-        if (e.target.closest('#btn-clear-fast-crits')) {
+        if (target?.closest('#btn-clear-fast-crits')) {
             clearFastCrits();
             return;
         }
-        if (e.target.closest('#btn-press-haywire')) {
+        if (target?.closest('#btn-press-haywire')) {
             bumpPressCount(1);
             return;
         }
-        if (e.target.closest('#btn-press-reset')) {
+        if (target?.closest('#btn-press-reset')) {
             resetPressCount();
         }
     });
 
     els.conditionPanelBody?.addEventListener('change', (e) => {
-        if (['press-repeat', 'press-fast', 'press-recoil', 'press-reticle'].includes(e.target.id)) {
+        if (e.target instanceof HTMLInputElement && ['press-repeat', 'press-fast', 'press-recoil', 'press-reticle'].includes(e.target.id)) {
             renderPressTracker();
         }
     });

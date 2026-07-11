@@ -221,11 +221,19 @@
  * @property {number|string} [storyPointsEarned]
  * @property {number|string} hp
  * @property {number|string} hpMax
+ * @property {number|string} [hpTemp]
+ * @property {number|string} [hpPerm]
  * @property {number|string} en
  * @property {number|string} enMax
+ * @property {number|string} [enTemp]
+ * @property {number|string} [enPerm]
  * @property {number|string} rx
  * @property {number|string} rxMax
+ * @property {number|string} [rxTemp]
+ * @property {number|string} [rxPerm]
  * @property {number|string} [sh]
+ * @property {number|string} [shTemp]
+ * @property {number|string} [shPerm]
  * @property {number|string} [core]
  * @property {number|string} [titan]
  * @property {number|string} [titanHV]
@@ -234,6 +242,7 @@
  * @property {number|string} [aberration]
  * @property {boolean} [legacyShadowWarning]
  * @property {boolean} [gmOverride]
+ * @property {boolean} [showOptionalStats]
  * @property {Object<string, number>} [activeCrits]
  * @property {number|string} [pressCount]
  * @property {Object<string, string>} stats  stat name -> dice string

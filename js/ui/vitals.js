@@ -1,10 +1,16 @@
+// @ts-check
 import { els } from '../els.js';
 import { getEffectiveMax } from '../data.js';
 import { calculateCoreMax, formatAberration, getAvailableShadowAbilities, getShadowTagCounts } from '../pool.js';
 import { showConfirm } from './dialogService.js';
+import { editorElements } from './editorDom.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, updateResource: (key: string, value: number) => void, saveState: () => void}} VitalsDataManager */
+/** @type {VitalsDataManager} */
 let dataManager;
+/** @type {import('../pool.js').PoolEngine} */
 let poolEngine;
+/** @type {() => void} */
 let renderAll;
 
 const toInt = (value) => {
@@ -34,13 +40,14 @@ function stepCurrentVital(key, step) {
     saveCurrentVital(key, next);
 }
 
+/** @param {{dataManager: VitalsDataManager, poolEngine: import('../pool.js').PoolEngine, renderAll: () => void}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     renderAll = deps.renderAll;
 
     Object.entries(currentVitalInputs()).forEach(([key, input]) => {
-        input.addEventListener('change', (e) => saveCurrentVital(key, toInt(e.target.value)));
+        input.addEventListener('change', () => saveCurrentVital(key, toInt(input.value)));
     });
     els.vitalStepButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -48,8 +55,8 @@ export function init(deps) {
         });
     });
     if (els.valAberration) {
-        els.valAberration.addEventListener('change', (e) => {
-            dataManager.state.aberration = toInt(e.target.value);
+        els.valAberration.addEventListener('change', () => {
+            dataManager.state.aberration = toInt(els.valAberration.value);
             dataManager.saveState();
             renderShadowStatus();
         });
@@ -78,14 +85,15 @@ export function init(deps) {
     }
 
     // Vital Edit Buttons
-    document.querySelectorAll('.btn-edit-vital').forEach(btn => {
+    editorElements(document, '.btn-edit-vital', HTMLButtonElement).forEach(btn => {
         btn.addEventListener('click', () => {
             const key = btn.dataset.vital; // hp, en, or rx
             const labels = { hp: 'Health (HP)', en: 'Energy (EN)', rx: 'Reflex (RX)', sh: 'Shadow (SH)' };
+            if (!key || !labels[key]) return;
             els.vitalModalTitle.innerText = `Edit ${labels[key]} Bonuses`;
             els.vitalModalKey.value = key;
-            els.vitalPermInput.value = dataManager.state[key + 'Perm'] || 0;
-            els.vitalTempInput.value = dataManager.state[key + 'Temp'] || 0;
+            els.vitalPermInput.value = String(dataManager.state[key + 'Perm'] || 0);
+            els.vitalTempInput.value = String(dataManager.state[key + 'Temp'] || 0);
             els.vitalModal.classList.add('active');
         });
     });
@@ -153,7 +161,7 @@ export function renderTempBadge(badgeEl, tempVal) {
 export function updateShadowMax() {
     const shBase = poolEngine.calculateShadowMax(dataManager.state.tiles);
     const shEffMax = getEffectiveMax(dataManager.state, 'sh', shBase);
-    els.valShMax.innerText = shEffMax;
+    els.valShMax.innerText = String(shEffMax);
     renderTempBadge(els.shTempBadge, dataManager.state.shTemp);
     renderShadowStatus();
 }
@@ -164,7 +172,7 @@ export function renderShadowStatus() {
     const maxShadow = getEffectiveMax(dataManager.state, 'sh', shBase);
     const tagCounts = getShadowTagCounts(dataManager.state.tiles);
     const aberration = toInt(dataManager.state.aberration);
-    if (els.valAberration) els.valAberration.value = aberration;
+    if (els.valAberration) els.valAberration.value = String(aberration);
     els.shadowAlignmentDisplay.textContent = formatAberration(aberration, maxShadow, tagCounts);
 
     if (!els.shadowAbilitiesDisplay) return;

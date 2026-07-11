@@ -37,6 +37,7 @@ const toInt = (value) => {
 
 // Normalize a stored activeCrits map to { critId: positiveCount }.
 export function normalizeActiveCrits(raw) {
+    /** @type {Object<string, number>} */
     const out = {};
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
 

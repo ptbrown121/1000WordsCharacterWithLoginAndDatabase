@@ -44,3 +44,17 @@ export function optionalEditorElement(root, selector, ElementType) {
     if (element === null || element instanceof ElementType) return element;
     throw new Error(`Invalid editor element matching ${selector}`);
 }
+
+/**
+ * Return one required, type-checked dynamic editor control.
+ * @template {Element} T
+ * @param {ParentNode} root
+ * @param {string} selector
+ * @param {new (...args: any[]) => T} ElementType
+ * @returns {T}
+ */
+export function requiredEditorElement(root, selector, ElementType) {
+    const element = optionalEditorElement(root, selector, ElementType);
+    if (element) return element;
+    throw new Error(`Missing required editor element matching ${selector}`);
+}

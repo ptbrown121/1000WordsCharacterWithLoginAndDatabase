@@ -1,3 +1,4 @@
+// @ts-check
 import { ADVANCEABLE_STATS, parseDiceInput, getDiceValidationMessage } from '../pool.js';
 import { STAT_COLORS, COLOR_HEX } from '../data.js';
 import { els } from '../els.js';
@@ -8,7 +9,10 @@ import { renderCards } from './cards.js';
 import { renderRulesReview } from './rulesReview.js';
 import { showAlert } from './dialogService.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, updateStat: (stat: string, value: string) => void, saveState: () => void}} StatsDataManager */
+/** @type {StatsDataManager} */
 let dataManager;
+/** @type {import('../pool.js').PoolEngine} */
 let poolEngine;
 
 function getStatInput(stat) {
@@ -106,14 +110,14 @@ function calculateBaseXpSpent() {
 
     // 2. Tiles XP
     dataManager.state.tiles.forEach(t => {
-        spent += (parseInt(t.xpCost, 10) || 0);
+        spent += (parseInt(String(t.xpCost || 0), 10) || 0);
     });
 
     return spent;
 }
 
 function getDisplayedXpSpent() {
-    return Math.max(0, calculateBaseXpSpent() + (parseInt(dataManager.state.xpSpentAdjustment, 10) || 0));
+    return Math.max(0, calculateBaseXpSpent() + (parseInt(String(dataManager.state.xpSpentAdjustment || 0), 10) || 0));
 }
 
 function setCounterValue(counter, value) {
@@ -129,48 +133,50 @@ function setCounterValue(counter, value) {
         updateXpTracker();
     } else if (counter === 'storyPointsSpent') {
         dataManager.state.storyPointsSpent = normalized;
-        els.valStoryPointsSpent.value = normalized;
+        els.valStoryPointsSpent.value = String(normalized);
         dataManager.saveState();
     } else if (counter === 'storyPointsEarned') {
         dataManager.state.storyPointsEarned = normalized;
         dataManager.state.storyPoints = normalized;
-        els.valStoryPointsEarned.value = normalized;
+        els.valStoryPointsEarned.value = String(normalized);
         dataManager.saveState();
     }
 }
 
 function getCounterValue(counter) {
     if (counter === 'xpSpent') return getDisplayedXpSpent();
-    if (counter === 'xpEarned') return parseInt(dataManager.state.xpEarned, 10) || 0;
-    if (counter === 'storyPointsSpent') return parseInt(dataManager.state.storyPointsSpent, 10) || 0;
-    if (counter === 'storyPointsEarned') return parseInt(dataManager.state.storyPointsEarned, 10) || 0;
+    if (counter === 'xpEarned') return parseInt(String(dataManager.state.xpEarned), 10) || 0;
+    if (counter === 'storyPointsSpent') return parseInt(String(dataManager.state.storyPointsSpent || 0), 10) || 0;
+    if (counter === 'storyPointsEarned') return parseInt(String(dataManager.state.storyPointsEarned || 0), 10) || 0;
     return 0;
 }
 
+/** @param {{dataManager: StatsDataManager, poolEngine: import('../pool.js').PoolEngine}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
 
-    els.valXpEarned.addEventListener('change', (e) => {
-        setCounterValue('xpEarned', e.target.value);
+    els.valXpEarned.addEventListener('change', () => {
+        setCounterValue('xpEarned', els.valXpEarned.value);
     });
-    els.valStoryPointsSpent.addEventListener('change', (e) => {
-        setCounterValue('storyPointsSpent', e.target.value);
+    els.valStoryPointsSpent.addEventListener('change', () => {
+        setCounterValue('storyPointsSpent', els.valStoryPointsSpent.value);
     });
-    els.valStoryPointsEarned.addEventListener('change', (e) => {
-        setCounterValue('storyPointsEarned', e.target.value);
+    els.valStoryPointsEarned.addEventListener('change', () => {
+        setCounterValue('storyPointsEarned', els.valStoryPointsEarned.value);
     });
     els.counterStepButtons.forEach(button => {
         button.addEventListener('click', () => {
             const counter = button.dataset.counter;
-            const step = parseInt(button.dataset.step, 10) || 0;
-            setCounterValue(counter, getCounterValue(counter) + step);
+            const step = parseInt(button.dataset.step || '0', 10) || 0;
+            if (counter) setCounterValue(counter, getCounterValue(counter) + step);
         });
     });
 
     if (els.toggleOptionalStats) {
-        els.toggleOptionalStats.addEventListener('change', (e) => {
-            dataManager.state.showOptionalStats = e.target.checked;
+        const toggleOptionalStats = els.toggleOptionalStats;
+        toggleOptionalStats.addEventListener('change', () => {
+            dataManager.state.showOptionalStats = toggleOptionalStats.checked;
             dataManager.saveState();
             renderOptionalStatsVisibility();
             renderCards();
@@ -180,8 +186,9 @@ export function init(deps) {
 
     // Stats
     els.statSelects.forEach(sel => {
-        sel.addEventListener('change', (e) => {
-            saveStatDice(e.target.dataset.stat, e.target.value, { resetOnInvalid: true });
+        sel.addEventListener('change', () => {
+            const stat = sel.dataset.stat;
+            if (stat) saveStatDice(stat, sel.value, { resetOnInvalid: true });
         });
     });
 
@@ -190,9 +197,11 @@ export function init(deps) {
     });
     els.statDiceInput.addEventListener('input', syncStatDiceChips);
     els.statDiceButtonsGrid.addEventListener('click', (e) => {
-        const button = e.target.closest('.dice-add-btn');
+        const button = e.target instanceof Element ? e.target.closest('.dice-add-btn') : null;
         if (!button || !els.statDiceButtonsGrid.contains(button)) return;
-        setStatDiceTokens([...getStatDiceTokens(), button.dataset.die]);
+        if (button instanceof HTMLButtonElement && button.dataset.die) {
+            setStatDiceTokens([...getStatDiceTokens(), button.dataset.die]);
+        }
     });
     els.btnStatDiceClear.addEventListener('click', () => setStatDiceTokens([]));
     els.btnStatDiceCancel.addEventListener('click', closeStatDiceModal);
@@ -229,8 +238,8 @@ export function renderStatsSummary() {
 }
 
 export function updateXpTracker() {
-    els.valXpSpent.innerText = getDisplayedXpSpent();
-    els.valXpEarned.value = dataManager.state.xpEarned;
+    els.valXpSpent.innerText = String(getDisplayedXpSpent());
+    els.valXpEarned.value = String(dataManager.state.xpEarned);
     renderRulesReview();
 }
 

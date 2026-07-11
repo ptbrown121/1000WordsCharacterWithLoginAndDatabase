@@ -1,9 +1,14 @@
+// @ts-check
 import { escapeHtml } from '../pool.js';
 import { els } from '../els.js';
 import { showConfirm, showPrompt } from './dialogService.js';
+import { requiredEditorElement } from './editorDom.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, saveState: () => void}} JournalDataManager */
+/** @type {JournalDataManager} */
 let dataManager;
 
+/** @param {{dataManager: JournalDataManager}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
 
@@ -48,27 +53,28 @@ export function renderJournal() {
             </div>
         `;
 
-        const header = div.querySelector('.journal-entry-header');
-        const body = div.querySelector('.journal-entry-body');
-        const toggleBtn = div.querySelector('.btn-toggle-journal');
+        const header = requiredEditorElement(div, '.journal-entry-header', HTMLElement);
+        const body = requiredEditorElement(div, '.journal-entry-body', HTMLElement);
+        const toggleBtn = requiredEditorElement(div, '.btn-toggle-journal', HTMLButtonElement);
         
         // Toggle expand/collapse
         header.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-rename-journal') || e.target.closest('.btn-delete-journal')) return;
+            const target = e.target instanceof Element ? e.target : null;
+            if (target?.closest('.btn-rename-journal') || target?.closest('.btn-delete-journal')) return;
             const isOpen = body.style.display !== 'none';
             body.style.display = isOpen ? 'none' : 'block';
             toggleBtn.innerText = isOpen ? '▼' : '▲';
         });
         
         // Auto-save on typing
-        const textarea = div.querySelector('textarea');
+        const textarea = requiredEditorElement(div, 'textarea', HTMLTextAreaElement);
         textarea.addEventListener('input', () => {
             entry.content = textarea.value;
             dataManager.saveState();
         });
         
         // Rename
-        div.querySelector('.btn-rename-journal').addEventListener('click', async (e) => {
+        requiredEditorElement(div, '.btn-rename-journal', HTMLButtonElement).addEventListener('click', async (e) => {
             e.stopPropagation();
             const newTitle = await showPrompt('Rename this entry:', { title: 'Rename journal entry', defaultValue: entry.title });
             if (newTitle) {
@@ -79,10 +85,10 @@ export function renderJournal() {
         });
         
         // Delete
-        div.querySelector('.btn-delete-journal').addEventListener('click', async (e) => {
+        requiredEditorElement(div, '.btn-delete-journal', HTMLButtonElement).addEventListener('click', async (e) => {
             e.stopPropagation();
             if (!await showConfirm(`Delete journal entry "${entry.title}"?`, { title: 'Delete journal entry?', confirmLabel: 'Delete entry', danger: true })) return;
-            dataManager.state.journal.splice(idx, 1);
+            entries.splice(idx, 1);
             dataManager.saveState();
             renderJournal();
         });
