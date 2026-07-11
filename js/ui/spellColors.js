@@ -122,19 +122,25 @@ export function restoreSpellBoxes(tile) {
     syncShadowResourceControls();
 }
 
+/** @returns {{boxes: import('../types.js').TileBox[], error: string|null}} */
 export function getSpellBoxSelection() {
     const school = editorElement('spell-school').value;
     if (!isCustomColorMode()) {
         return { boxes: getDefaultSpellBoxes(school), error: null };
     }
 
+    /** @type {import('../types.js').TileBox[]} */
     const boxes = [];
     editorElements(document, '.spell-color-cb:checked', HTMLInputElement).forEach(cb => {
-        if (SPELL_NORMAL_COLORS.has(cb.value)) {
-            boxes.push({ type: 'color', color: cb.value });
-        } else if (SPELL_SHADOW_KINDS.has(cb.value)) {
+        if (SPELL_NORMAL_COLORS.has(/** @type {import('../types.js').NormalColor} */ (cb.value))) {
+            boxes.push({ type: 'color', color: /** @type {import('../types.js').NormalColor} */ (cb.value) });
+        } else if (SPELL_SHADOW_KINDS.has(/** @type {'Qi'|'Id'} */ (cb.value))) {
             const resource = optionalEditorElement(document, `.spell-shadow-resource[data-shadow-kind="${cb.value}"]`, HTMLSelectElement)?.value || '';
-            boxes.push({ type: 'shadow', kind: cb.value, resource });
+            boxes.push({
+                type: 'shadow',
+                kind: /** @type {'Qi'|'Id'} */ (cb.value),
+                resource: /** @type {import('../types.js').ResourceKey|''} */ (resource)
+            });
         }
     });
 
@@ -147,9 +153,10 @@ export function getSpellBoxSelection() {
         return { boxes, error: `${missingResource.kind} spell boxes must choose Health, Energy, or Reflex.` };
     }
 
-    return { boxes: serializeTileBoxes(boxes), error: null };
+    return { boxes: /** @type {import('../types.js').TileBox[]} */ (serializeTileBoxes(boxes)), error: null };
 }
 
+/** @param {import('../types.js').TileBox[]} [boxes] */
 export function getColorBuildFlagsFromForm(boxes = getSpellBoxSelection().boxes) {
     return getColorBuildFlags({
         school: editorElement('spell-school').value,
