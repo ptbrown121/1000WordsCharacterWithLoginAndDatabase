@@ -1,16 +1,21 @@
+// @ts-check
 import { escapeHtml } from '../pool.js';
 import { buildRulesReviewItems } from '../rules-review.js';
 import { els } from '../els.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, saveState: () => void}} RulesDataManager */
+/** @type {RulesDataManager} */
 let dataManager;
+/** @type {import('../pool.js').PoolEngine} */
 let poolEngine;
 
+/** @param {{dataManager: RulesDataManager, poolEngine: import('../pool.js').PoolEngine}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
 
-    els.toggleGmOverride.addEventListener('change', (e) => {
-        dataManager.state.gmOverride = e.target.checked;
+    els.toggleGmOverride.addEventListener('change', () => {
+        dataManager.state.gmOverride = els.toggleGmOverride.checked;
         dataManager.saveState();
         renderRulesReview();
     });

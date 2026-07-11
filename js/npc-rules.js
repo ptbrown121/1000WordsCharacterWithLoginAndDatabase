@@ -82,6 +82,7 @@ export function reviewNpcBuild(npc = {}) {
 }
 
 // Per-NPC Aberrant Blast Zone flag: '' (outside), 'risen', or 'fallen'.
+/** @returns {''|'risen'|'fallen'} */
 export function normalizeNpcBlastZone(value) {
     const zone = String(value || '').trim().toLowerCase();
     return zone === 'risen' || zone === 'fallen' ? zone : '';
@@ -118,6 +119,7 @@ export function rollNpcDefense(npc, rollFn) {
     return { ...result, total: result.total + Math.max(0, toInt(npc.rank)) };
 }
 
+/** @returns {import('./types.js').Npc} */
 export function normalizeNpc(raw = {}) {
     const rank = Math.max(1, toInt(raw.rank) || 1);
     // Up to Rank descriptors is the rule, but extras are kept and flagged
@@ -149,6 +151,7 @@ export function normalizeNpc(raw = {}) {
     };
 }
 
+/** @returns {import('./types.js').Npc[]} */
 export function normalizeNpcList(raw) {
     if (!Array.isArray(raw)) return [];
     return raw.filter(entry => entry && typeof entry === 'object').map(normalizeNpc);

@@ -1,3 +1,4 @@
+// @ts-check
 // GM-side NPC tracker panel (v5.02 p.71). NPCs are independent of player
 // characters. They live either in this browser's localStorage or - when a
 // signed-in GM picks one of their campaigns in the "Stored in" selector -
@@ -5,6 +6,7 @@
 import { els } from '../els.js';
 import { escapeHtml } from '../pool.js';
 import { showAlert, showConfirm } from './dialogService.js';
+import { requiredEditorElement } from './editorDom.js';
 import {
     NPC_RANK_EXAMPLES,
     getDescriptorDie,
@@ -20,8 +22,11 @@ import {
 const STORAGE_KEY = '1000words_npcs';
 const LOCAL_STORAGE_ID = 'local';
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
+/** @type {import('../pool.js').PoolEngine} */
 let poolEngine;
+/** @type {import('../types.js').Npc[]} */
 let npcs = [];
 let storageId = LOCAL_STORAGE_ID;
 let loading = false;
@@ -34,6 +39,16 @@ const toInt = (value) => {
 };
 
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
+
+const npcInput = (id) => requiredEditorElement(document, `#${id}`, HTMLInputElement);
+const npcSelect = (id) => requiredEditorElement(document, `#${id}`, HTMLSelectElement);
+const npcButton = (id) => requiredEditorElement(document, `#${id}`, HTMLButtonElement);
+const npcElement = (id) => requiredEditorElement(document, `#${id}`, HTMLElement);
+
+/** @param {unknown} error @param {string} fallback */
+function getErrorMessage(error, fallback) {
+    return error instanceof Error ? error.message : fallback;
+}
 
 function getGmCampaigns() {
     return (dataManager?.campaigns || []).filter(campaign => campaign.role === 'gm');
@@ -60,7 +75,7 @@ function saveLocalNpcs() {
 }
 
 function reportStorageError(error, fallback) {
-    storageError = error?.message || fallback;
+    storageError = getErrorMessage(error, fallback);
     renderNpcs();
 }
 
@@ -105,7 +120,7 @@ async function switchStorage(nextId) {
     } catch (error) {
         storageId = LOCAL_STORAGE_ID;
         npcs = readLocalNpcs();
-        storageError = error?.message || 'Could not load campaign NPCs; showing this browser instead.';
+        storageError = getErrorMessage(error, 'Could not load campaign NPCs; showing this browser instead.');
     }
     loading = false;
     renderNpcs();
@@ -126,7 +141,7 @@ async function copyLocalNpcsToCampaign() {
             await dataManager.cloudStore.saveCampaignNpc(storageId, copy);
             npcs.push(copy);
         } catch (error) {
-            storageError = error?.message || `Could not copy ${copy.name} to the campaign.`;
+            storageError = getErrorMessage(error, `Could not copy ${copy.name} to the campaign.`);
             break;
         }
     }
@@ -147,17 +162,16 @@ function formatRolls(result) {
 }
 
 function renderBudgetNote() {
-    const note = document.getElementById('npc-budget-note');
-    if (!note) return;
+    const note = npcElement('npc-budget-note');
     const draft = {
-        rank: document.getElementById('npc-rank')?.value,
-        might: document.getElementById('npc-might')?.value,
-        charm: document.getElementById('npc-charm')?.value,
-        skill: document.getElementById('npc-skill')?.value,
-        hpMax: document.getElementById('npc-hp')?.value,
-        enMax: document.getElementById('npc-en')?.value,
-        rxMax: document.getElementById('npc-rx')?.value,
-        descriptors: (document.getElementById('npc-descriptors')?.value || '')
+        rank: npcSelect('npc-rank').value,
+        might: npcInput('npc-might').value,
+        charm: npcInput('npc-charm').value,
+        skill: npcInput('npc-skill').value,
+        hpMax: npcInput('npc-hp').value,
+        enMax: npcInput('npc-en').value,
+        rxMax: npcInput('npc-rx').value,
+        descriptors: npcInput('npc-descriptors').value
             .split(',')
             .map(part => part.trim())
             .filter(Boolean)
@@ -172,44 +186,44 @@ function renderBudgetNote() {
 }
 
 function applyRankExample() {
-    const rank = toInt(document.getElementById('npc-rank')?.value) || 3;
+    const rank = toInt(npcSelect('npc-rank').value) || 3;
     const example = NPC_RANK_EXAMPLES[Math.min(5, Math.max(1, rank))];
     if (!example) return;
-    document.getElementById('npc-might').value = example.might;
-    document.getElementById('npc-charm').value = example.charm;
-    document.getElementById('npc-skill').value = example.skill;
-    document.getElementById('npc-hp').value = String(example.hp);
-    document.getElementById('npc-en').value = String(example.en);
-    document.getElementById('npc-rx').value = String(example.rx);
+    npcInput('npc-might').value = example.might;
+    npcInput('npc-charm').value = example.charm;
+    npcInput('npc-skill').value = example.skill;
+    npcInput('npc-hp').value = String(example.hp);
+    npcInput('npc-en').value = String(example.en);
+    npcInput('npc-rx').value = String(example.rx);
     renderBudgetNote();
 }
 
 function addNpcFromForm() {
-    const name = document.getElementById('npc-name')?.value.trim();
+    const name = npcInput('npc-name').value.trim();
     if (!name) {
         showAlert('Give the NPC a name.');
         return;
     }
-    const descriptors = (document.getElementById('npc-descriptors')?.value || '')
+    const descriptors = npcInput('npc-descriptors').value
         .split(',')
         .map(part => part.trim())
         .filter(Boolean);
 
     const npc = normalizeNpc({
         name,
-        rank: document.getElementById('npc-rank')?.value,
-        might: document.getElementById('npc-might')?.value,
-        charm: document.getElementById('npc-charm')?.value,
-        skill: document.getElementById('npc-skill')?.value,
-        hpMax: document.getElementById('npc-hp')?.value,
-        enMax: document.getElementById('npc-en')?.value,
-        rxMax: document.getElementById('npc-rx')?.value,
+        rank: npcSelect('npc-rank').value,
+        might: npcInput('npc-might').value,
+        charm: npcInput('npc-charm').value,
+        skill: npcInput('npc-skill').value,
+        hpMax: npcInput('npc-hp').value,
+        enMax: npcInput('npc-en').value,
+        rxMax: npcInput('npc-rx').value,
         descriptors
     });
     npcs.push(npc);
     persistNpc(npc);
-    document.getElementById('npc-name').value = '';
-    document.getElementById('npc-descriptors').value = '';
+    npcInput('npc-name').value = '';
+    npcInput('npc-descriptors').value = '';
     renderNpcs();
 }
 
@@ -330,9 +344,8 @@ function renderNpcCard(npc) {
 // GMs. It only rebuilds when that set changes (cloud status events fire on
 // every save) and never while the dropdown has focus.
 function renderStorageControls() {
-    const row = document.getElementById('npc-storage-row');
-    const select = document.getElementById('npc-storage-select');
-    if (!row || !select) return;
+    const row = npcElement('npc-storage-row');
+    const select = npcSelect('npc-storage-select');
 
     const gmCampaigns = getGmCampaigns();
     if (!dataManager?.cloudStore || gmCampaigns.length === 0) {
@@ -356,11 +369,11 @@ function renderStorageControls() {
     }
     select.value = storageId;
 
-    const copyButton = document.getElementById('btn-npc-copy-local');
-    if (copyButton) copyButton.hidden = !isCampaignStorage() || readLocalNpcs().length === 0;
+    const copyButton = npcButton('btn-npc-copy-local');
+    copyButton.hidden = !isCampaignStorage() || readLocalNpcs().length === 0;
 
-    const note = document.getElementById('npc-storage-note');
-    if (note) {
+    const note = npcElement('npc-storage-note');
+    {
         if (storageError) {
             note.textContent = storageError;
         } else if (loading) {
@@ -374,14 +387,14 @@ function renderStorageControls() {
 }
 
 export function renderNpcs() {
-    const summary = document.getElementById('npc-summary');
-    const list = document.getElementById('npc-list');
-    if (summary) {
+    const summary = npcElement('npc-summary');
+    const list = els.npcList;
+    {
         summary.textContent = npcs.length === 0
             ? 'No NPCs'
             : npcs.map(npc => `${npc.name} R${npc.rank}`).join(' · ');
     }
-    if (list) {
+    {
         const empty = loading
             ? '<small>Loading campaign NPCs...</small>'
             : '<small>No NPCs yet. Fill the form above (Use Rank example gives the printed stat block).</small>';
@@ -391,6 +404,7 @@ export function renderNpcs() {
     renderBudgetNote();
 }
 
+/** @param {{dataManager: import('../data.js').DataManager, poolEngine: import('../pool.js').PoolEngine}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
@@ -405,22 +419,24 @@ export function init(deps) {
         });
     }
 
-    document.getElementById('btn-npc-example')?.addEventListener('click', applyRankExample);
-    document.getElementById('btn-npc-add')?.addEventListener('click', addNpcFromForm);
-    document.getElementById('npc-add-form')?.addEventListener('input', renderBudgetNote);
-    document.getElementById('npc-storage-select')?.addEventListener('change', (e) => {
-        switchStorage(e.target.value);
+    npcButton('btn-npc-example').addEventListener('click', applyRankExample);
+    npcButton('btn-npc-add').addEventListener('click', addNpcFromForm);
+    npcElement('npc-add-form').addEventListener('input', renderBudgetNote);
+    const storageSelect = npcSelect('npc-storage-select');
+    storageSelect.addEventListener('change', () => {
+        switchStorage(storageSelect.value);
     });
-    document.getElementById('btn-npc-copy-local')?.addEventListener('click', copyLocalNpcsToCampaign);
+    npcButton('btn-npc-copy-local').addEventListener('click', copyLocalNpcsToCampaign);
 
     // Campaigns load after sign-in (and vanish on sign-out), so refresh the
     // storage selector whenever the cloud state changes.
     window.addEventListener('cloud-status-change', renderStorageControls);
 
-    els.npcList?.addEventListener('click', (e) => {
-        const control = e.target.closest('[data-action]');
+    els.npcList.addEventListener('click', (e) => {
+        const control = e.target instanceof Element ? e.target.closest('[data-action]') : null;
         // Descriptor checkboxes and the blast-zone select act on 'change'.
-        if (!control || ['descriptor', 'blast-zone'].includes(control.dataset.action)) return;
+        if (!(control instanceof HTMLElement) || ['descriptor', 'blast-zone'].includes(control.dataset.action || '')) return;
+        if (!control.dataset.npcId || !control.dataset.action) return;
         handleNpcAction(control.dataset.npcId, control.dataset.action, {
             pool: control.dataset.pool,
             step: toInt(control.dataset.step),
@@ -428,12 +444,12 @@ export function init(deps) {
         });
     });
 
-    els.npcList?.addEventListener('change', (e) => {
-        const control = e.target.closest('[data-action]');
-        if (!control) return;
+    els.npcList.addEventListener('change', (e) => {
+        const control = e.target instanceof Element ? e.target.closest('[data-action]') : null;
+        if (!(control instanceof HTMLElement) || !control.dataset.npcId) return;
         if (control.dataset.action === 'descriptor') {
             handleNpcAction(control.dataset.npcId, 'descriptor', { index: toInt(control.dataset.index) });
-        } else if (control.dataset.action === 'blast-zone') {
+        } else if (control.dataset.action === 'blast-zone' && control instanceof HTMLSelectElement) {
             handleNpcAction(control.dataset.npcId, 'blast-zone', { zone: control.value });
         }
     });

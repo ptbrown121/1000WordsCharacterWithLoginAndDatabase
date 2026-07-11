@@ -1,3 +1,4 @@
+// @ts-check
 // Cyber Core panel (v5.02 p.64). Core max derives from Cyber-tagged tiles;
 // spend abilities come from the Core tags the character actually carries.
 // The panel hides itself entirely for characters with no Core.
@@ -6,7 +7,10 @@ import { getEffectiveMax } from '../data.js';
 import { calculateCoreMax, escapeHtml, getCoreAbilities } from '../pool.js';
 import { showAlert, showConfirm } from './dialogService.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, canEditActiveCharacter: () => boolean, saveState: () => void}} CoreDataManager */
+/** @type {CoreDataManager} */
 let dataManager;
+/** @type {() => void} */
 let renderAll;
 
 const toInt = (value) => {
@@ -14,6 +18,7 @@ const toInt = (value) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
+/** @param {import('../types.js').CharacterState} state */
 export function getCoreEffectiveMax(state) {
     return getEffectiveMax(state, 'core', calculateCoreMax(state?.tiles || []));
 }
@@ -50,7 +55,7 @@ export function renderCore() {
     const current = toInt(state.core);
     els.coreDisplay.textContent = `${current} / ${effectiveMax}`;
     if (els.valCore && document.activeElement !== els.valCore) {
-        els.valCore.value = current;
+        els.valCore.value = String(current);
     }
 
     if (!els.coreAbilities) return;
@@ -65,6 +70,7 @@ export function renderCore() {
         : '<small>No Core spend tags (Antivenin, Boost, Machine, Reticle, Wired, ...) on any tile yet.</small>';
 }
 
+/** @param {{dataManager: CoreDataManager, renderAll: () => void}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     renderAll = deps.renderAll;
@@ -78,15 +84,15 @@ export function init(deps) {
         });
     }
 
-    els.valCore?.addEventListener('change', (e) => {
+    els.valCore.addEventListener('change', () => {
         if (!dataManager.canEditActiveCharacter()) return;
-        dataManager.state.core = Math.max(0, toInt(e.target.value));
+        dataManager.state.core = Math.max(0, toInt(els.valCore.value));
         dataManager.saveState();
         renderCore();
     });
 
-    els.coreAbilities?.addEventListener('click', (e) => {
-        const button = e.target.closest('.btn-core-spend');
-        if (button) spendCore(button.dataset.ability);
+    els.coreAbilities.addEventListener('click', (e) => {
+        const button = e.target instanceof Element ? e.target.closest('.btn-core-spend') : null;
+        if (button instanceof HTMLButtonElement && button.dataset.ability) spendCore(button.dataset.ability);
     });
 }

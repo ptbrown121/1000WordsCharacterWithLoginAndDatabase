@@ -1,3 +1,4 @@
+// @ts-check
 // Titan panel (v5.02 p.69). Titan max derives from Titan tags on tiles;
 // abilities come from the Titan tags the character carries; the H/V tracker
 // records Heroism (+) and Villainy (-), which the GM trades for Titan points
@@ -7,7 +8,10 @@ import { getEffectiveMax } from '../data.js';
 import { calculateTitanMax, escapeHtml, getTitanAbilities } from '../pool.js';
 import { showAlert, showConfirm, showPrompt } from './dialogService.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, canEditActiveCharacter: () => boolean, saveState: () => void}} TitanDataManager */
+/** @type {TitanDataManager} */
 let dataManager;
+/** @type {() => void} */
 let renderAll;
 
 const toInt = (value) => {
@@ -15,6 +19,7 @@ const toInt = (value) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
+/** @param {import('../types.js').CharacterState} state */
 export function getTitanEffectiveMax(state) {
     return getEffectiveMax(state, 'titan', calculateTitanMax(state?.tiles || []));
 }
@@ -99,7 +104,7 @@ export function renderTitan() {
     const score = toInt(state.titanHV);
     els.titanDisplay.textContent = `${current} / ${effectiveMax} · ${formatHvScore(score)}`;
     if (els.valTitan && document.activeElement !== els.valTitan) {
-        els.valTitan.value = current;
+        els.valTitan.value = String(current);
     }
 
     if (els.titanHvTracker) {
@@ -128,6 +133,7 @@ export function renderTitan() {
         : '<small>No Titan ability tags (Action Hero, Ground Zero, Zero In, ...) on any tile yet.</small>';
 }
 
+/** @param {{dataManager: TitanDataManager, renderAll: () => void}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     renderAll = deps.renderAll;
@@ -141,28 +147,29 @@ export function init(deps) {
         });
     }
 
-    els.valTitan?.addEventListener('change', (e) => {
+    els.valTitan.addEventListener('change', () => {
         if (!dataManager.canEditActiveCharacter()) return;
-        dataManager.state.titan = Math.max(0, toInt(e.target.value));
+        dataManager.state.titan = Math.max(0, toInt(els.valTitan.value));
         dataManager.saveState();
         renderTitan();
     });
 
-    els.titanPanelBody?.addEventListener('click', (e) => {
-        const spend = e.target.closest('.btn-titan-spend');
-        if (spend) {
+    els.titanPanelBody.addEventListener('click', (e) => {
+        const target = e.target instanceof Element ? e.target : null;
+        const spend = target?.closest('.btn-titan-spend');
+        if (spend instanceof HTMLButtonElement && spend.dataset.ability) {
             spendTitanAbility(spend.dataset.ability);
             return;
         }
-        if (e.target.closest('#btn-titan-hero')) {
+        if (target?.closest('#btn-titan-hero')) {
             adjustHv(1);
             return;
         }
-        if (e.target.closest('#btn-titan-villain')) {
+        if (target?.closest('#btn-titan-villain')) {
             adjustHv(-1);
             return;
         }
-        if (e.target.closest('#btn-titan-trade')) {
+        if (target?.closest('#btn-titan-trade')) {
             tradeHvForTitan();
         }
     });

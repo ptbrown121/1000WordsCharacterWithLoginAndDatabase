@@ -235,7 +235,11 @@
  * @property {number|string} [shTemp]
  * @property {number|string} [shPerm]
  * @property {number|string} [core]
+ * @property {number|string} [coreTemp]
+ * @property {number|string} [corePerm]
  * @property {number|string} [titan]
+ * @property {number|string} [titanTemp]
+ * @property {number|string} [titanPerm]
  * @property {number|string} [titanHV]
  * @property {string} [currentForm]
  * @property {''|'aural'|'astral'} [celestialAspect]
@@ -269,6 +273,7 @@
  * @property {number|null} attackStatic
  * @property {number|null} defenseStatic
  * @property {string} notes
+ * @property {''|'risen'|'fallen'} blastZone
  */
 
 /**

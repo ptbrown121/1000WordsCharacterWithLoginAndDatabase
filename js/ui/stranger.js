@@ -1,3 +1,4 @@
+// @ts-check
 // Stranger panel (v5.02 pp.61-63): While X form switching, the Celestial
 // Aural/Astral aspect, and the Bestial pace/resource notes. Hidden entirely
 // for characters with no Stranger features.
@@ -14,7 +15,10 @@ import {
     tileTagList
 } from '../pool.js';
 
+/** @typedef {{state: import('../types.js').CharacterState, canEditActiveCharacter: () => boolean, saveState: () => void}} StrangerDataManager */
+/** @type {StrangerDataManager} */
 let dataManager;
+/** @type {() => void} */
 let renderAll;
 
 function hasBestialResourceChoice(tile) {
@@ -120,6 +124,7 @@ export function renderStranger() {
     renderBestialNote(bestialCount);
 }
 
+/** @param {{dataManager: StrangerDataManager, renderAll: () => void}} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     renderAll = deps.renderAll;
@@ -133,13 +138,14 @@ export function init(deps) {
         });
     }
 
-    els.strangerFormSelect?.addEventListener('change', (e) => {
-        setCurrentForm(e.target.value);
+    els.strangerFormSelect.addEventListener('change', () => {
+        setCurrentForm(els.strangerFormSelect.value);
     });
 
-    els.celestialAspectSelect?.addEventListener('change', (e) => {
+    els.celestialAspectSelect.addEventListener('change', () => {
         if (!dataManager.canEditActiveCharacter()) return;
-        dataManager.state.celestialAspect = ['aural', 'astral'].includes(e.target.value) ? e.target.value : '';
+        const aspect = els.celestialAspectSelect.value;
+        dataManager.state.celestialAspect = aspect === 'aural' || aspect === 'astral' ? aspect : '';
         dataManager.saveState();
         renderStranger();
     });
