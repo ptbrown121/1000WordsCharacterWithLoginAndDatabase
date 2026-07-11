@@ -7,3 +7,5 @@ dist/
 .vercel
 .supabase/
 supabase/.temp/
+test-results/
+playwright-report/

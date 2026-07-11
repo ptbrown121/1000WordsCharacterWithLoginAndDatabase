@@ -22,6 +22,7 @@ import { init as initCampaignFiles } from './ui/campaignFiles.js';
 import { init as initLiveSync } from './ui/liveSync.js';
 import { init as initAiCreation } from './ui/aiCreation.js';
 import { init as initTabs } from './ui/tabs.js';
+import { initModalAccessibility } from './ui/modalAccessibility.js';
 import { createSupabaseBrowserClient } from './supabaseClient.js';
 
 const dataManager = new DataManager();
@@ -50,6 +51,7 @@ initNotifications(deps);
 initRulesReview(deps);
 initAiCreation(deps);
 initTabs();
+initModalAccessibility();
 await initCloud(deps);
 initCampaignFiles(deps);
 initLiveSync(deps);

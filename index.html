@@ -691,7 +691,7 @@
     </main>
 
     <!-- Modal for Adding/Editing Tiles -->
-    <div id="tile-modal" class="modal">
+    <div id="tile-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-modal-cancel" data-initial-focus="#tile-name">
         <div class="modal-content glass-panel">
             <h2 id="modal-title">Add Tile</h2>
             <form id="tile-form">
@@ -1150,7 +1150,7 @@
     </div>
 
     <!-- Modal for Spell Builder -->
-    <div id="spell-modal" class="modal">
+    <div id="spell-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="spell-modal-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-spell-cancel">
         <div class="modal-content glass-panel" style="max-width: 600px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h2 id="spell-modal-title">Spell Builder</h2>
@@ -1622,7 +1622,7 @@
     </div>
 
     <!-- Vital Modifier Modal -->
-    <div id="vital-modal" class="modal">
+    <div id="vital-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="vital-modal-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-vital-cancel" data-initial-focus="#vital-perm-input">
         <div class="modal-content glass-panel" style="max-width: 400px;">
             <h2 id="vital-modal-title">Edit Bonuses</h2>
             <input type="hidden" id="vital-modal-key">
@@ -1644,7 +1644,7 @@
     </div>
 
     <!-- Stat Dice Modal -->
-    <div id="stat-dice-modal" class="modal">
+    <div id="stat-dice-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="stat-dice-modal-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-stat-dice-cancel" data-initial-focus="#stat-dice-input">
         <div class="modal-content glass-panel" style="max-width: 460px;">
             <h2 id="stat-dice-modal-title">Edit Attribute Dice</h2>
             <input type="hidden" id="stat-dice-modal-key">
@@ -1672,11 +1672,11 @@
     </div>
 
     <!-- Shadow Info Modal -->
-    <div id="shadow-info-modal" class="modal">
+    <div id="shadow-info-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="shadow-info-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-shadow-info-close" data-initial-focus="#btn-shadow-info-close">
         <div class="modal-content glass-panel" style="max-width: 560px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h2 style="margin: 0;">Shadow</h2>
-                <button id="btn-shadow-info-close" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">✕</button>
+                <h2 id="shadow-info-title" style="margin: 0;">Shadow</h2>
+                <button type="button" id="btn-shadow-info-close" aria-label="Close Shadow information" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">✕</button>
             </div>
             <p class="hint-text">Shadow recovers half of maximum Shadow at dawn and the other half at dusk. Sleeping and waking may stand in when the table simulates those moments.</p>
             <div id="shadow-abilities-display" class="shadow-abilities-display"></div>
@@ -1684,11 +1684,11 @@
     </div>
 
     <!-- Info / Help Modal -->
-    <div id="info-modal" class="modal">
+    <div id="info-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="info-modal-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-info-close" data-initial-focus="#btn-info-close">
         <div class="modal-content glass-panel" style="max-width: 650px; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h2 style="margin: 0;">📖 How to Use This Sheet</h2>
-                <button id="btn-info-close" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">✕</button>
+                <h2 id="info-modal-title" style="margin: 0;">📖 How to Use This Sheet</h2>
+                <button type="button" id="btn-info-close" aria-label="Close help" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">✕</button>
             </div>
 
             <div style="color: var(--text-secondary); line-height: 1.7; font-size: 0.95rem;">

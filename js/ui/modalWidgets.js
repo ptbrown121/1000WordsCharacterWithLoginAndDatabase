@@ -304,8 +304,14 @@ export function showPendingTagDialog(pending, subjectLabel) {
     return new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.className = 'modal active pending-tag-dialog';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'pending-tag-title');
+        overlay.setAttribute('tabindex', '-1');
+        overlay.dataset.modalClose = '[data-choice="cancel"]';
+        overlay.dataset.initialFocus = '[data-choice="cancel"]';
         overlay.innerHTML = `
-            <div class="modal-content glass-panel pending-tag-dialog-content" role="dialog" aria-modal="true" aria-labelledby="pending-tag-title">
+            <div class="modal-content glass-panel pending-tag-dialog-content">
                 <h2 id="pending-tag-title">Add selected tag?</h2>
                 <p>You selected <strong>${escapeHtml(pending.label)}</strong> for this ${subjectLabel}, but it has not been added yet.</p>
                 ${pending.canAdd

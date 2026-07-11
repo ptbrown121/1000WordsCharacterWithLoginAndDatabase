@@ -9,11 +9,14 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test \"test/**/*.test.js\"",
-    "lint": "eslint \"js/**/*.js\" \"api/**/*.js\" \"test/**/*.js\"",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e",
+    "lint": "eslint \"js/**/*.js\" \"api/**/*.js\" \"test/**/*.js\" \"e2e/**/*.js\" \"playwright.config.js\"",
     "typecheck": "tsc --noEmit -p jsconfig.json"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.1",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
     "globals": "^15.15.0",
