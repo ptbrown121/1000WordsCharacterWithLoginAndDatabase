@@ -12,7 +12,6 @@ import { getWoundPenalty } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showResults } from './resolution.js';
-import { renderCards } from './cards.js';
 import { renderCondition } from './condition.js';
 import { renderArmorSoak } from './armorSoak.js';
 import { updateShadowMax } from './vitals.js';
@@ -21,6 +20,7 @@ import { renderRulesReview } from './rulesReview.js';
 let dataManager;
 let poolEngine;
 let renderAll;
+let renderCards;
 
 const RESOURCE_INPUTS = {
     hp: 'valHp',
@@ -33,6 +33,7 @@ export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     renderAll = deps.renderAll;
+    renderCards = deps.renderCards;
 
     els.callColor1.addEventListener('change', syncCallColorsFromLegacySelects);
     els.callColor2.addEventListener('change', syncCallColorsFromLegacySelects);

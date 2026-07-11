@@ -1,12 +1,8 @@
-// NOTE: This module has circular imports with pool.js and modals.js.
-// This is safe because all cross-imported symbols are functions that are
-// only called at runtime (inside event handlers or render cycles), never
-// during module evaluation.
 import { escapeHtml, getExoticSkillLabel, getTileBoxes, getTileNormalCallColors, isGearTagsBroken, isHitchedTile, RESOURCE_LABELS, tileTagList } from '../pool.js';
 import { COLOR_HEX } from '../data.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
-import { formatAmmoBase, formatArmorBase, formatWeaponBase } from './modals.js';
+import { formatAmmoBase, formatArmorBase, formatWeaponBase } from './tileModal/formFields.js';
 import { renderArmorSoak } from './armorSoak.js';
 import { setCallColors, updatePoolPreview } from './pool.js';
 import { updateShadowMax } from './vitals.js';

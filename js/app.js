@@ -2,7 +2,7 @@ import { DataManager } from './data.js';
 import { PoolEngine } from './pool.js';
 import { SpellBuilder } from './spellBuilder.js';
 import { renderAll, setDataManager } from './render.js';
-import { init as initCards } from './ui/cards.js';
+import { init as initCards, renderCards } from './ui/cards.js';
 import { init as initPool } from './ui/pool.js';
 import { init as initResolution } from './ui/resolution.js';
 import { init as initModals, openModal as openTileModal } from './ui/modals.js';
@@ -28,11 +28,11 @@ import { createSupabaseBrowserClient } from './supabaseClient.js';
 const dataManager = new DataManager();
 const poolEngine = new PoolEngine();
 const spellBuilder = new SpellBuilder(dataManager, renderAll);
-const supabaseClient = createSupabaseBrowserClient();
+const supabaseClient = await createSupabaseBrowserClient();
 
 setDataManager(dataManager);
 
-const deps = { dataManager, poolEngine, spellBuilder, renderAll, openTileModal, supabaseClient };
+const deps = { dataManager, poolEngine, spellBuilder, renderAll, renderCards, openTileModal, supabaseClient };
 
 initCards(deps);
 initPool(deps);
