@@ -1,3 +1,4 @@
+// @ts-check
 import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, isHitchedTile, RESOURCE_LABELS, tileHasMechanicalTag } from '../pool.js';
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
@@ -21,87 +22,95 @@ import {
     CHAIN_COST_RESOURCE_KEYS
 } from '../resolution-rules.js';
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
+/** @type {import('../pool.js').PoolEngine} */
 let poolEngine;
+/** @type {() => void} */
 let renderAll;
 
-export function init(deps = {}) {
+/** @param {import('../types.js').AppDependencies} deps */
+export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     renderAll = deps.renderAll;
 
     els.resolutionControls.addEventListener('change', (e) => {
         if (!uiState.lastRollResult) return;
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
 
-        if (e.target.id === 'resolution-mode') {
-            uiState.currentResolutionMode = e.target.value;
+        if (target.id === 'resolution-mode' && ['action', 'attack', 'defense', 'healing'].includes(target.value)) {
+            uiState.currentResolutionMode = /** @type {'action'|'attack'|'defense'|'healing'} */ (target.value);
             uiState.currentResolutionAssignments = getDefaultResolutionAssignments(uiState.lastRollResult, uiState.currentResolutionMode);
             renderResolution();
             return;
         }
 
-        if (e.target.classList.contains('resolution-die-select')) {
-            uiState.currentResolutionAssignments[e.target.dataset.rollId] = e.target.value;
+        if (target.classList.contains('resolution-die-select') && target.dataset.rollId) {
+            uiState.currentResolutionAssignments[target.dataset.rollId] = target.value;
             renderResolution();
             return;
         }
 
-        if (e.target.classList.contains('ammo-die-select')) {
-            uiState.ammoAssignments[e.target.dataset.ammoTileId] = e.target.value;
+        if (target.classList.contains('ammo-die-select') && target.dataset.ammoTileId) {
+            uiState.ammoAssignments[target.dataset.ammoTileId] = target.value;
             renderResolution();
             return;
         }
 
-        if (e.target.classList.contains('chain-cost-resource')) {
-            uiState.chainCostSelections[e.target.dataset.rollId] = e.target.value;
+        if (target.classList.contains('chain-cost-resource') && target.dataset.rollId) {
+            uiState.chainCostSelections[target.dataset.rollId] = target.value;
             return;
         }
 
-        if (e.target.id === 'healing-in-combat') {
-            uiState.healingInCombat = e.target.checked;
+        if (target.id === 'healing-in-combat' && target instanceof HTMLInputElement) {
+            uiState.healingInCombat = target.checked;
             renderResolutionDetails();
             return;
         }
 
-        if (e.target.classList.contains('defense-shield-toggle')) {
-            uiState.defenseShieldSelections[e.target.dataset.tileId] = e.target.checked;
+        if (target.classList.contains('defense-shield-toggle') && target instanceof HTMLInputElement && target.dataset.tileId) {
+            uiState.defenseShieldSelections[target.dataset.tileId] = target.checked;
             renderResolutionDetails();
             return;
         }
 
-        if (e.target.classList.contains('resolution-extra')) {
+        if (target.classList.contains('resolution-extra')) {
             renderResolutionDetails();
         }
     });
 
     els.resolutionControls.addEventListener('input', (e) => {
-        if (!uiState.lastRollResult || !e.target.classList.contains('resolution-extra')) return;
+        if (!uiState.lastRollResult || !(e.target instanceof Element) || !e.target.classList.contains('resolution-extra')) return;
         renderResolutionDetails();
     });
 
     els.resolutionControls.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-roll-freebie')) {
-            rollPostRollFreebie(e.target.dataset.die || '');
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.classList.contains('btn-roll-freebie')) {
+            rollPostRollFreebie(target.dataset.die || '');
             return;
         }
-        if (e.target.classList.contains('btn-titan-add')) {
+        if (target.classList.contains('btn-titan-add')) {
             spendTitanOnAdd();
             return;
         }
-        if (e.target.classList.contains('btn-titan-maximize')) {
+        if (target.classList.contains('btn-titan-maximize')) {
             spendTitanOnMaximize();
             return;
         }
-        if (e.target.classList.contains('btn-chain-cost-pay')) {
+        if (target.classList.contains('btn-chain-cost-pay')) {
             payChainCost();
             return;
         }
-        if (!e.target.classList.contains('btn-resolve-ammo')) return;
-        resolveAmmo(e.target.dataset.ammoTileId);
+        if (!target.classList.contains('btn-resolve-ammo') || !target.dataset.ammoTileId) return;
+        resolveAmmo(target.dataset.ammoTileId);
     });
 
     els.resultNotices?.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-bleed-burn')) burnCalledTilesForBleed();
+        if (e.target instanceof Element && e.target.classList.contains('btn-bleed-burn')) burnCalledTilesForBleed();
     });
 }
 
@@ -123,7 +132,8 @@ function burnCalledTilesForBleed() {
 }
 
 export function getResolutionExtraValue(id) {
-    return document.getElementById(id)?.value ?? '';
+    const input = document.getElementById(id);
+    return input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement ? input.value : '';
 }
 
 function isShieldSourceActive(source) {
@@ -145,6 +155,7 @@ function getActiveDefenseShields() {
 // armor, the Soak is applied only if the tile is called"). Ironclad soak is
 // deliberately excluded - it already flows through the called tile's opt-in
 // tag bonuses, and adding it here would double count.
+/** @param {import('../types.js').RollResult} result */
 function getCalledArmorSoak(result) {
     const calledIds = new Set(result?.calledTileIds || []);
     const sources = (dataManager?.state?.tiles || [])
@@ -194,6 +205,7 @@ export function getResolutionText(id) {
     return getResolutionExtraValue(id).trim();
 }
 
+/** @param {import('../types.js').RollResult} result @param {number} usedCount @param {number} adds */
 export function renderResolutionUsageFields(result, usedCount, adds) {
     if (!RESOLUTION_PLUS_BUCKETS[uiState.currentResolutionMode]) {
         return `
@@ -289,6 +301,7 @@ export function renderResolutionExtraFields() {
     return '';
 }
 
+/** @param {import('../types.js').RollResult} result */
 export function renderResolutionAssignments(result) {
     const options = getAssignmentOptions(uiState.currentResolutionMode);
     const validValues = new Set(options.map(option => option.value));
@@ -321,6 +334,7 @@ export function renderResolutionAssignments(result) {
     }).join('');
 }
 
+/** @param {import('../types.js').RollResult} result @param {string} [selectedId] */
 function getRollOptions(result, selectedId = '') {
     const empty = '<option value="">-- Assign die --</option>';
     const options = (result.originalRolls || []).map((roll, index) => {
@@ -331,6 +345,7 @@ function getRollOptions(result, selectedId = '') {
     return empty + options;
 }
 
+/** @param {import('../types.js').RollResult} result */
 export function renderAmmoResolution(result) {
     const options = result.ammoOptions || [];
     if (options.length === 0) return '';
@@ -377,6 +392,7 @@ export function renderAmmoResolution(result) {
 // Post-roll Freebie (p.25): "You can do this before or after you roll, but
 // only once per check." Pre-roll freebies set result.freebieUsed, which
 // hides this panel.
+/** @param {import('../types.js').RollResult} result */
 function renderFreebiePanel(result) {
     if (result.freebieUsed || !poolEngine) return '';
 
@@ -431,6 +447,7 @@ async function spendOneTitan(reason) {
     return true;
 }
 
+/** @param {import('../types.js').RollResult} result */
 function recalculateRollTotals(result) {
     const recalculated = poolEngine.calculateOptimalTotal(result.originalRolls || [], result.adds ?? 2, {
         haywireThreshold: result.haywireThreshold || 1
@@ -447,6 +464,7 @@ async function spendTitanOnAdd() {
     renderResolution();
 }
 
+/** @param {import('../types.js').RollResult} result */
 function getTitanMaximizeCandidates(result) {
     return (result.originalRolls || [])
         .map((roll, index) => {
@@ -466,7 +484,8 @@ async function spendTitanOnMaximize() {
     const result = uiState.lastRollResult;
     if (!result || !poolEngine) return;
 
-    const rollId = document.getElementById('titan-maximize-die')?.value || '';
+    const maximizeSelect = document.getElementById('titan-maximize-die');
+    const rollId = maximizeSelect instanceof HTMLSelectElement ? maximizeSelect.value : '';
     const candidate = getTitanMaximizeCandidates(result).find(entry => entry.rollId === rollId);
     if (!candidate) return;
     if (!await spendOneTitan(`maximize the ${candidate.roll.die} (${candidate.roll.val} -> ${candidate.faces})`)) return;
@@ -476,6 +495,7 @@ async function spendTitanOnMaximize() {
     renderResolution();
 }
 
+/** @param {import('../types.js').RollResult} result */
 function renderTitanResolutionPanel(result) {
     if (!poolEngine || getTitanEffectiveMaxValue() <= 0) return '';
     const current = parseInt(dataManager.state.titan, 10) || 0;
@@ -507,6 +527,7 @@ function renderTitanResolutionPanel(result) {
 // maxed die that is used costs 1 resource of the player's choice. The
 // panel lists each maxed die; leaving it on Unused in the assignment list
 // skips its cost, otherwise the player picks the resource to spend.
+/** @param {import('../types.js').RollResult} result */
 function renderChainCostPanel(result) {
     const cost = getChainMaxedDieCost(result, uiState.currentResolutionAssignments);
     if (!cost.chained || cost.entries.length === 0) return '';
@@ -578,7 +599,9 @@ async function payChainCost() {
     const due = cost.entries.filter(entry => entry.used);
     if (due.length === 0) return;
 
+    /** @type {Object<string, string>} */
     const selections = {};
+    /** @type {Object<string, number>} */
     const breakdown = {};
     due.forEach(entry => {
         const key = uiState.chainCostSelections[entry.rollId] || 'en';
@@ -679,6 +702,7 @@ export function renderBonusDetails(details) {
     return `<p><strong>Tag Bonuses:</strong><br>${details.map(detail => escapeHtml(detail)).join('<br>')}</p>`;
 }
 
+/** @param {import('../types.js').RollResult} result */
 export function calculateResolutionSummary(result) {
     const { totals, usedCount } = calculateAssignedTotals(result, uiState.currentResolutionAssignments);
     const bonusInfo = getResolutionBonusTotals(result, uiState.currentResolutionMode);
@@ -710,7 +734,7 @@ export function calculateResolutionSummary(result) {
         const lines = [
             `<p><strong>Attack:</strong> ${attackTotal} (${totals.attack || 0} dice + ${bonuses.attack} bonus)</p>`,
             `<p><strong>Impact:</strong> ${impactTotal} HP (${totals.impact || 0} dice + ${bonuses.impact} bonus)</p>`,
-            `<p><strong>Pluses Used:</strong> ${plusUsage.used}/${plusUsage.budget}</p>`
+            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`
         ];
 
         if (!plusesAreLegal) {
@@ -765,7 +789,7 @@ export function calculateResolutionSummary(result) {
             `<p><strong>Evasion:</strong> ${evasionTotal} (${totals.evasion || 0} dice + ${bonuses.evasion} bonus)</p>`,
             `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice + ${bonuses.grit} bonus${coreGritText})</p>`,
             `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus${escapeHtml(armorSoakText)})</p>`,
-            `<p><strong>Pluses Used:</strong> ${plusUsage.used}/${plusUsage.budget}</p>`
+            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`
         ];
 
         const activeJolts = normalizeActiveCrits(dataManager?.state?.activeCrits).jolt || 0;
@@ -816,7 +840,7 @@ export function calculateResolutionSummary(result) {
         const succeeds = plusesAreLegal && spareCount > 0 && diagnosisTotal >= difficulty;
         const lines = [
             `<p><strong>Diagnosis:</strong> ${diagnosisTotal} (${totals.diagnosis || 0} dice + ${bonuses.diagnosis} bonus)</p>`,
-            `<p><strong>Pluses Used:</strong> ${plusUsage.used}/${plusUsage.budget}</p>`
+            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`
         ];
 
         if (spareCount === 0) {
@@ -850,6 +874,7 @@ export function calculateResolutionSummary(result) {
     };
 }
 
+/** @param {import('../types.js').RollResult} result */
 export function renderRollGroups(result) {
     const groups = {};
     (result.originalRolls || []).forEach(r => {
@@ -880,7 +905,7 @@ export function renderResolutionDetails() {
             : '';
         notices.push(`<div class="result-notice result-notice-haywire">${haywireText}${pressText}</div>`);
     }
-    if (result.woundPenalty > 0) {
+    if ((result.woundPenalty || 0) > 0) {
         notices.push(`<div class="result-notice">WOUND: -${result.woundPenalty} applied to this check's totals (all checks at -3 per active WOUND).</div>`);
     }
     const calledIds = new Set(result.calledTileIds || []);
@@ -901,8 +926,9 @@ export function renderResolutionDetails() {
     if (result.isHaywire && calledTiles.some(tile => tileHasMechanicalTag(tile, 'gizmo'))) {
         notices.push('<div class="result-notice">Haywire with a gizmo in the check: the gizmo may BREAK (it has ▟ HP; GM call).</div>');
     }
-    if ((result.titanRerolls || []).length > 0) {
-        notices.push(`<div class="result-notice">Titan reroll: ${result.titanRerolls.map(r => `${escapeHtml(r.die)} ${r.from}→${r.to}`).join(', ')}.</div>`);
+    const titanRerolls = result.titanRerolls || [];
+    if (titanRerolls.length > 0) {
+        notices.push(`<div class="result-notice">Titan reroll: ${titanRerolls.map(r => `${escapeHtml(r.die)} ${r.from}→${r.to}`).join(', ')}.</div>`);
     } else if (result.titanActive && result.titanManualReminder) {
         notices.push('<div class="result-notice">Titan active: reroll any physical die that rolled below its ▟ (d6 on 1, d8 on 1-2, ...) and enter the new values.</div>');
     }
@@ -956,6 +982,7 @@ export function renderResolution() {
     renderResolutionDetails();
 }
 
+/** @param {import('../types.js').RollResult} result */
 export function showResults(result) {
     uiState.lastRollResult = result;
     uiState.currentResolutionMode = 'action';

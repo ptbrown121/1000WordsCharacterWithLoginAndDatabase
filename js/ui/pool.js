@@ -1,3 +1,4 @@
+// @ts-check
 import {
     adjustAberrationForShadowUse,
     classifyAberration,
@@ -18,9 +19,13 @@ import { updateShadowMax } from './vitals.js';
 import { renderRulesReview } from './rulesReview.js';
 import { showAlert, showConfirm } from './dialogService.js';
 
+/** @type {import('../data.js').DataManager} */
 let dataManager;
+/** @type {import('../pool.js').PoolEngine} */
 let poolEngine;
+/** @type {() => void} */
 let renderAll;
+/** @type {() => void} */
 let renderCards;
 
 const RESOURCE_INPUTS = {
@@ -30,6 +35,7 @@ const RESOURCE_INPUTS = {
     sh: 'valSh'
 };
 
+/** @param {import('../types.js').AppDependencies} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
@@ -40,16 +46,17 @@ export function init(deps) {
     els.callColor2.addEventListener('change', syncCallColorsFromLegacySelects);
     els.callColorOptions.forEach(button => {
         button.addEventListener('click', () => {
-            toggleCallColor(button.dataset.value);
+            if (button.dataset.value) toggleCallColor(button.dataset.value);
         });
     });
     syncCallColorButtons();
     els.btnClearCall?.addEventListener('click', clearCallSelection);
     // X buttons on the pool badges (finer-grained than Clear, which wipes
     // colors and all tiles at once).
+    /** @param {Event} e */
     const handleBadgeClear = (e) => {
-        const button = e.target.closest('.badge-clear');
-        if (!button) return;
+        const button = e.target instanceof Element ? e.target.closest('.badge-clear') : null;
+        if (!(button instanceof HTMLButtonElement)) return;
         const tileId = button.dataset.tileId;
         if (button.dataset.clear === 'call') {
             uiState.callTile = null;
@@ -68,16 +75,16 @@ export function init(deps) {
         updatePoolPreview();
     });
     els.extraDiceButtons?.addEventListener('click', (e) => {
-        const button = e.target.closest('.dice-add-btn');
-        if (!button || !els.extraDiceButtons.contains(button)) return;
-        addExtraDie(button.dataset.die);
+        const button = e.target instanceof Element ? e.target.closest('.dice-add-btn') : null;
+        if (!(button instanceof HTMLButtonElement) || !els.extraDiceButtons.contains(button)) return;
+        if (button.dataset.die) addExtraDie(button.dataset.die);
     });
     els.risenAberrantEffect?.addEventListener('change', updatePoolPreview);
     els.fallenAberrantEffect?.addEventListener('change', updatePoolPreview);
     els.freebieDieSelect?.addEventListener('change', updatePoolPreview);
     els.freebieDieButtons?.addEventListener('click', (e) => {
-        const button = e.target.closest('.freebie-die-btn');
-        if (!button || !els.freebieDieButtons.contains(button)) return;
+        const button = e.target instanceof Element ? e.target.closest('.freebie-die-btn') : null;
+        if (!(button instanceof HTMLButtonElement) || !els.freebieDieButtons.contains(button)) return;
         const die = button.dataset.die || '';
         const select = els.freebieDieSelect;
         if (!select) return;
@@ -86,9 +93,11 @@ export function init(deps) {
         select.dispatchEvent(new Event('change', { bubbles: true }));
     });
     els.chainOptions.addEventListener('change', (e) => {
-        if (e.target.classList.contains('chain-cb')) {
-            const chainId = e.target.dataset.chainId;
-            if (e.target.checked) {
+        const target = e.target;
+        if (target instanceof HTMLInputElement && target.classList.contains('chain-cb')) {
+            const chainId = target.dataset.chainId;
+            if (!chainId) return;
+            if (target.checked) {
                 uiState.disabledChainIds.delete(chainId);
             } else {
                 uiState.disabledChainIds.add(chainId);
@@ -96,9 +105,10 @@ export function init(deps) {
             updatePoolPreview();
             return;
         }
-        if (e.target.classList.contains('chain-color-select')) {
-            const chainId = e.target.dataset.chainId;
-            const color = e.target.value;
+        if (target instanceof HTMLSelectElement && target.classList.contains('chain-color-select')) {
+            const chainId = target.dataset.chainId;
+            if (!chainId) return;
+            const color = target.value;
             if (color) {
                 uiState.chainColorSelections[chainId] = color;
             } else {
@@ -109,9 +119,11 @@ export function init(deps) {
         }
     });
     els.tagBonusOptions.addEventListener('change', (e) => {
-        if (!e.target.classList.contains('tag-bonus-cb')) return;
-        const bonusId = e.target.dataset.bonusId;
-        if (e.target.checked) {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement) || !target.classList.contains('tag-bonus-cb')) return;
+        const bonusId = target.dataset.bonusId;
+        if (!bonusId) return;
+        if (target.checked) {
             uiState.selectedTagBonusIds.add(bonusId);
         } else {
             uiState.selectedTagBonusIds.delete(bonusId);
@@ -121,7 +133,8 @@ export function init(deps) {
 
     els.radioModes.forEach(r => {
         r.addEventListener('change', (e) => {
-            if (e.target.value === 'virtual') {
+            const target = /** @type {HTMLInputElement} */ (e.currentTarget);
+            if (target.value === 'virtual') {
                 els.virtualSection.style.display = 'block';
                 els.manualSection.style.display = 'none';
             } else {
@@ -150,6 +163,12 @@ function isTestRoll() {
     return Boolean(els.testRollToggle?.checked);
 }
 
+function selectedRollMode() {
+    const selected = document.querySelector('input[name="roll-mode"]:checked');
+    return selected instanceof HTMLInputElement ? selected.value : 'virtual';
+}
+
+/** @param {import('../types.js').RollResult} result @param {import('../types.js').CompiledPool} compiledPool @param {string} mode @param {string[]} callColors */
 function buildRollLog(result, compiledPool, mode, callColors) {
     const allTiles = dataManager.state.tiles || [];
     const tileById = new Map(allTiles.map(tile => [tile.id, tile]));
@@ -177,6 +196,7 @@ function buildRollLog(result, compiledPool, mode, callColors) {
     };
 }
 
+/** @param {import('../types.js').RollResult} result @param {import('../types.js').CompiledPool} compiledPool @param {string} mode @param {string[]} callColors */
 function finalizeRoll(result, compiledPool, mode, callColors) {
     const testRoll = isTestRoll();
     result.isTestRoll = testRoll;
@@ -207,6 +227,7 @@ function finalizeRoll(result, compiledPool, mode, callColors) {
     }
 }
 
+/** @param {string[]} colors */
 function syncLegacyCallColorSelects(colors) {
     els.callColor1.value = colors[0] || '';
     els.callColor2.value = colors[1] || '';
@@ -217,6 +238,7 @@ function syncCallColorsFromLegacySelects() {
     handleCallColorChange();
 }
 
+/** @param {string[]} colors */
 export function setCallColors(colors) {
     const uniqueColors = [...new Set(colors.filter(Boolean))];
     uiState.callColors = uniqueColors;
@@ -224,6 +246,7 @@ export function setCallColors(colors) {
     handleCallColorChange();
 }
 
+/** @param {string} color */
 function toggleCallColor(color) {
     if (!color) return;
     const selected = getSelectedCallColors();
@@ -237,7 +260,7 @@ function toggleCallColor(color) {
 function syncCallColorButtons() {
     const selected = new Set(getSelectedCallColors());
     els.callColorOptions.forEach(button => {
-        const active = selected.has(button.dataset.value);
+        const active = selected.has(button.dataset.value || '');
         button.classList.toggle('active', active);
         button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
@@ -257,11 +280,13 @@ function getExtraDiceTokens() {
         .filter(Boolean);
 }
 
+/** @param {string[]} tokens */
 function setExtraDiceTokens(tokens) {
     els.extraDiceInput.value = tokens.join(', ');
     els.extraDiceInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/** @param {string} die */
 function addExtraDie(die) {
     setExtraDiceTokens([...getExtraDiceTokens(), die]);
 }
@@ -306,6 +331,7 @@ function getSelectedFreebieDie() {
 // ruling 2026-06-12; may cost more in a later update). The current
 // selection survives when its die is still in the pool. The hidden
 // select stays the value holder; the buttons mirror it.
+/** @param {import('../types.js').PoolDie[]} [poolDice] */
 function syncFreebieOptions(poolDice = []) {
     const select = els.freebieDieSelect;
     if (!select) return;
@@ -328,7 +354,7 @@ function syncFreebieOptions(poolDice = []) {
     select.innerHTML = '<option value="">None</option>' + distinctDice.map(die =>
         `<option value="${escapeHtml(die)}">${escapeHtml(labelFor(die))}</option>`
     ).join('');
-    select.value = distinctDice.includes(current) ? current : '';
+    select.value = distinctDice.some(die => die === current) ? current : '';
 
     if (els.freebieDieButtons) {
         els.freebieDieButtons.innerHTML = ['', ...distinctDice].map(die => {
@@ -380,6 +406,7 @@ export function getPoolOptions() {
     };
 }
 
+/** @param {string[]} [calledTileIds] */
 function getAmmoResolutionOptions(calledTileIds = []) {
     const calledIds = new Set(calledTileIds);
     return (dataManager.state.tiles || [])
@@ -397,10 +424,11 @@ function getAmmoResolutionOptions(calledTileIds = []) {
         }));
 }
 
+/** @param {import('../types.js').ResourceCost[]} [resourceCosts] */
 async function applyResourceCosts(resourceCosts = []) {
     const totals = resourceCosts.reduce((acc, cost) => {
         const resource = cost.resource;
-        const amount = parseInt(cost.amount, 10) || 0;
+        const amount = parseInt(String(cost.amount), 10) || 0;
         if (!resource || amount <= 0) return acc;
         acc[resource] = (acc[resource] || 0) + amount;
         return acc;
@@ -435,6 +463,7 @@ async function applyResourceCosts(resourceCosts = []) {
     return true;
 }
 
+/** @param {'Qi'|'Id'|null} shadowUse */
 function applyAberrationForShadowUse(shadowUse) {
     if (!shadowUse) return;
     dataManager.state.aberration = adjustAberrationForShadowUse(dataManager.state.aberration, shadowUse);
@@ -443,6 +472,7 @@ function applyAberrationForShadowUse(shadowUse) {
     renderRulesReview();
 }
 
+/** @param {import('../types.js').ChainOption[]} [chainOptions] */
 export function renderChainOptions(chainOptions = []) {
     const validIds = new Set(chainOptions.map(chain => chain.id));
     uiState.disabledChainIds = new Set(
@@ -525,15 +555,18 @@ export function renderChainOptions(chainOptions = []) {
     });
 }
 
+/** @param {import('../types.js').TagBonus[]} [tagBonuses] */
 export function getSelectedTagBonuses(tagBonuses = []) {
     return tagBonuses.filter(bonus => uiState.selectedTagBonusIds.has(bonus.id));
 }
 
+/** @param {import('../types.js').TagBonus[]} [tagBonuses] */
 export function calculateSelectedTagBonus(tagBonuses = []) {
     return getSelectedTagBonuses(tagBonuses)
         .reduce((sum, bonus) => sum + bonus.steps, 0);
 }
 
+/** @param {import('../types.js').TagBonus[]} [tagBonuses] */
 export function renderTagBonusOptions(tagBonuses = []) {
     const validIds = new Set(tagBonuses.map(bonus => bonus.id));
     uiState.selectedTagBonusIds = new Set(
@@ -585,6 +618,7 @@ export function renderTagBonusOptions(tagBonuses = []) {
 
 // X on each pool badge, so a selection can be cleared without scrolling
 // back to its tile in the Mosaic.
+/** @param {'call'|'hitch'|'burn'} kind @param {import('../types.js').Tile} tile */
 function badgeClearButton(kind, tile) {
     const label = `Remove ${escapeHtml(tile.name)} from the pool`;
     return ` <button type="button" class="badge-clear" data-clear="${kind}" data-tile-id="${escapeHtml(tile.id)}" title="${label}" aria-label="${label}">&times;</button>`;
@@ -610,7 +644,7 @@ export function updatePoolPreview() {
         els.poolAddsDisplay.innerText = `Adds: --`;
         renderChainOptions([]);
         renderTagBonusOptions([]);
-        if (document.querySelector('input[name="roll-mode"]:checked').value === 'manual') {
+        if (selectedRollMode() === 'manual') {
             els.manualInputsContainer.innerHTML = '';
         }
         return;
@@ -667,7 +701,7 @@ export function updatePoolPreview() {
     }
 
     // Update manual inputs if in manual mode
-    if (document.querySelector('input[name="roll-mode"]:checked').value === 'manual') {
+    if (selectedRollMode() === 'manual') {
         renderManualInputs();
     }
 }
@@ -736,7 +770,7 @@ export async function executeVirtualRoll() {
 }
 
 export async function executeManualCalculate() {
-    const inputs = els.manualInputsContainer.querySelectorAll('.manual-val');
+    const inputs = /** @type {NodeListOf<HTMLInputElement>} */ (els.manualInputsContainer.querySelectorAll('.manual-val'));
     let rolled = [];
     let hasError = false;
 
@@ -744,6 +778,10 @@ export async function executeManualCalculate() {
         const val = parseInt(inp.value, 10);
         const dieStr = inp.dataset.die;
         const sourceStr = inp.dataset.source;
+        if (!dieStr || !sourceStr) {
+            hasError = true;
+            return;
+        }
         const max = parseInt(dieStr.replace('d', ''), 10);
         if (isNaN(val) || val < 1 || val > max) {
             hasError = true;

@@ -1,3 +1,4 @@
+// @ts-check
 // Shared mutable UI state.
 //
 // Per refactor PR #2 (split-app-js): we keep these as properties on a single
@@ -6,6 +7,7 @@
 // A future PR can tighten access (getters/setters, scoping per-feature)
 // without touching every call site again.
 
+/** @type {import('./types.js').UiState} */
 export const uiState = {
     // The single tile selected as the "Call" for a roll, or null.
     callTile: null,

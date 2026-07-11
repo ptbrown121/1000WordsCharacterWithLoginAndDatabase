@@ -187,7 +187,9 @@ export function getSortedRolls(result) {
 // primary slot(s) for the chosen mode, mark everything else 'unused'.
 // Attack/defense put the last keep on the secondary slot (impact / grit)
 // when adds > 1, matching the typical "attack with crit" pattern.
+/** @returns {import('./types.js').ResolutionAssignments} */
 export function getDefaultResolutionAssignments(result, mode) {
+    /** @type {import('./types.js').ResolutionAssignments} */
     const assignments = {};
     const sortedRolls = getSortedRolls(result);
     const adds = result.adds ?? 2;

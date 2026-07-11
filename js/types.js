@@ -86,6 +86,7 @@
  * @typedef {Object} PoolDie
  * @property {string} source  e.g. "Stat (SPEED)", "Tile (claws)", "Burn (...)", "Chain (...)", "Freebie", "Extra"
  * @property {Die} die
+ * @property {Die} [baseDie]
  */
 
 /**
@@ -95,6 +96,7 @@
  * @property {Die} die
  * @property {number} val
  * @property {string|number} [id]
+ * @property {Die} [baseDie]
  */
 
 /**
@@ -169,12 +171,39 @@
  * @property {TagBonus[]} [appliedTagBonuses]
  * @property {string[]} [calledTileIds]
  * @property {boolean} [pressCounterBumped]
+ * @property {number} [woundPenalty]
+ * @property {boolean} [isTestRoll]
+ * @property {Array<{tileId: string, name: string, targetName: string, currentSupply: number, supply: number, linked: boolean, xpCost: number}>} [ammoOptions]
+ * @property {boolean} [freebieUsed]
+ * @property {boolean} [titanActive]
+ * @property {Array<{die: Die, from: number, to: number}>} [titanRerolls]
+ * @property {boolean} [titanManualReminder]
+ * @property {{count: number, breakdown: Object<string, number>, selections: Object<string, string>}|null} [chainCostPaid]
  */
 
 /**
  * Map of rollId -> assignment slot ('attack', 'impact', 'evasion', 'grit',
  * 'diagnosis', healing target ids, 'action', 'extend', 'unused').
  * @typedef {Object<string, string>} ResolutionAssignments
+ */
+
+/**
+ * Mutable browser-only roll selection and resolution state.
+ * @typedef {Object} UiState
+ * @property {Tile|null} callTile
+ * @property {string[]} callColors
+ * @property {Tile[]} hitchCallTiles
+ * @property {Tile[]} burnTiles
+ * @property {Set<string>} disabledChainIds
+ * @property {Object<string, string>} chainColorSelections
+ * @property {Set<string>} selectedTagBonusIds
+ * @property {RollResult|null} lastRollResult
+ * @property {'action'|'attack'|'defense'|'healing'} currentResolutionMode
+ * @property {ResolutionAssignments} currentResolutionAssignments
+ * @property {Object<string, string>} ammoAssignments
+ * @property {Object<string, string>} chainCostSelections
+ * @property {boolean} healingInCombat
+ * @property {Object<string, boolean>} defenseShieldSelections
  */
 
 /**

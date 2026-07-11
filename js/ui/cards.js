@@ -1,3 +1,4 @@
+// @ts-check
 import { escapeHtml, getExoticSkillLabel, getTileBoxes, getTileNormalCallColors, isGearTagsBroken, isHitchedTile, RESOURCE_LABELS, tileTagList } from '../pool.js';
 import { COLOR_HEX } from '../data.js';
 import { uiState } from '../state.js';
@@ -8,13 +9,20 @@ import { setCallColors, updatePoolPreview } from './pool.js';
 import { updateShadowMax } from './vitals.js';
 import { renderRulesReview } from './rulesReview.js';
 
+/** @typedef {{tileId: string, startX: number, startY: number, lastX: number, lastY: number, targetId: string, scrollVelocity: number, active: boolean}} PointerDragState */
+/** @type {import('../data.js').DataManager} */
 let dataManager;
+/** @type {import('../spellBuilder.js').SpellBuilder} */
 let spellBuilder;
+/** @type {(tile?: import('../types.js').Tile|null) => void} */
 let openTileModalFn;
+/** @type {string|null} */
 let draggedTileId = null;
+/** @type {PointerDragState|null} */
 let pointerDragState = null;
 let suppressCardClickUntil = 0;
 let reorderMode = false;
+/** @type {number|null} */
 let autoScrollFrame = null;
 
 const AUTO_SCROLL_EDGE_PX = 80;
@@ -32,6 +40,7 @@ function clearDragClasses() {
     });
 }
 
+/** @param {number} clientY */
 function getAutoScrollVelocity(clientY) {
     if (!Number.isFinite(clientY)) return 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -47,11 +56,12 @@ function getAutoScrollVelocity(clientY) {
     return 0;
 }
 
+/** @param {number} clientX @param {number} clientY @param {string} sourceTileId */
 function updateDropTargetAtPoint(clientX, clientY, sourceTileId) {
     clearDropTargets();
     const targetCard = document.elementFromPoint(clientX, clientY)?.closest?.('.tile-card');
-    const targetId = targetCard?.dataset.tileId || '';
-    if (targetId && targetId !== sourceTileId) {
+    const targetId = targetCard instanceof HTMLElement ? targetCard.dataset.tileId || '' : '';
+    if (targetCard instanceof HTMLElement && targetId && targetId !== sourceTileId) {
         targetCard.classList.add('tile-drop-target');
         return targetId;
     }
@@ -64,6 +74,7 @@ function stopAutoScroll() {
     if (pointerDragState) pointerDragState.scrollVelocity = 0;
 }
 
+/** @param {{shadow?: boolean}} [options] */
 function refreshAfterTileStateChange({ shadow = false } = {}) {
     renderCards();
     updatePoolPreview();
@@ -85,6 +96,7 @@ function tickAutoScroll() {
     autoScrollFrame = requestAnimationFrame(tickAutoScroll);
 }
 
+/** @param {number} clientX @param {number} clientY */
 function updateAutoScroll(clientX, clientY) {
     if (!pointerDragState?.active) return;
     pointerDragState.lastX = clientX;
@@ -112,6 +124,7 @@ function syncReorderButton() {
     els.btnReorderTiles.textContent = reorderMode ? 'Done' : 'Reorder';
 }
 
+/** @param {string[]} visibleTileIds @param {string} draggedId @param {string} targetId */
 function updateCustomOrder(visibleTileIds, draggedId, targetId) {
     dataManager.reorderTilesByVisibleMove(visibleTileIds, draggedId, targetId);
     stopAutoScroll();
@@ -119,6 +132,7 @@ function updateCustomOrder(visibleTileIds, draggedId, targetId) {
     renderCards();
 }
 
+/** @param {string[]} visibleTileIds @param {string} tileId @param {number} step */
 function moveTileByStep(visibleTileIds, tileId, step) {
     const currentIndex = visibleTileIds.indexOf(tileId);
     const targetId = visibleTileIds[currentIndex + step];
@@ -126,12 +140,14 @@ function moveTileByStep(visibleTileIds, tileId, step) {
     updateCustomOrder(visibleTileIds, tileId, targetId);
 }
 
+/** @param {import('../types.js').Tile} tile */
 function seedCallColorsFromTile(tile) {
     if ((uiState.callColors || []).filter(Boolean).length > 0) return;
     const tileColors = getTileNormalCallColors(tile);
     if (tileColors.length > 0) setCallColors(tileColors);
 }
 
+/** @param {import('../types.js').AppDependencies} deps */
 export function init(deps) {
     dataManager = deps.dataManager;
     openTileModalFn = deps.openTileModal;
@@ -163,6 +179,7 @@ export function init(deps) {
     els.autoFilterCall.addEventListener('change', renderCards);
 }
 
+/** @param {import('../types.js').Tile} tile */
 export function handleCardClick(tile) {
     if (tile.isBurnt || tile.isBuried || tile.gearSubtype === 'Ammo') {
         // Cannot select unavailable tiles.
@@ -358,14 +375,14 @@ export function renderCards() {
         if (reorderMode) {
             const btnMoveUp = div.querySelector('.btn-tile-move-up');
             const btnMoveDown = div.querySelector('.btn-tile-move-down');
-            if (btnMoveUp) {
+            if (btnMoveUp instanceof HTMLButtonElement) {
                 btnMoveUp.disabled = visibleTileIds.indexOf(tile.id) === 0;
                 btnMoveUp.addEventListener('click', (e) => {
                     e.stopPropagation();
                     moveTileByStep(visibleTileIds, tile.id, -1);
                 });
             }
-            if (btnMoveDown) {
+            if (btnMoveDown instanceof HTMLButtonElement) {
                 btnMoveDown.disabled = visibleTileIds.indexOf(tile.id) === visibleTileIds.length - 1;
                 btnMoveDown.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -374,7 +391,7 @@ export function renderCards() {
             }
 
             const dragHandle = div.querySelector('.tile-drag-handle');
-            if (dragHandle) {
+            if (dragHandle instanceof HTMLElement) {
                 dragHandle.addEventListener('click', (e) => e.stopPropagation());
                 dragHandle.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
@@ -456,6 +473,8 @@ export function renderCards() {
                 if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
                 pointerDragState = {
                     tileId: incomingId,
+                    startX: e.clientX,
+                    startY: e.clientY,
                     lastX: e.clientX,
                     lastY: e.clientY,
                     targetId: tile.id,
@@ -484,7 +503,7 @@ export function renderCards() {
         }
 
         if (tile.isBuried) {
-            const btnRestore = div.querySelector('.btn-restore-tile');
+            const btnRestore = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-restore-tile'));
             btnRestore.addEventListener('click', (e) => {
                 e.stopPropagation();
                 tile.isBuried = false;
@@ -510,9 +529,9 @@ export function renderCards() {
         }
 
         if (!tile.isBuried && isAmmo) {
-            const btnUseAmmo = div.querySelector('.btn-use-ammo');
-            const btnRestockAmmo = div.querySelector('.btn-restock-ammo');
-            const btnBury = div.querySelector('.btn-bury-tile');
+            const btnUseAmmo = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-use-ammo'));
+            const btnRestockAmmo = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-restock-ammo'));
+            const btnBury = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-bury-tile'));
 
             btnUseAmmo.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -538,7 +557,7 @@ export function renderCards() {
                 refreshAfterTileStateChange({ shadow: true });
             });
         } else if (!tile.isBuried && tile.isBurnt) {
-            const btnUnburn = div.querySelector('.btn-unburn');
+            const btnUnburn = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-unburn'));
             btnUnburn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 tile.isBurnt = false;
@@ -558,7 +577,7 @@ export function renderCards() {
                     refreshAfterTileStateChange();
                 });
             }
-            const btnBury = div.querySelector('.btn-bury-tile');
+            const btnBury = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-bury-tile'));
             btnBury.addEventListener('click', (e) => {
                 e.stopPropagation();
                 tile.isBuried = true;
@@ -571,7 +590,7 @@ export function renderCards() {
             });
         }
 
-        const btnEdit = div.querySelector('.btn-edit-tile');
+        const btnEdit = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-edit-tile'));
         btnEdit.addEventListener('click', (e) => {
             e.stopPropagation();
             if (tile.isSpell) {
@@ -582,8 +601,8 @@ export function renderCards() {
         });
 
         if (tile.description) {
-            const btnDetails = div.querySelector('.btn-details');
-            const descDiv = div.querySelector('.tile-description');
+            const btnDetails = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-details'));
+            const descDiv = /** @type {HTMLElement} */ (div.querySelector('.tile-description'));
             btnDetails.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (descDiv.style.display === 'none') {
