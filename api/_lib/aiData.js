@@ -63,6 +63,28 @@ export async function fetchLatestThreadForCharacter(client, characterId) {
     return fetchThreadBundle(client, result.data.id);
 }
 
+export async function hasCommittedTurnRequest(client, threadId, requestId) {
+    const result = await client
+        .from('ai_creation_messages')
+        .select('id')
+        .eq('thread_id', threadId)
+        .eq('request_id', requestId)
+        .maybeSingle();
+    if (result.error) throw new ApiError(400, result.error.message || 'Could not check AI message request status.');
+    return Boolean(result.data);
+}
+
+export async function hasCommittedSummaryRequest(client, threadId, requestId) {
+    const result = await client
+        .from('ai_scene_summaries')
+        .select('id')
+        .eq('thread_id', threadId)
+        .eq('request_id', requestId)
+        .maybeSingle();
+    if (result.error) throw new ApiError(400, result.error.message || 'Could not check AI summary request status.');
+    return Boolean(result.data);
+}
+
 export async function insertAgentLog(client, values) {
     const result = await client
         .from('ai_agent_run_logs')

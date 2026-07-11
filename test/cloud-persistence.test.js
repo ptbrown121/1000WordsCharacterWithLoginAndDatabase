@@ -215,8 +215,11 @@ describe('DataManager cloud behavior', () => {
             { id: 'local-entry', title: 'Session 1', content: 'notes' },
             { id: 'ai-entry', title: 'AI Scene: Origin', content: 'The scene summary.' }
         ];
+        cloud.characters[0].state = JSON.parse(JSON.stringify(serverState));
+        cloud.characters[0].updatedAt = 't-server-accept';
 
-        assert.equal(manager.mergeServerJournalEntries(serverState), true);
+        assert.equal(manager.mergeServerJournalEntries(serverState, 't-server-accept'), true);
+        assert.equal(manager.cloudUpdatedAt, 't-server-accept');
         assert.deepEqual(manager.state.journal.map(entry => entry.id), ['local-entry', 'ai-entry']);
         assert.equal(manager.state.tiles.length, 1);
 

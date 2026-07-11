@@ -640,7 +640,7 @@ export class DataManager {
     // Folds journal entries a server route appended into the local state without
     // replacing it wholesale, so edits made while the request was in flight
     // survive. The follow-up saveState() re-syncs the merged state to the cloud.
-    mergeServerJournalEntries(serverState) {
+    mergeServerJournalEntries(serverState, serverUpdatedAt = null) {
         if (!this.canEditActiveCharacter()) return false;
         const serverJournal = Array.isArray(serverState?.journal) ? serverState.journal : [];
         if (serverJournal.length === 0) return false;
@@ -651,11 +651,10 @@ export class DataManager {
         if (added.length === 0) return false;
 
         // The server route that produced serverState also wrote the character
-        // row (bumping updated_at), so the optimistic guard we hold is stale
-        // by design, not because of a rival edit. Drop it so the follow-up
-        // save below goes through unguarded; that save intentionally replaces
-        // the server's copy with this merged state.
-        this.cloudUpdatedAt = null;
+        // row. Carry its new stamp into the follow-up save so unrelated writes
+        // made after the acceptance cannot be silently overwritten. Older
+        // servers omit the stamp, preserving the previous fallback behavior.
+        this.cloudUpdatedAt = serverUpdatedAt || null;
 
         this.state.journal = [...journal, ...added];
         this.saveState();

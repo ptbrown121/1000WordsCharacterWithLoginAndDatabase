@@ -14,8 +14,14 @@ const aiState = {
     documents: [],
     settings: null,
     loadingDocs: false,
-    docsStatus: ''
+    docsStatus: '',
+    pendingMessageRequest: null,
+    pendingFinalizeRequest: null
 };
+
+function operationId() {
+    return crypto.randomUUID();
+}
 
 function activeCampaignEntry() {
     const entry = dataManager?.activeRosterEntry;
@@ -65,6 +71,10 @@ function isClosedThread(thread = aiState.activeBundle?.thread) {
     return ['completed', 'cancelled'].includes(thread?.status);
 }
 
+function canWriteThread(thread = aiState.activeBundle?.thread) {
+    return ['active', 'ready_for_summary'].includes(thread?.status);
+}
+
 function statusForBundle(bundle) {
     const status = bundle?.thread?.status;
     if (!bundle) return 'Start a guided creation chat for this campaign character.';
@@ -100,6 +110,8 @@ function maybeLoadActiveThread() {
     aiState.activeCharacterId = characterId;
     aiState.activeBundle = null;
     aiState.threadStatus = '';
+    aiState.pendingMessageRequest = null;
+    aiState.pendingFinalizeRequest = null;
     if (characterId) loadActiveThread(characterId);
 }
 
@@ -126,18 +138,25 @@ async function startThread() {
 
 async function sendMessage(event) {
     event.preventDefault();
-    if (aiState.busyThread || !aiState.activeBundle?.thread) return;
+    if (aiState.busyThread || !canWriteThread()) return;
     const message = els.aiCreationInput.value.trim();
     if (!message) return;
     aiState.busyThread = true;
     els.aiCreationInput.value = '';
     setThreadStatus('Thinking through the scene...');
     renderAiCreation();
+    const threadId = aiState.activeBundle.thread.id;
+    const pending = aiState.pendingMessageRequest;
+    const requestId = pending?.threadId === threadId && pending.message === message
+        ? pending.requestId
+        : operationId();
+    aiState.pendingMessageRequest = { threadId, message, requestId };
     try {
         const payload = await apiFetch('/api/ai/messages', {
             method: 'POST',
-            body: JSON.stringify({ threadId: aiState.activeBundle.thread.id, message })
+            body: JSON.stringify({ threadId, message, requestId })
         });
+        aiState.pendingMessageRequest = null;
         applyBundle(payload.bundle);
         setThreadStatus('Scene chat updated.');
     } catch (error) {
@@ -152,15 +171,20 @@ async function sendMessage(event) {
 }
 
 async function finalizeScene() {
-    if (aiState.busyThread || !aiState.activeBundle?.thread || isClosedThread()) return;
+    if (aiState.busyThread || !canWriteThread()) return;
     aiState.busyThread = true;
     setThreadStatus('Orchestrator and validator are drafting the scene summary...');
     renderAiCreation();
+    const threadId = aiState.activeBundle.thread.id;
+    const pending = aiState.pendingFinalizeRequest;
+    const requestId = pending?.threadId === threadId ? pending.requestId : operationId();
+    aiState.pendingFinalizeRequest = { threadId, requestId };
     try {
         const payload = await apiFetch('/api/ai/finalize-scene', {
             method: 'POST',
-            body: JSON.stringify({ threadId: aiState.activeBundle.thread.id })
+            body: JSON.stringify({ threadId, requestId })
         });
+        aiState.pendingFinalizeRequest = null;
         applyBundle(payload.bundle);
         setThreadStatus('Scene summary is ready for review.');
     } catch (error) {
@@ -207,7 +231,7 @@ async function acceptSummary(summaryId) {
             body: JSON.stringify({ summaryId, appendToJournal: true })
         });
         if (payload.characterState && payload.bundle?.thread?.character_id === dataManager.activeCharId) {
-            if (dataManager.mergeServerJournalEntries(payload.characterState)) renderJournal();
+            if (dataManager.mergeServerJournalEntries(payload.characterState, payload.characterUpdatedAt)) renderJournal();
         }
         applyBundle(payload.bundle);
         setThreadStatus('Scene accepted and saved.');
@@ -509,6 +533,7 @@ export function renderAiCreation() {
     const canChat = Boolean(entry.isMine && !entry.readOnly);
     const hasThread = Boolean(aiState.activeBundle?.thread);
     const hasOpenThread = hasThread && !isClosedThread();
+    const hasWritableThread = hasThread && canWriteThread();
     if (els.tabStoryBadge) els.tabStoryBadge.hidden = !hasOpenThread;
     const status = aiState.loadingThread
         ? 'Loading AI creation chat...'
@@ -521,18 +546,18 @@ export function renderAiCreation() {
         els.btnAiThreadStart.disabled = !canChat || aiState.busyThread || aiState.loadingThread;
     }
     if (els.btnAiSceneFinalize) {
-        els.btnAiSceneFinalize.hidden = !hasOpenThread;
-        els.btnAiSceneFinalize.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
+        els.btnAiSceneFinalize.hidden = !hasWritableThread;
+        els.btnAiSceneFinalize.disabled = !canChat || !hasWritableThread || aiState.busyThread || aiState.loadingThread;
     }
     if (els.btnAiSceneCancel) {
         els.btnAiSceneCancel.hidden = !hasOpenThread;
         els.btnAiSceneCancel.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
     }
     if (els.aiCreationInput) {
-        els.aiCreationInput.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
+        els.aiCreationInput.disabled = !canChat || !hasWritableThread || aiState.busyThread || aiState.loadingThread;
     }
     if (els.btnAiMessageSend) {
-        els.btnAiMessageSend.disabled = !canChat || !hasOpenThread || aiState.busyThread || aiState.loadingThread;
+        els.btnAiMessageSend.disabled = !canChat || !hasWritableThread || aiState.busyThread || aiState.loadingThread;
     }
 
     renderMessages();
