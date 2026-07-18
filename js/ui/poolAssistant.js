@@ -171,7 +171,9 @@ function resetRecording() {
     mediaStream = null;
     mediaRecorder = null;
     audioChunks = [];
-    els.btnPoolAssistantMic.textContent = '🎙️ Dictate Call';
+    els.btnPoolAssistantMic.textContent = '🎙️';
+    els.btnPoolAssistantMic.setAttribute('aria-label', 'Dictate Call');
+    els.btnPoolAssistantMic.title = 'Dictate Call';
     els.btnPoolAssistantMic.setAttribute('aria-pressed', 'false');
     els.btnPoolAssistantMic.disabled = busy;
 }
@@ -208,7 +210,9 @@ async function startRecording() {
         });
         mediaRecorder.addEventListener('stop', () => finishRecording(), { once: true });
         mediaRecorder.start();
-        els.btnPoolAssistantMic.textContent = '⏹ Stop Listening';
+        els.btnPoolAssistantMic.textContent = '⏹';
+        els.btnPoolAssistantMic.setAttribute('aria-label', 'Stop Listening');
+        els.btnPoolAssistantMic.title = 'Stop Listening';
         els.btnPoolAssistantMic.setAttribute('aria-pressed', 'true');
         els.poolAssistantCommand.disabled = true;
         els.btnPoolAssistantSuggest.disabled = true;
