@@ -41,7 +41,7 @@ test('help modal exposes its name and keeps keyboard focus inside', async ({ pag
 
 test('every static modal has accessible dialog metadata', async ({ page }) => {
     const modals = page.locator('.modal');
-    await expect(modals).toHaveCount(6);
+    await expect(modals).toHaveCount(8);
     const count = await modals.count();
     for (let index = 0; index < count; index += 1) {
         const modal = modals.nth(index);

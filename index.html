@@ -395,6 +395,26 @@
                         </div>
                     </div>
 
+                    <section id="pool-assistant-panel" class="pool-assistant-panel" aria-labelledby="pool-assistant-title" hidden>
+                        <div class="pool-assistant-heading">
+                            <div>
+                                <h3 id="pool-assistant-title">AI Pool Assistant</h3>
+                                <p>Say the GM’s two colors and the action; the assistant will suggest matching tiles.</p>
+                            </div>
+                            <span class="pool-assistant-badge">Preview only</span>
+                        </div>
+                        <form id="pool-assistant-form" class="pool-assistant-form">
+                            <label for="pool-assistant-command">What colors did the GM call, and what does your character do?</label>
+                            <div class="pool-assistant-controls">
+                                <input type="text" id="pool-assistant-command" maxlength="500" autocomplete="off" placeholder="e.g. Blue and Purple — I quietly pick the lock">
+                                <button type="button" id="btn-pool-assistant-mic" class="btn btn-outline" aria-pressed="false">🎙️ Speak</button>
+                                <button type="submit" id="btn-pool-assistant-suggest" class="btn btn-action">Suggest</button>
+                            </div>
+                        </form>
+                        <p id="pool-assistant-status" class="pool-assistant-status" role="status" aria-live="polite"></p>
+                        <small>Spoken colors override preselected colors. The assistant never infers colors from the action. Burns require an explicit request.</small>
+                    </section>
+
                     <div class="pool-tiles">
                         <div class="tile-dropzone" id="call-tile-zone">
                             <span>Select 1 Call Tile</span>
@@ -705,6 +725,38 @@
             <div id="pool-tile-picker-colors" class="pool-tile-picker-colors" aria-live="polite"></div>
             <div id="pool-tile-picker-choices" class="pool-tile-picker-grid"></div>
             <p id="pool-tile-picker-empty" class="pool-tile-picker-empty" hidden>No matching tiles are available.</p>
+        </div>
+    </div>
+
+    <div id="pool-assistant-preview-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pool-assistant-preview-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-pool-assistant-preview-close" data-initial-focus="#btn-pool-assistant-apply">
+        <div class="modal-content glass-panel pool-assistant-preview-content">
+            <div class="pool-assistant-preview-header">
+                <div>
+                    <h2 id="pool-assistant-preview-title">Review AI Suggestion</h2>
+                    <p id="pool-assistant-preview-confidence"></p>
+                </div>
+                <button type="button" id="btn-pool-assistant-preview-close" class="btn btn-outline" aria-label="Close AI suggestion">✕</button>
+            </div>
+            <div class="pool-assistant-preview-block">
+                <strong>Heard</strong>
+                <p id="pool-assistant-preview-transcript"></p>
+            </div>
+            <div id="pool-assistant-preview-selection" class="pool-assistant-preview-selection">
+                <div><strong>GM Call colors</strong><span id="pool-assistant-preview-colors"></span></div>
+                <div><strong>Call tile</strong><span id="pool-assistant-preview-call-tile"></span></div>
+                <div><strong>Burn tiles</strong><span id="pool-assistant-preview-burn-tiles"></span></div>
+            </div>
+            <p id="pool-assistant-preview-clarification" class="pool-assistant-preview-clarification" hidden></p>
+            <div class="pool-assistant-preview-block">
+                <strong>Why</strong>
+                <p id="pool-assistant-preview-rationale"></p>
+            </div>
+            <ul id="pool-assistant-preview-warnings" class="pool-assistant-preview-warnings" hidden></ul>
+            <p class="pool-assistant-gm-note">The colors shown were spoken by the GM or already selected. The assistant only suggests matching tiles.</p>
+            <div class="form-actions">
+                <button type="button" id="btn-pool-assistant-cancel" class="btn btn-outline">Cancel</button>
+                <button type="button" id="btn-pool-assistant-apply" class="btn btn-action">Apply Suggestion</button>
+            </div>
         </div>
     </div>
 

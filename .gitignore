@@ -9,3 +9,11 @@ dist/
 supabase/.temp/
 test-results/
 playwright-report/
+
+# Generated test and evaluation artifacts
+coverage/
+.nyc_output/
+blob-report/
+*.lcov
+evals/pool-assistant/reports/
+evals/pool-assistant/audio/*.wav

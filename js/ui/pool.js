@@ -17,6 +17,7 @@ import {
     getCompatibleBurnTiles,
     getSharedTileCallColors
 } from '../pool-tile-selection.js';
+import { resolvePoolAssistantSelection } from '../pool-assistant.js';
 import { getWoundPenalty } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
@@ -261,6 +262,32 @@ export function setCallColors(colors) {
     uiState.callColors = uniqueColors;
     syncLegacyCallColorSelects(uniqueColors);
     handleCallColorChange();
+}
+
+/**
+ * Atomically replace the transient Call selection with a validated assistant
+ * suggestion. The assistant never rolls or spends resources; this only fills
+ * the same controls the player can already operate by hand.
+ * @param {unknown} rawSuggestion
+ */
+export function applyPoolAssistantSelection(rawSuggestion) {
+    const resolved = resolvePoolAssistantSelection(rawSuggestion, dataManager.state.tiles || []);
+    if (!resolved.valid || resolved.suggestion.status !== 'ready' || !resolved.callTile) {
+        throw new Error(resolved.errors[0] || 'The assistant suggestion is not ready to apply.');
+    }
+
+    uiState.callColors = [...resolved.suggestion.callColors];
+    uiState.callTile = resolved.callTile;
+    uiState.hitchCallTiles = [];
+    uiState.burnTiles = [...resolved.burnTiles];
+    uiState.disabledChainIds.clear();
+    uiState.chainColorSelections = {};
+    uiState.selectedTagBonusIds.clear();
+    syncLegacyCallColorSelects(uiState.callColors);
+    syncCallColorButtons();
+    renderCards();
+    updatePoolPreview();
+    if (els.autoFilterCall.checked) renderCards();
 }
 
 /** @param {string} color */

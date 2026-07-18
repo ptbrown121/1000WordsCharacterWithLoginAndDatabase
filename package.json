@@ -11,7 +11,9 @@
     "test": "node --test \"test/**/*.test.js\"",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run test:e2e",
-    "lint": "eslint \"js/**/*.js\" \"api/**/*.js\" \"test/**/*.js\" \"e2e/**/*.js\" \"playwright.config.js\"",
+    "eval:pool-assistant": "node scripts/eval-pool-assistant.js",
+    "eval:pool-assistant:audio": "node scripts/eval-pool-assistant-audio.js",
+    "lint": "eslint \"js/**/*.js\" \"api/**/*.js\" \"test/**/*.js\" \"e2e/**/*.js\" \"evals/**/*.js\" \"scripts/**/*.js\" \"playwright.config.js\"",
     "typecheck": "tsc --noEmit -p jsconfig.json"
   },
   "devDependencies": {

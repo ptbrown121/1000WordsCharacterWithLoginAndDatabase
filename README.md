@@ -113,6 +113,62 @@ The AI character creation MVP runs through Vercel API routes so model and servic
 
 Without `OPENAI_API_KEY`, the Vercel routes return deterministic local fallback responses. That keeps local UI/database testing possible, but production play should use a real OpenAI key. When a key is configured, model failures (outages, rate limits, truncated output) return an error to the player instead of silently substituting fallback content; nothing is persisted for failed chat turns, and failed runs are recorded in `ai_agent_run_logs` with `status = 'failed'` and an error message. For local AI route testing, run the app through `vercel dev`; plain `npm run dev` serves the Vite client only.
 
+### AI voice pool assistant
+
+The Call panel includes an optional voice/text assistant that extracts the two
+colors explicitly supplied by the GM, then suggests one matching Call tile and
+explicitly requested Burn tiles. The GM can say color names (for example,
+`Blue and Purple`) or stat names (`MIND and SPEED`); two already-selected Call
+colors are used as a fallback. The assistant never infers colors from the
+action. Canonical color names are recommended for fast or noisy speech.
+Suggestions
+are mechanically validated and shown in a preview; the player must confirm
+before the transient pool changes, and the GM still has final say on colors.
+
+The assistant is off by default. Configure these private Vercel variables:
+
+- `AI_POOL_ASSISTANT_ENABLED=true` — the single server-side rollout/kill flag.
+- `OPENAI_POOL_ASSISTANT_MODEL` — defaults to `gpt-5.6-luna`, the selector that
+  passed the final tile-focused confirmation evaluation at 98/100. This is a moving alias,
+  so rerun the repository eval before a production rollout.
+- `OPENAI_POOL_TRANSCRIPTION_MODEL` — defaults to
+  `gpt-4o-mini-transcribe`.
+- Optional `OPENAI_POOL_ASSISTANT_REASONING_EFFORT` override. Without one, the
+  selector uses `minimal` for GPT-5, `none` for GPT-5.4/5.6, and no reasoning
+  parameter for GPT-4o. `OPENAI_POOL_ASSISTANT_MAX_OUTPUT_TOKENS` defaults to
+  `1200`.
+
+The existing `OPENAI_API_KEY`, Supabase browser/server variables, and optional
+`AI_RATE_LIMIT_REQUESTS` protect the route. Users must be signed in, but the
+active sheet can be local or cloud-backed because only the compact current
+stats/tile catalog is sent. Audio is capped at 15 seconds in the browser and
+2 MB on the server, is transcribed in memory, and is never stored or logged.
+
+Run the cost-bearing accuracy suite only on demand:
+
+```bash
+npm run eval:pool-assistant
+npm run eval:pool-assistant -- --model=gpt-5.4-nano-2026-03-17
+npm run eval:pool-assistant -- --model=gpt-5.6-luna
+npm run eval:pool-assistant -- --model=gpt-5.6-terra
+npm run eval:pool-assistant:audio
+```
+
+The text suite contains exactly 100 commands with explicit GM colors and
+accepted-gold tile selections. It exits successfully only when at least 90 are
+exact, every output is mechanically valid, and no case gains an unrequested
+Burn. It reports component accuracy, latency, token usage, estimated
+selector cost, and failures. The sixteen synthetic WAV fixtures are a
+report-only transcription smoke set, including four that require spoken
+color/stat extraction; manually test consenting real speakers
+and table noise before broad rollout. Neither command runs in normal CI.
+
+The current Luna baseline passes 98/100 text cases and the combined synthetic
+audio smoke set at 16/16 exact selections with 4/4 spoken-color extractions.
+
+See [the AI pool assistant rollout guide](docs/ai-pool-assistant.md) for the
+model gate, starting cost estimates, and preview-to-production checklist.
+
 ### Scheduled backups and keep-alive
 
 Two Vercel cron jobs (configured in `vercel.json`, the Hobby plan's limit of two) protect the campaign data:
