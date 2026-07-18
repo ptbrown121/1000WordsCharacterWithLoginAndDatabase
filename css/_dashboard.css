@@ -336,6 +336,12 @@
     margin-bottom: 0.5rem;
 }
 
+.pool-tile-picker-launch {
+    margin-top: 0.35rem;
+    min-height: 44px;
+    width: min(100%, 280px);
+}
+
 .hint-text {
     font-size: 0.8rem;
     color: var(--text-secondary);

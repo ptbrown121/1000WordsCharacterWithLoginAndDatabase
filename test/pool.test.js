@@ -809,6 +809,24 @@ describe('compilePool', () => {
         assert.deepEqual(res.chainOptions[0].availableColors, ['Yellow', 'Purple']);
     });
 
+    it('auto-selects a Chain color when the Call and burn tiles narrow to one shared color', () => {
+        const spell = { id: 'spell', name: 'Spell', colors: ['Blue', 'Yellow'], dice: ['d6'], tags: 'Chain Twist' };
+        const twist = { id: 'twist', name: 'Twist', colors: ['Blue', 'Yellow'], dice: ['d6'], tags: '' };
+        const burn = { id: 'burn', name: 'Burn', colors: ['Yellow', 'Red'], dice: ['d6'], tags: '' };
+        const res = engine.compilePool(
+            ['Blue', 'Yellow', 'Red'],
+            stats,
+            spell,
+            [burn],
+            [spell, twist, burn],
+            []
+        );
+
+        assert.equal(res.error, null);
+        assert.equal(res.chainOptions[0].selectedColor, 'Yellow');
+        assert.equal(res.chainOptions[0].requiresColorChoice, false);
+    });
+
     it('keeps recursive chains on the initially selected chain color', () => {
         const spell = { id: 'spell', name: 'Spell', colors: ['Yellow', 'Purple'], dice: ['d6'], tags: 'Chain Twist' };
         const twist = { id: 'twist', name: 'Twist', colors: ['Yellow', 'Purple'], dice: ['d6'], tags: 'Chain Bridge' };

@@ -399,12 +399,14 @@
                         <div class="tile-dropzone" id="call-tile-zone">
                             <span>Select 1 Call Tile</span>
                             <div id="call-tile-container"></div>
+                            <button type="button" id="btn-pick-call-tile" class="btn btn-outline pool-tile-picker-launch" hidden>Select Call Tile</button>
                         </div>
                         <div class="tile-dropzone" id="burn-tile-zone">
                             <span>Select Burn Tiles (Same Color)</span>
                             <div id="burn-tiles-container"></div>
+                            <button type="button" id="btn-pick-burn-tiles" class="btn btn-outline pool-tile-picker-launch" hidden>Select Burn Tiles</button>
                         </div>
-                        <p class="hint-text">Click a card in your Mosaic to add/remove it from the pool.</p>
+                        <p class="hint-text">Use the tile pickers above or click a card in your Mosaic to add/remove it from the pool.</p>
                     </div>
 
                     <div style="margin-top: 1rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
@@ -691,6 +693,21 @@
     </main>
 
     <!-- Modal for Adding/Editing Tiles -->
+    <div id="pool-tile-picker-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pool-tile-picker-title" aria-describedby="pool-tile-picker-help" aria-hidden="true" tabindex="-1" data-modal-close="#btn-pool-tile-picker-close" data-initial-focus="#pool-tile-picker-choices button">
+        <div class="modal-content glass-panel pool-tile-picker-content">
+            <div class="pool-tile-picker-header">
+                <div>
+                    <h2 id="pool-tile-picker-title">Select Tile</h2>
+                    <p id="pool-tile-picker-help" class="pool-tile-picker-help"></p>
+                </div>
+                <button type="button" id="btn-pool-tile-picker-close" class="btn btn-outline" aria-label="Close tile picker">Done</button>
+            </div>
+            <div id="pool-tile-picker-colors" class="pool-tile-picker-colors" aria-live="polite"></div>
+            <div id="pool-tile-picker-choices" class="pool-tile-picker-grid"></div>
+            <p id="pool-tile-picker-empty" class="pool-tile-picker-empty" hidden>No matching tiles are available.</p>
+        </div>
+    </div>
+
     <div id="tile-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true" tabindex="-1" data-modal-close="#btn-modal-cancel" data-initial-focus="#tile-name">
         <div class="modal-content glass-panel">
             <h2 id="modal-title">Add Tile</h2>
@@ -1760,7 +1777,9 @@
                 <h3 style="color: var(--text-primary);">🎲 The Call (Dice Pool)</h3>
                 <p>When the GM calls for a roll, select <strong>Call Colors</strong>. Your matching stat dice are automatically added to the pool. More than two colors are allowed for custom calls and show a GM confirmation warning. Then:</p>
                 <ol style="padding-left: 1.2rem;">
-                    <li><strong>Click a tile</strong> in your Mosaic to set it as the <strong>Call Tile</strong> (first click) or <strong>Burn Tile</strong> (second click).</li>
+                    <li>With two or more colors selected, use <strong>Select Call Tile</strong> to choose a matching tile without leaving the Call panel. Use <strong>Change Call Tile</strong> to swap it later.</li>
+                    <li>Use <strong>Select Burn Tiles</strong> to add burns. The choices narrow to the color shared by the Call tile and every selected burn; you can also remove selected burns in the picker.</li>
+                    <li>You can still click tiles in the <strong>Mosaic</strong> directly to add or remove them from the pool.</li>
                     <li>Add any extra dice from spending Energy or Shadow in the Extra Dice field.</li>
                     <li>Choose <strong>Virtual Roll</strong> to let the app roll for you, or <strong>Manual Input</strong> to enter physical dice results.</li>
                 </ol>

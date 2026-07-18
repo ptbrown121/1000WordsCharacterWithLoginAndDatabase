@@ -4,11 +4,19 @@ import {
     classifyAberration,
     escapeHtml,
     getDiceValidationMessage,
+    getTileBoxes,
     getShadowTagCounts,
     isHitchedTile,
     parseDiceInput,
     RESOURCE_LABELS
 } from '../pool.js';
+import { COLOR_HEX } from '../data.js';
+import {
+    getBurnTileChoices,
+    getCallTileChoices,
+    getCompatibleBurnTiles,
+    getSharedTileCallColors
+} from '../pool-tile-selection.js';
 import { getWoundPenalty } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
@@ -27,6 +35,8 @@ let poolEngine;
 let renderAll;
 /** @type {() => void} */
 let renderCards;
+/** @type {'call'|'burn'|null} */
+let tilePickerMode = null;
 
 const RESOURCE_INPUTS = {
     hp: 'valHp',
@@ -70,6 +80,13 @@ export function init(deps) {
     };
     els.callTileZone?.addEventListener('click', handleBadgeClear);
     els.burnTilesZone?.addEventListener('click', handleBadgeClear);
+    els.btnPickCallTile.addEventListener('click', () => openPoolTilePicker('call'));
+    els.btnPickBurnTiles.addEventListener('click', () => openPoolTilePicker('burn'));
+    els.btnPoolTilePickerClose.addEventListener('click', closePoolTilePicker);
+    els.poolTilePickerModal.addEventListener('click', event => {
+        if (event.target === els.poolTilePickerModal) closePoolTilePicker();
+    });
+    els.poolTilePickerChoices.addEventListener('click', handlePoolTileChoice);
     els.extraDiceInput.addEventListener('input', () => {
         syncExtraDiceChips();
         updatePoolPreview();
@@ -624,6 +641,100 @@ function badgeClearButton(kind, tile) {
     return ` <button type="button" class="badge-clear" data-clear="${kind}" data-tile-id="${escapeHtml(tile.id)}" title="${label}" aria-label="${label}">&times;</button>`;
 }
 
+/** @param {string[]} colors */
+function renderPoolTilePickerLaunchers(colors) {
+    els.btnPickCallTile.hidden = !uiState.callTile && colors.length < 2;
+    els.btnPickCallTile.textContent = uiState.callTile ? 'Change Call Tile' : 'Select Call Tile';
+
+    els.btnPickBurnTiles.hidden = !uiState.callTile;
+    els.btnPickBurnTiles.textContent = uiState.burnTiles.length > 0
+        ? `Change Burn Tiles (${uiState.burnTiles.length})`
+        : 'Select Burn Tiles';
+
+    if (els.poolTilePickerModal.classList.contains('active')) renderPoolTilePickerChoices();
+}
+
+/** @param {'call'|'burn'} mode */
+function openPoolTilePicker(mode) {
+    if (mode === 'burn' && !uiState.callTile) return;
+    tilePickerMode = mode;
+    renderPoolTilePickerChoices();
+    els.poolTilePickerModal.classList.add('active');
+}
+
+function closePoolTilePicker() {
+    els.poolTilePickerModal.classList.remove('active');
+    tilePickerMode = null;
+}
+
+function renderPoolTilePickerChoices() {
+    if (!tilePickerMode) return;
+    const callColors = getSelectedCallColors();
+    const isBurnPicker = tilePickerMode === 'burn';
+    const choices = isBurnPicker
+        ? getBurnTileChoices(dataManager.state.tiles, callColors, uiState.callTile, uiState.burnTiles)
+        : getCallTileChoices(dataManager.state.tiles, callColors);
+    const sharedColors = uiState.callTile
+        ? getSharedTileCallColors(callColors, [uiState.callTile, ...uiState.burnTiles])
+        : [];
+    const selectedIds = new Set(isBurnPicker
+        ? uiState.burnTiles.map(tile => tile.id)
+        : uiState.callTile ? [uiState.callTile.id] : []);
+
+    els.poolTilePickerTitle.textContent = isBurnPicker ? 'Select Burn Tiles' : 'Select Call Tile';
+    els.poolTilePickerHelp.textContent = isBurnPicker
+        ? 'Tap tiles to add or remove them. Choices narrow to colors shared by the Call tile and every selected burn.'
+        : 'Choose one available tile matching any selected Call color. Choosing another tile swaps the current Call tile.';
+
+    const colorLabel = isBurnPicker ? 'Shared color' : 'Matching colors';
+    els.poolTilePickerColors.innerHTML = sharedColors.length > 0 || !isBurnPicker
+        ? `<strong>${colorLabel}:</strong> ${escapeHtml((isBurnPicker ? sharedColors : callColors).join(', ') || 'None')}${isBurnPicker && sharedColors.length === 1 ? ` <span class="pool-tile-picker-chain-note">Chain: ${escapeHtml(sharedColors[0])}</span>` : ''}`
+        : '<strong>Shared color:</strong> None — remove a selected burn to widen the choices.';
+
+    els.poolTilePickerChoices.innerHTML = choices.map(tile => {
+        const selected = selectedIds.has(tile.id);
+        const boxes = getTileBoxes(tile);
+        const boxLabels = boxes.map(box => box.type === 'shadow' ? box.kind : box.color);
+        const boxColors = boxLabels.map(color => COLOR_HEX[color] || '#555');
+        const firstColor = boxColors[0] || '#555';
+        const secondColor = boxColors[1] || firstColor;
+        const dice = (tile.dice || []).join(', ') || 'No dice';
+        return `<button type="button" class="pool-tile-choice${selected ? ' selected' : ''}" data-tile-id="${escapeHtml(tile.id)}" aria-pressed="${selected}">
+            <span class="pool-tile-choice-colors">${boxLabels.map((label, index) => `<span class="badge" style="background:${boxColors[index]};color:${['Yellow', 'Qi'].includes(label) ? 'black' : 'white'}">${escapeHtml(label)}</span>`).join('')}</span>
+            <span class="pool-tile-choice-name">${selected ? '✓ ' : ''}${escapeHtml(tile.name)}</span>
+            <span class="pool-tile-choice-dice">${escapeHtml(dice)}</span>
+            <span class="pool-tile-choice-swatch" style="background:linear-gradient(135deg,${firstColor}55,${secondColor}55);border-color:${firstColor}99"></span>
+        </button>`;
+    }).join('');
+    els.poolTilePickerEmpty.hidden = choices.length > 0;
+    els.poolTilePickerEmpty.textContent = callColors.length === 0
+        ? 'Select at least one Call color first.'
+        : 'No matching tiles are available.';
+}
+
+/** @param {Event} event */
+function handlePoolTileChoice(event) {
+    const button = event.target instanceof Element ? event.target.closest('.pool-tile-choice') : null;
+    if (!(button instanceof HTMLButtonElement) || !tilePickerMode) return;
+    const tile = dataManager.state.tiles.find(candidate => candidate.id === button.dataset.tileId);
+    if (!tile) return;
+
+    if (tilePickerMode === 'call') {
+        uiState.callTile = tile;
+        uiState.hitchCallTiles = uiState.hitchCallTiles.filter(candidate => candidate.id !== tile.id);
+        const remainingBurns = uiState.burnTiles.filter(candidate => candidate.id !== tile.id);
+        uiState.burnTiles = getCompatibleBurnTiles(getSelectedCallColors(), tile, remainingBurns);
+        closePoolTilePicker();
+    } else if (uiState.burnTiles.some(candidate => candidate.id === tile.id)) {
+        uiState.burnTiles = uiState.burnTiles.filter(candidate => candidate.id !== tile.id);
+    } else {
+        uiState.burnTiles.push(tile);
+    }
+
+    renderCards();
+    updatePoolPreview();
+}
+
 export function updatePoolPreview() {
     const colors = getSelectedCallColors();
 
@@ -637,6 +748,7 @@ export function updatePoolPreview() {
     });
     els.callTileZone.innerHTML = calledBadges.join('');
     els.burnTilesZone.innerHTML = uiState.burnTiles.map(t => `<div class="badge" style="margin:2px">${escapeHtml(t.name)}${badgeClearButton('burn', t)}</div>`).join('');
+    renderPoolTilePickerLaunchers(colors);
 
     const extraDice = getExtraDice();
     if (extraDice.error) {

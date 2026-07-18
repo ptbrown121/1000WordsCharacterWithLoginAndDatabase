@@ -40,6 +40,12 @@
     .glass-panel {
         padding: 1rem;
     }
+    .pool-tile-picker-grid {
+        grid-template-columns: 1fr;
+    }
+    .pool-tile-picker-header .btn {
+        min-height: 44px;
+    }
     .header-top > div,
     .section-header > div {
         min-width: 0;

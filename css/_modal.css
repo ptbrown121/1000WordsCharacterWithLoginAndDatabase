@@ -42,6 +42,112 @@
     gap: 0.65rem;
 }
 
+.pool-tile-picker-content {
+    max-width: 720px;
+}
+
+.pool-tile-picker-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(18, 18, 22, 0.98);
+    padding-bottom: 0.75rem;
+}
+
+.pool-tile-picker-header h2,
+.pool-tile-picker-help {
+    margin: 0;
+}
+
+.pool-tile-picker-help {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.4;
+    margin-top: 0.3rem;
+}
+
+.pool-tile-picker-colors {
+    background: rgba(0, 255, 200, 0.08);
+    border: 1px solid rgba(0, 255, 200, 0.25);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    padding: 0.6rem 0.7rem;
+}
+
+.pool-tile-picker-chain-note {
+    color: #00ffcc;
+    margin-left: 0.5rem;
+}
+
+.pool-tile-picker-grid {
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pool-tile-choice {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: grid;
+    gap: 0.25rem;
+    min-height: 100px;
+    overflow: hidden;
+    padding: 0.75rem;
+    position: relative;
+    text-align: left;
+}
+
+.pool-tile-choice.selected {
+    border-color: #ffcc00;
+    box-shadow: inset 0 0 0 1px #ffcc00;
+}
+
+.pool-tile-choice-colors,
+.pool-tile-choice-name,
+.pool-tile-choice-dice {
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.pool-tile-choice-colors .badge {
+    display: inline-block;
+    margin: 0 0.25rem 0 0;
+}
+
+.pool-tile-choice-name {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.pool-tile-choice-dice {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.pool-tile-choice-swatch {
+    border-left: 1px solid;
+    bottom: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 36%;
+}
+
+.pool-tile-picker-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+}
+
 /* Modals float over the full sheet, where the shared 5%-white glass
    tint lets the page text bleed through. Use the same near-opaque dark
    as the tile modal's sticky header/footer instead. */

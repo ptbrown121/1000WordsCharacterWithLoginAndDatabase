@@ -509,6 +509,14 @@ export class PoolEngine {
                 tiles.every(tile => tileMatchesCallColor(tile, color))
             );
         };
+        // A burn selection can narrow a multi-color Call to one color. That
+        // sole color also resolves ambiguous Chain links automatically.
+        const sharedPoolTileColors = callTile
+            ? getSharedCallColors(callTile, ...(burnTiles || []))
+            : [];
+        const narrowedChainColor = sharedPoolTileColors.length === 1
+            ? sharedPoolTileColors[0]
+            : '';
 
         // 1. Add Stat Dice matching the Call Colors ("Each stat of matching
         // color contributes its dice", p.23).
@@ -659,6 +667,7 @@ export class PoolEngine {
                     const disabled = isChainDisabled(chainId);
                     const sharedColors = targetTile ? getSharedCallColors(tile, targetTile) : [];
                     const selectedColor = getSelectedChainColor(chainId);
+                    const automaticColor = sharedColors.includes(narrowedChainColor) ? narrowedChainColor : '';
                     const chainOption = {
                         id: chainId,
                         type: linkKind,
@@ -668,9 +677,9 @@ export class PoolEngine {
                         targetTileName: targetTile?.name || targetName,
                         targetFound: Boolean(targetTile),
                         availableColors: sharedColors,
-                        selectedColor: chainColor || selectedColor || (sharedColors.length === 1 ? sharedColors[0] : ''),
+                        selectedColor: chainColor || automaticColor || selectedColor || (sharedColors.length === 1 ? sharedColors[0] : ''),
                         inheritedColor: chainColor,
-                        requiresColorChoice: !chainColor && sharedColors.length > 1,
+                        requiresColorChoice: !chainColor && !automaticColor && sharedColors.length > 1,
                         enabled: !disabled,
                         status: disabled ? 'suppressed' : 'active'
                     };
@@ -707,6 +716,9 @@ export class PoolEngine {
                     if (!nextChainColor) {
                         if (sharedColors.length === 1) {
                             nextChainColor = sharedColors[0];
+                            chainOption.selectedColor = nextChainColor;
+                        } else if (automaticColor) {
+                            nextChainColor = automaticColor;
                             chainOption.selectedColor = nextChainColor;
                         } else if (selectedColor && sharedColors.includes(selectedColor)) {
                             nextChainColor = selectedColor;

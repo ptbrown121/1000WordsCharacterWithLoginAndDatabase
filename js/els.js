@@ -122,6 +122,15 @@ export const els = {
 
     callTileZone: requiredElement('call-tile-container', HTMLElement),
     burnTilesZone: requiredElement('burn-tiles-container', HTMLElement),
+    btnPickCallTile: requiredElement('btn-pick-call-tile', HTMLButtonElement),
+    btnPickBurnTiles: requiredElement('btn-pick-burn-tiles', HTMLButtonElement),
+    poolTilePickerModal: requiredElement('pool-tile-picker-modal', HTMLElement),
+    poolTilePickerTitle: requiredElement('pool-tile-picker-title', HTMLElement),
+    poolTilePickerHelp: requiredElement('pool-tile-picker-help', HTMLElement),
+    poolTilePickerColors: requiredElement('pool-tile-picker-colors', HTMLElement),
+    poolTilePickerChoices: requiredElement('pool-tile-picker-choices', HTMLElement),
+    poolTilePickerEmpty: requiredElement('pool-tile-picker-empty', HTMLElement),
+    btnPoolTilePickerClose: requiredElement('btn-pool-tile-picker-close', HTMLButtonElement),
 
     radioModes: /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="roll-mode"]')),
     testRollToggle: requiredElement('test-roll-toggle', HTMLInputElement),
