@@ -124,6 +124,8 @@ action. Canonical color names are recommended for fast or noisy speech.
 Suggestions
 are mechanically validated and shown in a preview; the player must confirm
 before the transient pool changes, and the GM still has final say on colors.
+When enabled, a fixed **Dictate Call** button remains available while the user
+scrolls; the typed fallback stays in the Call panel.
 
 The assistant is off by default. Configure these private Vercel variables:
 

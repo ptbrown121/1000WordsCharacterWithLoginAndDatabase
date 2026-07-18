@@ -171,7 +171,7 @@ function resetRecording() {
     mediaStream = null;
     mediaRecorder = null;
     audioChunks = [];
-    els.btnPoolAssistantMic.textContent = '🎙️ Speak';
+    els.btnPoolAssistantMic.textContent = '🎙️ Dictate Call';
     els.btnPoolAssistantMic.setAttribute('aria-pressed', 'false');
     els.btnPoolAssistantMic.disabled = busy;
 }
@@ -208,7 +208,7 @@ async function startRecording() {
         });
         mediaRecorder.addEventListener('stop', () => finishRecording(), { once: true });
         mediaRecorder.start();
-        els.btnPoolAssistantMic.textContent = '⏹ Stop';
+        els.btnPoolAssistantMic.textContent = '⏹ Stop Listening';
         els.btnPoolAssistantMic.setAttribute('aria-pressed', 'true');
         els.poolAssistantCommand.disabled = true;
         els.btnPoolAssistantSuggest.disabled = true;
@@ -241,9 +241,11 @@ async function loadFeatureConfig() {
         const payload = await response.json().catch(() => ({}));
         const enabled = response.ok && payload.enabled === true;
         els.poolAssistantPanel.hidden = !enabled;
+        els.btnPoolAssistantMic.hidden = !enabled;
         if (enabled) setStatus('Say the two GM colors and the action, or select both colors first.');
     } catch {
         els.poolAssistantPanel.hidden = true;
+        els.btnPoolAssistantMic.hidden = true;
     }
 }
 

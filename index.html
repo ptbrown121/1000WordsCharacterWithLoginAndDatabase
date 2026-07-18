@@ -407,7 +407,6 @@
                             <label for="pool-assistant-command">What colors did the GM call, and what does your character do?</label>
                             <div class="pool-assistant-controls">
                                 <input type="text" id="pool-assistant-command" maxlength="500" autocomplete="off" placeholder="e.g. Blue and Purple — I quietly pick the lock">
-                                <button type="button" id="btn-pool-assistant-mic" class="btn btn-outline" aria-pressed="false">🎙️ Speak</button>
                                 <button type="submit" id="btn-pool-assistant-suggest" class="btn btn-action">Suggest</button>
                             </div>
                         </form>
@@ -711,6 +710,8 @@
             </section>
         </div>
     </main>
+
+    <button type="button" id="btn-pool-assistant-mic" class="btn btn-action pool-assistant-floating-mic" aria-pressed="false" hidden>🎙️ Dictate Call</button>
 
     <!-- Modal for Adding/Editing Tiles -->
     <div id="pool-tile-picker-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pool-tile-picker-title" aria-describedby="pool-tile-picker-help" aria-hidden="true" tabindex="-1" data-modal-close="#btn-pool-tile-picker-close" data-initial-focus="#pool-tile-picker-choices button">
@@ -1829,6 +1830,7 @@
                 <h3 style="color: var(--text-primary);">🎲 The Call (Dice Pool)</h3>
                 <p>When the GM calls for a roll, select <strong>Call Colors</strong>. Your matching stat dice are automatically added to the pool. More than two colors are allowed for custom calls and show a GM confirmation warning. Then:</p>
                 <ol style="padding-left: 1.2rem;">
+                    <li>When the AI Pool Assistant is enabled, use the floating <strong>Dictate Call</strong> button from anywhere on the page to speak the GM colors and action.</li>
                     <li>With two or more colors selected, use <strong>Select Call Tile</strong> to choose a matching tile without leaving the Call panel. Use <strong>Change Call Tile</strong> to swap it later.</li>
                     <li>Use <strong>Select Burn Tiles</strong> to add burns. The choices narrow to the color shared by the Call tile and every selected burn; you can also remove selected burns in the picker.</li>
                     <li>You can still click tiles in the <strong>Mosaic</strong> directly to add or remove them from the pool.</li>

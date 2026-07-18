@@ -17,6 +17,7 @@ async function addTile(page, name, firstColor, secondColor) {
 
 test('keeps the assistant hidden when the server flag is disabled', async ({ page }) => {
     await expect(page.locator('#pool-assistant-panel')).toBeHidden();
+    await expect(page.locator('#btn-pool-assistant-mic')).toBeHidden();
 });
 
 test('shows the enabled assistant but rejects signed-out requests before POSTing', async ({ page }) => {
@@ -30,6 +31,8 @@ test('shows the enabled assistant but rejects signed-out requests before POSTing
     await page.reload();
 
     await expect(page.locator('#pool-assistant-panel')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dictate Call' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dictate Call' })).toHaveCSS('position', 'fixed');
     await page.locator('#pool-assistant-command').fill('Sneak past the guard');
     await page.locator('#btn-pool-assistant-suggest').click();
     await expect(page.locator('#pool-assistant-status')).toContainText('Sign in is required');
