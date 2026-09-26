@@ -859,14 +859,25 @@ export class DataManager {
         this.saveState();
     }
 
+    /** @param {string} id @returns {Promise<boolean>} whether the character is now active */
     async switchCharacter(id) {
         const cloudEntry = this.cloudRoster.find(r => r.id === id);
         if (cloudEntry) {
             await this.flushCloudSave();
+            // Load before touching the active id: if the load fails, the
+            // previous character must stay fully active, or its state would
+            // be saved over this one.
+            let loaded;
+            try {
+                loaded = await this.cloudStore.loadCharacter(id);
+            } catch (e) {
+                console.error('Failed to load cloud character', e);
+                this.setCloudStatus('error', errorMessage(e, 'Could not load that cloud character.'));
+                return false;
+            }
             this.activeStorage = 'cloud';
             this.roster = this.cloudRoster;
             this.activeCharId = id;
-            const loaded = await this.cloudStore.loadCharacter(id);
             this.state = loaded.state;
             this.cloudUpdatedAt = loaded.updatedAt || null;
             this.setCloudStatus(cloudEntry.readOnly ? 'read-only' : 'saved', cloudEntry.readOnly ? 'Viewing read-only campaign character.' : 'Cloud character loaded.');
@@ -887,7 +898,7 @@ export class DataManager {
                 }
             }
             dispatchAppEvent('readonly-character-change');
-            return;
+            return true;
         }
 
         if (this.localRoster.find(r => r.id === id)) {
@@ -900,7 +911,9 @@ export class DataManager {
             this.localStore.saveRoster(this.localRoster, this.localActiveCharId);
             this.state = this.localStore.loadState(this.activeCharId);
             dispatchAppEvent('readonly-character-change');
+            return true;
         }
+        return false;
     }
 
     async createNewCharacter(name = "Hero Name") {
@@ -908,9 +921,12 @@ export class DataManager {
         state.name = name;
 
         if (this.isSignedIn && this.cloudStore) {
+            await this.flushCloudSave();
             const charId = await this.cloudStore.createCharacter(name, state);
-            await this.refreshCloudRoster({ activeCharId: charId });
+            // Load before the roster refresh re-points the active id, so a
+            // failed load can't bind the previous character's state to it.
             const loaded = await this.cloudStore.loadCharacter(charId);
+            await this.refreshCloudRoster({ activeCharId: charId });
             this.state = loaded.state;
             this.cloudUpdatedAt = loaded.updatedAt || null;
             this.setCloudStatus('saved', 'Cloud character created.');
@@ -984,9 +1000,10 @@ export class DataManager {
                     this.saveState();
                 } else if (this.isSignedIn && this.cloudStore) {
                     const name = newState.name || 'Imported Hero';
+                    await this.flushCloudSave();
                     const charId = await this.cloudStore.createCharacter(name, newState);
-                    await this.refreshCloudRoster({ activeCharId: charId });
                     const loaded = await this.cloudStore.loadCharacter(charId);
+                    await this.refreshCloudRoster({ activeCharId: charId });
                     this.state = loaded.state;
                     this.cloudUpdatedAt = loaded.updatedAt || null;
                 } else {
