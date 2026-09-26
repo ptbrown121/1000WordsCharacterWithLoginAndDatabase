@@ -15,14 +15,16 @@ export function applySpellStateToForm(tile) {
 
     Object.keys(tile.spellState).forEach(key => {
         if (key.startsWith('spell-mod-val-')) return; // handled separately
-        const el = editorElement(key);
+        // spellState also carries non-DOM keys (actionsList, tagsList,
+        // spellBoxes, userDetails, ...), so this lookup must stay optional.
+        const el = /** @type {any} */ (document.getElementById(key));
         if (el) {
             if (el.type === 'checkbox') {
                 el.checked = tile.spellState[key];
             } else {
                 el.value = tile.spellState[key];
                 if (el.tagName === 'SELECT' && el.value === 'custom') {
-                    const customDiv = editorElement(`${el.id}-custom`);
+                    const customDiv = document.getElementById(`${el.id}-custom`);
                     if (customDiv) customDiv.style.display = 'flex';
                 }
             }
