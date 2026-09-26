@@ -5,6 +5,7 @@ import {
     getColorBuildFlags,
     getDefaultSpellBoxes,
     getSpellCastTests,
+    getSpellTileCastTest,
     spellBoxesDifferFromDefault
 } from '../js/spell-rules.js';
 
@@ -140,6 +141,26 @@ describe('spell-rules', () => {
 
         it('returns nothing when no spell is called', () => {
             assert.deepEqual(getSpellCastTests([forge]), []);
+        });
+    });
+
+    describe('getSpellTileCastTest', () => {
+        const forge = { id: 'forge', name: 'Forge', type: 'Skill', dice: ['d6'], exoticSkill: { system: 'Arcana' } };
+        const twist = { id: 'twist', name: 'Twist', type: 'Skill', dice: ['d10'], exoticSkill: { system: 'Arcana' } };
+        const primalBurst = { id: 'pb', name: 'primal burst', type: 'Gear', isSpell: true, xpCost: 8, dice: ['d8'], tags: ['Spell', 'Chain Forge'] };
+
+        it('uses the Arcana tile the spell chains to among all tiles', () => {
+            const entry = getSpellTileCastTest(primalBurst, [twist, primalBurst, forge]);
+            assert.equal(entry?.arcanaName, 'Forge');
+            assert.equal(entry?.test, 6);
+        });
+
+        it('ignores a buried Arcana tile', () => {
+            assert.equal(getSpellTileCastTest(primalBurst, [primalBurst, { ...forge, isBuried: true }])?.test, 8);
+        });
+
+        it('returns null for non-spell tiles', () => {
+            assert.equal(getSpellTileCastTest(forge, [forge]), null);
         });
     });
 });

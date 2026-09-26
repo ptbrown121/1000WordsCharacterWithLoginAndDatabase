@@ -69,6 +69,33 @@ function chainTargets(tile) {
         .map(parsed => String(parsed.args.target).trim().toLowerCase());
 }
 
+/**
+ * @param {import('./types.js').Tile} spell
+ * @param {Map<string, import('./types.js').Tile>} arcanaByName lowercased name -> Arcana tile
+ */
+function buildSpellCastTest(spell, arcanaByName) {
+    const spellXp = Math.max(0, parseInt(String(spell.xpCost ?? 0), 10) || 0);
+    const arcana = chainTargets(spell).map(target => arcanaByName.get(target)).find(Boolean) || null;
+    const reduction = arcana
+        ? (arcana.dice || []).reduce((steps, die) => steps + (DIE_STEPS[die] || 0), 0)
+        : 0;
+    return {
+        spellId: spell.id,
+        spellName: spell.name || 'Unnamed spell',
+        spellXp,
+        arcanaName: arcana ? (arcana.name || 'Arcana skill') : null,
+        reduction,
+        test: Math.max(0, spellXp - reduction)
+    };
+}
+
+/** @param {import('./types.js').Tile[]} tiles */
+function arcanaTilesByName(tiles) {
+    return new Map(tiles
+        .filter(isArcanaSkillTile)
+        .map(tile => [String(tile.name || '').trim().toLowerCase(), tile]));
+}
+
 // Casting Test (p.48): "The spell's XP investment is its Test to cast. The
 // action check must meet the Test to trigger the spell. The chained tile
 // reduces the Test difficulty by its ▟." Only an Arcana skill tile that was
@@ -79,23 +106,17 @@ function chainTargets(tile) {
  * @returns {Array<{spellId: string, spellName: string, spellXp: number, arcanaName: string|null, reduction: number, test: number}>}
  */
 export function getSpellCastTests(calledTiles = []) {
-    const arcanaByName = new Map(calledTiles
-        .filter(isArcanaSkillTile)
-        .map(tile => [String(tile.name || '').trim().toLowerCase(), tile]));
+    const arcanaByName = arcanaTilesByName(calledTiles);
+    return calledTiles.filter(tile => tile?.isSpell).map(spell => buildSpellCastTest(spell, arcanaByName));
+}
 
-    return calledTiles.filter(tile => tile?.isSpell).map(spell => {
-        const spellXp = Math.max(0, parseInt(String(spell.xpCost ?? 0), 10) || 0);
-        const arcana = chainTargets(spell).map(target => arcanaByName.get(target)).find(Boolean) || null;
-        const reduction = arcana
-            ? (arcana.dice || []).reduce((steps, die) => steps + (DIE_STEPS[die] || 0), 0)
-            : 0;
-        return {
-            spellId: spell.id,
-            spellName: spell.name || 'Unnamed spell',
-            spellXp,
-            arcanaName: arcana ? (arcana.name || 'Arcana skill') : null,
-            reduction,
-            test: Math.max(0, spellXp - reduction)
-        };
-    });
+// The Test a spell tile shows on its card: the same rule, using whichever
+// unburied Arcana tile the spell chains to on the character sheet.
+/**
+ * @param {import('./types.js').Tile} spell
+ * @param {import('./types.js').Tile[]} tiles all of the character's tiles
+ */
+export function getSpellTileCastTest(spell, tiles = []) {
+    if (!spell?.isSpell) return null;
+    return buildSpellCastTest(spell, arcanaTilesByName(tiles.filter(tile => !tile.isBuried)));
 }
