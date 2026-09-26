@@ -4,6 +4,7 @@ import {
     SPELL_DEFAULT_BOXES,
     getColorBuildFlags,
     getDefaultSpellBoxes,
+    getSpellCastTests,
     spellBoxesDifferFromDefault
 } from '../js/spell-rules.js';
 
@@ -94,5 +95,51 @@ describe('spell-rules', () => {
 
         // Schools without defaults (Divergent) always count as custom.
         assert.equal(spellBoxesDifferFromDefault('Divergent', defaultTile), true);
+    });
+
+    describe('getSpellCastTests (p.48)', () => {
+        const forge = { id: 'forge', name: 'Forge', type: 'Skill', dice: ['d6'], exoticSkill: { system: 'Arcana' } };
+        const primalBurst = { id: 'pb', name: 'primal burst', type: 'Gear', isSpell: true, xpCost: 8, dice: ['d8'], tags: ['Spell', 'Chain Forge'] };
+
+        it('reduces the spell XP Test by the chained Arcana tile\'s die steps', () => {
+            // Rulebook example: 8 XP spell chained to a d6 Forge -> Test 6.
+            assert.deepEqual(getSpellCastTests([primalBurst, forge]), [{
+                spellId: 'pb',
+                spellName: 'primal burst',
+                spellXp: 8,
+                arcanaName: 'Forge',
+                reduction: 2,
+                test: 6
+            }]);
+        });
+
+        it('sums die steps across a multi-die Arcana tile and matches names case-insensitively', () => {
+            const bigForge = { ...forge, name: 'FORGE', dice: ['d8', 'd4'] };
+            assert.equal(getSpellCastTests([primalBurst, bigForge])[0].test, 4);
+        });
+
+        it('uses the full XP when the Arcana tile was not called', () => {
+            const [entry] = getSpellCastTests([primalBurst]);
+            assert.equal(entry.arcanaName, null);
+            assert.equal(entry.reduction, 0);
+            assert.equal(entry.test, 8);
+        });
+
+        it('accepts legacy spellcast-skill tiles and ignores non-Arcana chains', () => {
+            const legacy = { id: 'l', name: 'Forge', type: 'Skill', dice: ['d6'], isSpellcastSkill: true };
+            assert.equal(getSpellCastTests([primalBurst, legacy])[0].test, 6);
+            const plain = { id: 'p', name: 'Forge', type: 'Skill', dice: ['d6'] };
+            assert.equal(getSpellCastTests([primalBurst, plain])[0].test, 8);
+        });
+
+        it('floors the Test at 0 (the spell always casts) and parses string XP', () => {
+            const cheap = { ...primalBurst, xpCost: '2' };
+            const hugeForge = { ...forge, dice: ['d10'] };
+            assert.equal(getSpellCastTests([cheap, hugeForge])[0].test, 0);
+        });
+
+        it('returns nothing when no spell is called', () => {
+            assert.deepEqual(getSpellCastTests([forge]), []);
+        });
     });
 });

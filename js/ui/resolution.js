@@ -2,6 +2,7 @@
 import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, isHitchedTile, RESOURCE_LABELS, tileHasMechanicalTag } from '../pool.js';
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
+import { getSpellCastTests } from '../spell-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showAlert, showConfirm } from './dialogService.js';
@@ -703,6 +704,32 @@ export function renderBonusDetails(details) {
 }
 
 /** @param {import('../types.js').RollResult} result */
+function getCalledTiles(result) {
+    const calledIds = new Set(result.calledTileIds || []);
+    return (dataManager?.state?.tiles || []).filter(tile => calledIds.has(tile.id));
+}
+
+// Casting Test (p.48): spell XP minus the chained Arcana tile's ▟. When a
+// check total is given (action or attack), say whether the spell triggers.
+/**
+ * @param {import('../types.js').RollResult} result
+ * @param {number|null} checkTotal
+ */
+function renderSpellCastLines(result, checkTotal) {
+    return getSpellCastTests(getCalledTiles(result)).map(entry => {
+        const reductionText = entry.arcanaName
+            ? `${entry.spellXp} XP − ${entry.reduction}▟ from ${escapeHtml(entry.arcanaName)}`
+            : `${entry.spellXp} XP; no chained Arcana tile was called`;
+        const lines = [`<p><strong>Casting Test (${escapeHtml(entry.spellName)}):</strong> ${entry.test} (${reductionText}).</p>`];
+        if (checkTotal !== null) {
+            const casts = checkTotal >= entry.test;
+            lines.push(`<p class="${casts ? 'resolution-success' : 'resolution-warning'}">${casts ? 'Spell triggers' : 'Spell fails to trigger'} (${checkTotal} vs Test ${entry.test}).</p>`);
+        }
+        return lines.join('');
+    }).join('');
+}
+
+/** @param {import('../types.js').RollResult} result */
 export function calculateResolutionSummary(result) {
     const { totals, usedCount } = calculateAssignedTotals(result, uiState.currentResolutionAssignments);
     const bonusInfo = getResolutionBonusTotals(result, uiState.currentResolutionMode);
@@ -734,7 +761,8 @@ export function calculateResolutionSummary(result) {
         const lines = [
             `<p><strong>Attack:</strong> ${attackTotal} (${totals.attack || 0} dice + ${bonuses.attack} bonus)</p>`,
             `<p><strong>Impact:</strong> ${impactTotal} HP (${totals.impact || 0} dice + ${bonuses.impact} bonus)</p>`,
-            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`
+            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`,
+            renderSpellCastLines(result, plusesAreLegal ? attackTotal : null)
         ];
 
         if (!plusesAreLegal) {
@@ -789,7 +817,8 @@ export function calculateResolutionSummary(result) {
             `<p><strong>Evasion:</strong> ${evasionTotal} (${totals.evasion || 0} dice + ${bonuses.evasion} bonus)</p>`,
             `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice + ${bonuses.grit} bonus${coreGritText})</p>`,
             `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus${escapeHtml(armorSoakText)})</p>`,
-            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`
+            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`,
+            renderSpellCastLines(result, null)
         ];
 
         const activeJolts = normalizeActiveCrits(dataManager?.state?.activeCrits).jolt || 0;
@@ -840,7 +869,8 @@ export function calculateResolutionSummary(result) {
         const succeeds = plusesAreLegal && spareCount > 0 && diagnosisTotal >= difficulty;
         const lines = [
             `<p><strong>Diagnosis:</strong> ${diagnosisTotal} (${totals.diagnosis || 0} dice + ${bonuses.diagnosis} bonus)</p>`,
-            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`
+            `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`,
+            renderSpellCastLines(result, null)
         ];
 
         if (spareCount === 0) {
@@ -869,7 +899,7 @@ export function calculateResolutionSummary(result) {
     const actionTotal = (totals.action || 0) + bonuses.action;
     return {
         headline: String(actionTotal),
-        html: `<p><strong>Action Total:</strong> ${actionTotal} (${totals.action || 0} dice + ${bonuses.action} bonus)</p>${renderBonusDetails(bonusInfo.details)}`,
+        html: `<p><strong>Action Total:</strong> ${actionTotal} (${totals.action || 0} dice + ${bonuses.action} bonus)</p>${renderSpellCastLines(result, usedCount > adds ? null : actionTotal)}${renderBonusDetails(bonusInfo.details)}`,
         warnings
     };
 }
@@ -908,8 +938,7 @@ export function renderResolutionDetails() {
     if ((result.woundPenalty || 0) > 0) {
         notices.push(`<div class="result-notice">WOUND: -${result.woundPenalty} applied to this check's totals (all checks at -3 per active WOUND).</div>`);
     }
-    const calledIds = new Set(result.calledTileIds || []);
-    const calledTiles = (dataManager?.state?.tiles || []).filter(tile => calledIds.has(tile.id));
+    const calledTiles = getCalledTiles(result);
     // BLEED (p.43): called tiles are burned. Hitched tiles cannot be burned.
     const bleedCount = normalizeActiveCrits(dataManager?.state?.activeCrits).bleed || 0;
     if (bleedCount > 0 && calledTiles.length > 0) {
