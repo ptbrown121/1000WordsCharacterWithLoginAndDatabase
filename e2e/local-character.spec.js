@@ -56,6 +56,35 @@ test('creates a spell through the wizard and preserves it across reloads', async
     await expect(page.locator('.tile-name', { hasText: 'Browser Tested Spell' })).toBeVisible();
 });
 
+test('reopens a saved spell for editing and saves the change', async ({ page }) => {
+    await page.getByRole('button', { name: '+ Add Spell' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Spell Builder' });
+    for (let step = 2; step <= 5; step += 1) {
+        await page.locator('#btn-spell-next').click();
+    }
+    await page.locator('#spell-name').fill('Editable Spell');
+    await page.getByRole('button', { name: 'Save Spell' }).click();
+    await expect(dialog).toBeHidden();
+
+    // Reload so the editor restores from the persisted spellState,
+    // which carries non-DOM keys (actionsList, tagsList, ...).
+    await page.reload();
+    await page.getByRole('button', { name: 'Edit Editable Spell' }).click();
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('#spell-name')).toHaveValue('Editable Spell');
+    await expect(page.locator('#spell-dice')).toHaveValue('d4');
+
+    for (let step = 2; step <= 5; step += 1) {
+        await page.locator('#btn-spell-next').click();
+    }
+    await page.locator('#spell-name').fill('Edited Spell');
+    await page.getByRole('button', { name: 'Save Spell' }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('.tile-name', { hasText: 'Edited Spell' })).toBeVisible();
+    await expect(page.locator('.tile-name', { hasText: 'Editable Spell' })).toHaveCount(0);
+});
+
 test('keeps tab selection across reloads', async ({ page }) => {
     await page.getByRole('tab', { name: /Story/ }).click();
     await expect(page.getByRole('tab', { name: /Story/ })).toHaveAttribute('aria-selected', 'true');
