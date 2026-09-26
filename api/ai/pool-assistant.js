@@ -24,9 +24,9 @@ export function createPoolAssistantHandler({
             }
             if (!enabled) throw new ApiError(404, 'The pool assistant is not enabled.');
 
-            const { client } = await requireUserFn(req);
+            const { user } = await requireUserFn(req);
             const request = parsePoolAssistantRequest(await readJson(req));
-            await enforceRateLimitFn(client);
+            await enforceRateLimitFn(user.id);
 
             let transcript = request.commandText;
             let transcription = null;

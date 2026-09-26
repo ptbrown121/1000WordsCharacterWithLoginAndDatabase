@@ -1,5 +1,9 @@
 import { ApiError } from './http.js';
+import { createServiceClient } from './supabase.js';
 
+// Applied when AI_RATE_LIMIT_REQUESTS is unset, so an unconfigured deploy
+// still caps OpenAI spend per user. Set it to 0 to disable limiting.
+const DEFAULT_REQUESTS = 120;
 const DEFAULT_WINDOW_SECONDS = 60 * 60;
 const MAX_WINDOW_SECONDS = 30 * 24 * 60 * 60;
 const MAX_REQUESTS = 1000000;
@@ -11,8 +15,10 @@ function boundedInteger(value, fallback, max) {
 }
 
 export function getAiRateLimitConfig(environment = process.env) {
-    const requests = Number.parseInt(String(environment.AI_RATE_LIMIT_REQUESTS ?? ''), 10);
-    if (!Number.isInteger(requests) || requests <= 0) {
+    const raw = String(environment.AI_RATE_LIMIT_REQUESTS ?? '').trim();
+    const parsed = Number.parseInt(raw, 10);
+    const requests = raw === '' || !Number.isInteger(parsed) ? DEFAULT_REQUESTS : parsed;
+    if (requests <= 0) {
         return { enabled: false, requests: 0, windowSeconds: DEFAULT_WINDOW_SECONDS };
     }
 
@@ -27,11 +33,21 @@ export function getAiRateLimitConfig(environment = process.env) {
     };
 }
 
-export async function enforceAiRateLimit(client, environment = process.env) {
+// The window is consumed with the secret key because users must not be able
+// to call the function themselves (they could pick their own window).
+export async function enforceAiRateLimit(userId, {
+    environment = process.env,
+    createClientFn = createServiceClient
+} = {}) {
     const config = getAiRateLimitConfig(environment);
     if (!config.enabled) return { ...config, remaining: null, resetAt: null };
 
+    const client = createClientFn();
+    if (!client) {
+        throw new ApiError(503, 'AI rate limiting needs SUPABASE_SECRET_KEY (or set AI_RATE_LIMIT_REQUESTS=0 to disable it).');
+    }
     const { data, error } = await client.rpc('consume_ai_rate_limit', {
+        target_user_id: userId,
         max_requests: config.requests,
         window_seconds: config.windowSeconds
     });

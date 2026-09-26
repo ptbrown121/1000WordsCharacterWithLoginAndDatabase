@@ -33,7 +33,7 @@ export default async function handler(req, res) {
             throw new ApiError(400, 'This scene is already closed. Start a new scene for new changes.');
         }
 
-        await enforceAiRateLimit(client);
+        await enforceAiRateLimit(user.id);
 
         // One transactional RPC applies the edit, deletes later replies,
         // supersedes pending summaries, and reopens the thread; a failure

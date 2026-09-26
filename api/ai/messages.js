@@ -29,7 +29,7 @@ export default async function handler(req, res) {
             throw new ApiError(400, 'This scene is not open for new messages. Review or close the pending summary first.');
         }
 
-        await enforceAiRateLimit(client);
+        await enforceAiRateLimit(user.id);
 
         const character = await loadVisibleCharacter(client, bundle.thread.character_id);
         const context = await fetchCampaignContext(client, bundle.thread.campaign_id);

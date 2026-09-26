@@ -160,8 +160,8 @@ create table if not exists public.ai_agent_run_logs (
     created_at timestamptz not null default now()
 );
 
--- Optional per-user AI request windows. API routes only consume these rows
--- when AI_RATE_LIMIT_REQUESTS is configured as a positive integer.
+-- Per-user AI request windows, consumed only by the server (secret key)
+-- through consume_ai_rate_limit. AI_RATE_LIMIT_REQUESTS=0 disables them.
 create table if not exists public.ai_rate_limit_windows (
     user_id uuid primary key references public.profiles(id) on delete cascade,
     window_started_at timestamptz not null default now(),
@@ -342,21 +342,20 @@ begin
 end;
 $$;
 
-create or replace function public.consume_ai_rate_limit(max_requests integer, window_seconds integer)
+create or replace function public.consume_ai_rate_limit(target_user_id uuid, max_requests integer, window_seconds integer)
 returns table (allowed boolean, remaining integer, reset_at timestamptz)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-    current_user_id uuid := auth.uid();
     current_time timestamptz := now();
     bounded_requests integer := greatest(1, least(coalesce(max_requests, 1), 1000000));
     bounded_window integer := greatest(1, least(coalesce(window_seconds, 3600), 2592000));
     current_window public.ai_rate_limit_windows;
 begin
-    if current_user_id is null then
-        raise exception 'Authentication is required';
+    if target_user_id is null then
+        raise exception 'A user id is required';
     end if;
 
     insert into public.ai_rate_limit_windows as windows (
@@ -365,7 +364,7 @@ begin
         request_count,
         updated_at
     )
-    values (current_user_id, current_time, 1, current_time)
+    values (target_user_id, current_time, 1, current_time)
     on conflict (user_id) do update
     set window_started_at = case
             when windows.window_started_at + make_interval(secs => bounded_window) <= current_time
@@ -1134,8 +1133,8 @@ revoke all on function public.join_campaign_by_code(text) from public;
 grant execute on function public.join_campaign_by_code(text) to authenticated;
 grant execute on function public.can_create_campaign() to authenticated;
 grant execute on function public.rewind_ai_thread_from_message(uuid, text) to authenticated;
-revoke all on function public.consume_ai_rate_limit(integer, integer) from public;
-grant execute on function public.consume_ai_rate_limit(integer, integer) to authenticated;
+revoke all on function public.consume_ai_rate_limit(uuid, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_ai_rate_limit(uuid, integer, integer) to service_role;
 revoke all on function public.commit_ai_scene_turn(uuid, uuid, timestamptz, text, text, jsonb, text, text, text, text, integer, integer, jsonb) from public;
 grant execute on function public.commit_ai_scene_turn(uuid, uuid, timestamptz, text, text, jsonb, text, text, text, text, integer, integer, jsonb) to authenticated;
 revoke all on function public.commit_ai_scene_summary(uuid, uuid, timestamptz, text, text, text[], jsonb, text[], text, text, text, text[], text, integer, integer, jsonb, text, integer, integer, jsonb) from public;

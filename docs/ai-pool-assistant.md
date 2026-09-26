@@ -87,8 +87,8 @@ than date-pinned snapshots. Recheck current official
 - `OPENAI_POOL_ASSISTANT_REASONING_EFFORT`: optional override; defaults to
   `minimal` for GPT-5 and `none` for GPT-5.4/5.6.
 - `OPENAI_POOL_ASSISTANT_MAX_OUTPUT_TOKENS`: defaults to `1200`.
-- `AI_RATE_LIMIT_REQUESTS` and `AI_RATE_LIMIT_WINDOW_SECONDS`: shared optional
-  per-user AI rate limit.
+- `AI_RATE_LIMIT_REQUESTS` and `AI_RATE_LIMIT_WINDOW_SECONDS`: shared
+  per-user AI rate limit (120 per hour by default; `0` disables it).
 
 Do not log raw audio. Monitor OpenAI usage and route error/rate-limit counts,
 enable the flag in a preview environment first, and leave it disabled if no

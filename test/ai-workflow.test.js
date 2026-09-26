@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -220,22 +221,26 @@ describe('OpenAI agent runtime helpers', () => {
     });
 });
 
-describe('optional AI request rate limiting', () => {
-    it('is unlimited by default and does not call Supabase', async () => {
-        let rpcCalled = false;
-        const client = { rpc: async () => { rpcCalled = true; } };
-
+describe('AI request rate limiting', () => {
+    it('applies a default limit when AI_RATE_LIMIT_REQUESTS is unset', () => {
         assert.deepEqual(getAiRateLimitConfig({}), {
-            enabled: false,
-            requests: 0,
+            enabled: true,
+            requests: 120,
             windowSeconds: 3600
         });
-        const result = await enforceAiRateLimit(client, {});
-        assert.equal(result.enabled, false);
-        assert.equal(rpcCalled, false);
     });
 
-    it('uses the configured request count and window', async () => {
+    it('can be disabled explicitly and then does not call Supabase', async () => {
+        let clientCreated = false;
+        const result = await enforceAiRateLimit('user-1', {
+            environment: { AI_RATE_LIMIT_REQUESTS: '0' },
+            createClientFn: () => { clientCreated = true; return null; }
+        });
+        assert.equal(result.enabled, false);
+        assert.equal(clientCreated, false);
+    });
+
+    it('consumes the window server-side for the given user with the configured limits', async () => {
         let call = null;
         const client = {
             rpc: async (name, args) => {
@@ -247,13 +252,13 @@ describe('optional AI request rate limiting', () => {
             }
         };
 
-        const result = await enforceAiRateLimit(client, {
-            AI_RATE_LIMIT_REQUESTS: '10',
-            AI_RATE_LIMIT_WINDOW_SECONDS: '900'
+        const result = await enforceAiRateLimit('user-1', {
+            environment: { AI_RATE_LIMIT_REQUESTS: '10', AI_RATE_LIMIT_WINDOW_SECONDS: '900' },
+            createClientFn: () => client
         });
         assert.deepEqual(call, {
             name: 'consume_ai_rate_limit',
-            args: { max_requests: 10, window_seconds: 900 }
+            args: { target_user_id: 'user-1', max_requests: 10, window_seconds: 900 }
         });
         assert.equal(result.remaining, 7);
     });
@@ -267,16 +272,27 @@ describe('optional AI request rate limiting', () => {
         };
 
         await assert.rejects(
-            enforceAiRateLimit(client, { AI_RATE_LIMIT_REQUESTS: '2' }),
+            enforceAiRateLimit('user-1', { environment: { AI_RATE_LIMIT_REQUESTS: '2' }, createClientFn: () => client }),
             error => error.status === 429 && error.details.retryAfterSeconds > 0
         );
     });
 
-    it('fails closed only when limiting was explicitly enabled', async () => {
+    it('fails closed when limiting is enabled but the RPC or secret key is unavailable', async () => {
         const client = { rpc: async () => ({ data: null, error: { message: 'missing RPC' } }) };
         await assert.rejects(
-            enforceAiRateLimit(client, { AI_RATE_LIMIT_REQUESTS: '5' }),
+            enforceAiRateLimit('user-1', { environment: { AI_RATE_LIMIT_REQUESTS: '5' }, createClientFn: () => client }),
             error => error.status === 503
         );
+        await assert.rejects(
+            enforceAiRateLimit('user-1', { environment: {}, createClientFn: () => null }),
+            error => error.status === 503
+        );
+    });
+
+    it('lets only the server role consume rate-limit windows', () => {
+        const schema = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
+        assert.match(schema, /revoke all on function public\.consume_ai_rate_limit\(uuid, integer, integer\) from public, anon, authenticated;/);
+        assert.match(schema, /grant execute on function public\.consume_ai_rate_limit\(uuid, integer, integer\) to service_role;/);
+        assert.doesNotMatch(schema, /consume_ai_rate_limit\([^)]*\) to authenticated/);
     });
 });
