@@ -26,6 +26,7 @@ import {
     toggleSpellBoxButton
 } from './ui/spellColors.js';
 import { SPELL_METRIC_IDS, applySpellStateToForm, readSpellStateFromForm } from './ui/spellForm.js';
+import { withTileResourceSync } from './ui/vitals.js';
 import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, showPendingTagDialog } from './ui/modalWidgets.js';
 import { showAlert as showAlertDialog, showConfirm } from './ui/dialogService.js';
 import { editorElement, editorElements } from './ui/editorDom.js';
@@ -178,7 +179,7 @@ export class SpellBuilder {
 
         this.btnDelete.addEventListener('click', async () => {
             if (await showConfirm('Delete this spell?', { title: 'Delete spell?', confirmLabel: 'Delete spell', danger: true })) {
-                this.dataManager.deleteTile(this.editingTileId);
+                withTileResourceSync(() => this.dataManager.deleteTile(this.editingTileId));
                 this.closeWizard();
                 this.renderCallback();
             }
@@ -672,11 +673,14 @@ export class SpellBuilder {
             return;
         }
 
-        if (this.editingTileId) {
-            this.dataManager.updateTile(newSpell);
-        } else {
-            this.dataManager.addTile(newSpell);
-        }
+        // Spell boxes feed resource pools like any tile (p.11).
+        withTileResourceSync(() => {
+            if (this.editingTileId) {
+                this.dataManager.updateTile(newSpell);
+            } else {
+                this.dataManager.addTile(newSpell);
+            }
+        });
 
         this.closeWizard();
         this.renderCallback();

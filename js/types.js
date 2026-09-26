@@ -249,6 +249,7 @@
  * @property {boolean} [showOptionalStats]
  * @property {Object<string, number>} [activeCrits]
  * @property {number|string} [pressCount]
+ * @property {string[]} [activeSustains]  ids of Sustain spell tiles currently kept up
  * @property {Object<string, string>} stats  stat name -> dice string
  * @property {Tile[]} tiles
  * @property {Array<{id: string, title: string, content: string}>} [journal]

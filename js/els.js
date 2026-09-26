@@ -203,6 +203,9 @@ export const els = {
     conditionPanelBody: requiredElement('condition-panel-body', HTMLElement),
     critsDashboard: requiredElement('crits-dashboard', HTMLElement),
     pressTracker: requiredElement('press-tracker', HTMLElement),
+    movementSummary: requiredElement('movement-summary', HTMLElement),
+    movementTracker: requiredElement('movement-tracker', HTMLElement),
+    sustainTracker: requiredElement('sustain-tracker', HTMLElement),
 
     rollResults: requiredElement('roll-results', HTMLElement),
     resultNotices: requiredElement('result-notices', HTMLElement),

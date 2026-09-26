@@ -245,6 +245,12 @@ describe('condition tracking normalization (v5.02 PR 4)', () => {
         assert.equal(state.pressCount, 0);
     });
 
+    it('normalizes the active Sustain spell list', () => {
+        assert.deepEqual(normalizeStateForShadowRules({ stats: {}, tiles: [], activeSustains: ['s1', 's1', '', 7] }).activeSustains, ['s1', '7']);
+        assert.deepEqual(normalizeStateForShadowRules({ stats: {}, tiles: [], activeSustains: 's1' }).activeSustains, []);
+        assert.deepEqual(normalizeStateForShadowRules({ stats: {}, tiles: [] }).activeSustains, []);
+    });
+
     it('normalizes Core fields and floors current Core at 0', () => {
         const state = normalizeStateForShadowRules({ stats: {}, tiles: [], core: '-2', coreTemp: 'x', corePerm: 1 });
         assert.equal(state.core, 0);

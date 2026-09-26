@@ -2,10 +2,12 @@
 import { els } from '../els.js';
 import { getEffectiveMax } from '../data.js';
 import { calculateCoreMax, formatAberration, getAvailableShadowAbilities, getShadowTagCounts } from '../pool.js';
+import { shiftResourceMaxesForTileChange } from '../sheet-rules.js';
 import { showConfirm } from './dialogService.js';
 import { editorElements } from './editorDom.js';
+import { renderCondition } from './condition.js';
 
-/** @typedef {{state: import('../types.js').CharacterState, updateResource: (key: string, value: number) => void, saveState: () => void}} VitalsDataManager */
+/** @typedef {{state: import('../types.js').CharacterState, canEditActiveCharacter: () => boolean, updateResource: (key: string, value: number) => void, saveState: () => void}} VitalsDataManager */
 /** @type {VitalsDataManager} */
 let dataManager;
 /** @type {import('../pool.js').PoolEngine} */
@@ -30,6 +32,8 @@ function saveCurrentVital(key, value) {
     if (!input) return;
     dataManager.updateResource(key, value);
     input.value = dataManager.state[key] ?? 0;
+    // Status conditions and Walk (= current RX, p.35) read the pools.
+    renderCondition();
 }
 
 function stepCurrentVital(key, step) {
@@ -146,6 +150,54 @@ export function init(deps) {
         dataManager.saveState();
         renderAll();
     });
+}
+
+/** @returns {{hp: number, en: number, rx: number, sh: number}|null} */
+function tileResourceMaxes() {
+    if (!dataManager || !poolEngine) return null;
+    return poolEngine.calculateResourceMaxes(dataManager.state.tiles || []);
+}
+
+/**
+ * Run a tile change (add, edit, delete, bury, restore, break, form switch)
+ * and move the stored HP / EN / RX maxes with it: "Pools are adjusted
+ * whenever new tiles are gained. ... If a tile is buried, its
+ * contributions to pools are lost." (p.11) The shift-by-delta rule and
+ * current-pool clamping live in shiftResourceMaxesForTileChange.
+ * @template T
+ * @param {() => T} mutate
+ * @returns {T}
+ */
+export function withTileResourceSync(mutate) {
+    const before = tileResourceMaxes();
+    const result = mutate();
+    const after = tileResourceMaxes();
+    if (!before || !after || !dataManager.canEditActiveCharacter()) return result;
+
+    const { changed, patch } = shiftResourceMaxesForTileChange(dataManager.state, before, after);
+    if (changed) {
+        Object.assign(dataManager.state, patch);
+        dataManager.saveState();
+        renderResourcePools();
+        renderCondition();
+    }
+    return result;
+}
+
+// Current / effective-max display for HP, EN, and RX.
+export function renderResourcePools() {
+    if (!dataManager) return;
+    const state = dataManager.state;
+    // Effective max = base max + perm + temp (see getEffectiveMax in data.js).
+    els.valHp.value = String(state.hp ?? 0);
+    els.valHpMax.innerText = String(getEffectiveMax(state, 'hp'));
+    els.valEn.value = String(state.en ?? 0);
+    els.valEnMax.innerText = String(getEffectiveMax(state, 'en'));
+    els.valRx.value = String(state.rx ?? 0);
+    els.valRxMax.innerText = String(getEffectiveMax(state, 'rx'));
+    renderTempBadge(els.hpTempBadge, state.hpTemp);
+    renderTempBadge(els.enTempBadge, state.enTemp);
+    renderTempBadge(els.rxTempBadge, state.rxTemp);
 }
 
 export function renderTempBadge(badgeEl, tempVal) {

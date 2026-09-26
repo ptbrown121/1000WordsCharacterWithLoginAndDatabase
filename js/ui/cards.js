@@ -7,7 +7,7 @@ import { els } from '../els.js';
 import { formatAmmoBase, formatArmorBase, formatWeaponBase } from './tileModal/formFields.js';
 import { renderArmorSoak } from './armorSoak.js';
 import { setCallColors, updatePoolPreview } from './pool.js';
-import { updateShadowMax } from './vitals.js';
+import { updateShadowMax, withTileResourceSync } from './vitals.js';
 import { renderRulesReview } from './rulesReview.js';
 
 /** @typedef {{tileId: string, startX: number, startY: number, lastX: number, lastY: number, targetId: string, scrollVelocity: number, active: boolean}} PointerDragState */
@@ -512,8 +512,10 @@ export function renderCards() {
             const btnRestore = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-restore-tile'));
             btnRestore.addEventListener('click', (e) => {
                 e.stopPropagation();
-                tile.isBuried = false;
-                dataManager.updateTile(tile);
+                withTileResourceSync(() => {
+                    tile.isBuried = false;
+                    dataManager.updateTile(tile);
+                });
                 refreshAfterTileStateChange({ shadow: true });
             });
         } else {
@@ -521,8 +523,11 @@ export function renderCards() {
             if (btnToggleGearBreak) {
                 btnToggleGearBreak.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    tile.gearBroken = !tile.gearBroken;
-                    dataManager.updateTile(tile);
+                    // Broken gear loses its tags, including Tough / Vital / Quick.
+                    withTileResourceSync(() => {
+                        tile.gearBroken = !tile.gearBroken;
+                        dataManager.updateTile(tile);
+                    });
                     if (uiState.callTile && uiState.callTile.id === tile.id) uiState.callTile = tile;
                     uiState.hitchCallTiles = uiState.hitchCallTiles.map(t => t.id === tile.id ? tile : t);
                     if (!isHitchedTile(tile)) {
@@ -586,12 +591,14 @@ export function renderCards() {
             const btnBury = /** @type {HTMLButtonElement} */ (div.querySelector('.btn-bury-tile'));
             btnBury.addEventListener('click', (e) => {
                 e.stopPropagation();
-                tile.isBuried = true;
-                tile.isBurnt = false;
                 if (uiState.callTile && uiState.callTile.id === tile.id) uiState.callTile = null;
                 uiState.hitchCallTiles = uiState.hitchCallTiles.filter(t => t.id !== tile.id);
                 uiState.burnTiles = uiState.burnTiles.filter(t => t.id !== tile.id);
-                dataManager.updateTile(tile);
+                withTileResourceSync(() => {
+                    tile.isBuried = true;
+                    tile.isBurnt = false;
+                    dataManager.updateTile(tile);
+                });
                 refreshAfterTileStateChange({ shadow: true });
             });
         }

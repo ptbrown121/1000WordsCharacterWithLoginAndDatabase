@@ -249,4 +249,12 @@ describe('starting dice checks (p.8)', () => {
         assert.ok(reviewTile(['d3', 'd4']).some(item => item.message.includes('tiles start at d4')));
         assert.ok(!reviewTile(['d4']).some(item => item.message.includes('tiles start at d4')));
     });
+
+    it('flags stored resource maxes that differ from the tiles', () => {
+        const tiles = [{ id: 'v', type: 'Skill', name: 'Vigor', colors: ['Red', 'Orange'], dice: ['d4'], tags: [], xpCost: 1 }];
+        const matching = buildRulesReviewItems({ xpEarned: 100, stats: {}, hpMax: 2, enMax: 0, rxMax: 0, tiles }, engine);
+        assert.ok(!matching.some(item => item.category === 'Vitals'));
+        const drifted = buildRulesReviewItems({ xpEarned: 100, stats: {}, hpMax: 5, enMax: 0, rxMax: 0, tiles }, engine);
+        assert.ok(drifted.some(item => item.category === 'Vitals' && item.message.includes('HP 5 (tiles give 2)')));
+    });
 });

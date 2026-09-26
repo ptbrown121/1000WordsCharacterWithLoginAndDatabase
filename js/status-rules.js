@@ -50,6 +50,15 @@ export function normalizeActiveCrits(raw) {
     return out;
 }
 
+// Ids of Sustain spell tiles the player marked as kept up (p.50); see
+// getSustainTracker in sheet-rules.js. Lives here so data.js can normalize
+// saves without importing the tile rules.
+/** @param {unknown} raw @returns {string[]} */
+export function normalizeActiveSustains(raw) {
+    if (!Array.isArray(raw)) return [];
+    return [...new Set(raw.map(id => String(id ?? '').trim()).filter(Boolean))];
+}
+
 // Taking Injury - Status (p.43): conditions from resource pools at 0.
 // Returns every condition that applies, most severe first, so the UI can
 // show e.g. Exhausted alongside the Fatigued and Cornered restrictions.
