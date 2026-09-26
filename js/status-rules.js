@@ -89,6 +89,17 @@ export function getWoundPenalty(activeCrits) {
     return 3 * (crits.wound || 0);
 }
 
+// Special Crits that change how the character builds a pool (p.40):
+// FEAR "target's pools lose a die"; GOAD "target must burn for actions".
+// PoolEngine.compilePool takes these as its `fear` / `goad` options.
+export function getCritPoolEffects(activeCrits) {
+    const crits = normalizeActiveCrits(activeCrits);
+    return {
+        fear: (crits.fear || 0) > 0,
+        goad: (crits.goad || 0) > 0
+    };
+}
+
 // Pressing the Initiative (p.37).
 //   - 1 RX gains a Move, 2 RX gains an Action.
 //   - Repeating the previous action reduces that Press by 1.

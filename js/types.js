@@ -132,13 +132,24 @@
  */
 
 /**
- * A resource cost the roll will charge (Hitch EN, Freebie EN, Sap/Tire/Drain).
+ * A resource cost the roll will charge (Hitch EN, Freebie EN, Sap/Tire/Drain,
+ * Heavy EN, Fluid RX, Hungry Core).
  * @typedef {Object} ResourceCost
- * @property {ResourceKey} resource
+ * @property {ResourceKey|'core'} resource
  * @property {number} amount
  * @property {string|null} sourceTileId
  * @property {string} sourceTileName
  * @property {string} reason
+ */
+
+/**
+ * Something the check asks the player to burn for (Witch "mote or burn to
+ * cast", GOAD "must burn for actions"). A burn in the check meets it.
+ * @typedef {Object} BurnRequirement
+ * @property {string} reason  'Witch' | 'GOAD'
+ * @property {string|null} sourceTileId
+ * @property {string} sourceTileName
+ * @property {string} message
  */
 
 /**
@@ -152,11 +163,15 @@
  * @property {ChainOption[]} chainOptions
  * @property {ResourceCost[]} resourceCosts
  * @property {string[]} calledTileIds
+ * @property {BurnRequirement[]} burnRequirements
+ * @property {boolean} burnRequirementMet  true when the check burns a tile
+ * @property {PoolDie|null} fearDrop  the die FEAR removed from the pool
  * @property {'Qi'|'Id'|null} shadowUse
  * @property {Array<{source: string, from: Die, to: Die, direction: string}>} dieStepEffects
  * @property {number} haywireThreshold
  * @property {Die|null} freebieDie
  * @property {boolean} titanActive
+ * @property {boolean} zenithActive
  * @property {string|null} error
  */
 
@@ -180,6 +195,18 @@
  * @property {boolean} [titanActive]
  * @property {Array<{die: Die, from: number, to: number}>} [titanRerolls]
  * @property {boolean} [titanManualReminder]
+ * @property {boolean} [zenithActive]
+ * @property {Array<{die: Die, from: number, to: number}>} [zenithRerolls]
+ * @property {boolean} [zenithManualReminder]
+ * @property {PoolDie|null} [fearDrop]
+ * @property {BurnRequirement[]} [burnRequirements]
+ * @property {'virtual'|'manual'} [rollMode]
+ * @property {string[]} [callColors]
+ * @property {string|null} [callTileId]
+ * @property {string[]} [preRollBurnTileIds]
+ * @property {string[]} [hitchTileIds]
+ * @property {{risen: boolean, fallen: boolean}} [aberrantEffects]
+ * @property {string[]} [postRollBurnTileIds]
  * @property {{count: number, breakdown: Object<string, number>, selections: Object<string, string>}|null} [chainCostPaid]
  */
 

@@ -18,7 +18,7 @@ import {
     getSharedTileCallColors
 } from '../pool-tile-selection.js';
 import { resolvePoolAssistantSelection } from '../pool-assistant.js';
-import { getWoundPenalty } from '../status-rules.js';
+import { getCritPoolEffects, getWoundPenalty } from '../status-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showResults } from './resolution.js';
@@ -43,7 +43,8 @@ const RESOURCE_INPUTS = {
     hp: 'valHp',
     en: 'valEn',
     rx: 'valRx',
-    sh: 'valSh'
+    sh: 'valSh',
+    core: 'valCore'
 };
 
 /** @param {import('../types.js').AppDependencies} deps */
@@ -218,6 +219,16 @@ function buildRollLog(result, compiledPool, mode, callColors) {
 function finalizeRoll(result, compiledPool, mode, callColors) {
     const testRoll = isTestRoll();
     result.isTestRoll = testRoll;
+    // Check context the post-roll burn panel needs (p.24): what was called,
+    // on which colors, and whether this check already burned.
+    result.rollMode = mode === 'manual' ? 'manual' : 'virtual';
+    result.callColors = [...callColors];
+    result.callTileId = uiState.callTile?.id || null;
+    result.preRollBurnTileIds = (uiState.burnTiles || []).map(tile => tile.id).filter(Boolean);
+    result.hitchTileIds = (uiState.hitchCallTiles || []).map(tile => tile.id).filter(Boolean);
+    result.aberrantEffects = getPoolOptions().aberrantEffects;
+    result.fearDrop = compiledPool.fearDrop || null;
+    result.burnRequirements = compiledPool.burnRequirements || [];
     showResults(result);
 
     if (!testRoll) {
@@ -438,11 +449,14 @@ export function getPoolOptions() {
         maxShadow,
         getShadowTagCounts(dataManager.state.tiles || [])
     );
+    const critEffects = getCritPoolEffects(dataManager.state.activeCrits);
     return {
         hitchCallTiles: [...(uiState.hitchCallTiles || [])],
         disabledChainIds: new Set(uiState.disabledChainIds),
         chainColorSelections: { ...(uiState.chainColorSelections || {}) },
         freebieDie: getSelectedFreebieDie(),
+        fear: critEffects.fear,
+        goad: critEffects.goad,
         aberrantEffects: {
             risen: alignmentStates.includes('Risen Aberrant') || Boolean(els.risenAberrantEffect?.checked),
             fallen: alignmentStates.includes('Fallen Aberrant') || Boolean(els.fallenAberrantEffect?.checked)
@@ -505,6 +519,21 @@ async function applyResourceCosts(resourceCosts = []) {
     dataManager.saveState();
     if (renderAll) renderAll();
     return true;
+}
+
+// Witch ("Mote or burn to cast", p.48) and GOAD ("must burn for actions",
+// p.40) ask for a burn. Without a pre-roll burn the player confirms they
+// are meeting it another way: a mote, a burn after the roll (p.24), or -
+// for GOAD - a check that is not an action. A warning, never a hard block.
+/** @param {import('../types.js').CompiledPool} res */
+async function confirmBurnRequirements(res) {
+    const requirements = res.burnRequirements || [];
+    if (requirements.length === 0 || res.burnRequirementMet) return true;
+    const lines = requirements.map(req => req.message).join(' ');
+    return showConfirm(
+        `${lines} No tile is burned for this roll. You can still burn tiles after rolling on a Call. Roll anyway?`,
+        { title: 'Burn required?' }
+    );
 }
 
 /** @param {'Qi'|'Id'|null} shadowUse */
@@ -836,6 +865,17 @@ export function updatePoolPreview() {
         if (res.titanActive) {
             addsText += ' | Titan: dice below their ▟ reroll';
         }
+        if (res.zenithActive) {
+            addsText += ' | Zenith: one die below its ▟ rerolls';
+        }
+        if (res.fearDrop) {
+            addsText += ` | FEAR: pool loses ${res.fearDrop.die} (${res.fearDrop.source})`;
+        }
+        if ((res.burnRequirements || []).length > 0) {
+            addsText += res.burnRequirementMet
+                ? ` | Burn requirement met (${res.burnRequirements.map(req => req.reason).join(', ')})`
+                : ` | ${res.burnRequirements.map(req => req.message).join(' ')}`;
+        }
         els.poolAddsDisplay.innerText = addsText;
     }
 
@@ -883,6 +923,7 @@ export async function executeVirtualRoll() {
         showAlert(res.error || 'No dice to roll.');
         return;
     }
+    if (!await confirmBurnRequirements(res)) return;
     if (!await applyResourceCosts(res.resourceCosts || [])) return;
 
     let rolled = poolEngine.rollPool(res.dice);
@@ -891,6 +932,12 @@ export async function executeVirtualRoll() {
         const titanResult = poolEngine.applyTitanRerolls(rolled);
         rolled = titanResult.rolls;
         titanRerolls = titanResult.rerolls;
+    }
+    let zenithRerolls = [];
+    if (res.zenithActive) {
+        const zenithResult = poolEngine.applyZenithReroll(rolled);
+        rolled = zenithResult.rolls;
+        zenithRerolls = zenithResult.rerolls;
     }
     const result = poolEngine.calculateOptimalTotal(rolled, res.adds, { haywireThreshold: res.haywireThreshold });
     const appliedTagBonuses = getSelectedTagBonuses(res.tagBonuses || []);
@@ -905,6 +952,8 @@ export async function executeVirtualRoll() {
     result.freebieUsed = Boolean(res.freebieDie);
     result.titanActive = Boolean(res.titanActive);
     result.titanRerolls = titanRerolls;
+    result.zenithActive = Boolean(res.zenithActive);
+    result.zenithRerolls = zenithRerolls;
     finalizeRoll(result, res, 'virtual', colors);
 }
 
@@ -951,6 +1000,7 @@ export async function executeManualCalculate() {
         showAlert(res.error || 'No dice to calculate.');
         return;
     }
+    if (!await confirmBurnRequirements(res)) return;
     if (!await applyResourceCosts(res.resourceCosts || [])) return;
 
     const result = poolEngine.calculateOptimalTotal(rolled, res.adds, { haywireThreshold: res.haywireThreshold });
@@ -967,6 +1017,9 @@ export async function executeManualCalculate() {
     result.titanActive = Boolean(res.titanActive);
     result.titanRerolls = [];
     result.titanManualReminder = Boolean(res.titanActive);
+    result.zenithActive = Boolean(res.zenithActive);
+    result.zenithRerolls = [];
+    result.zenithManualReminder = Boolean(res.zenithActive);
     finalizeRoll(result, res, 'manual', colors);
 }
 

@@ -7,6 +7,7 @@ import { resolveAmmoDie } from '../ammo-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showAlert, showConfirm } from './dialogService.js';
+import { init as initPostRollBurn, getCallTimeNotices, renderPostRollBurnPanel } from './postRollBurn.js';
 import {
     RESOLUTION_MODES,
     RESOLUTION_PLUS_BUCKETS,
@@ -36,6 +37,7 @@ export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     renderAll = deps.renderAll;
+    initPostRollBurn(deps, renderResolution);
 
     els.resolutionControls.addEventListener('change', (e) => {
         if (!uiState.lastRollResult) return;
@@ -966,6 +968,7 @@ export function renderResolutionDetails() {
     } else if (result.titanActive && result.titanManualReminder) {
         notices.push('<div class="result-notice">Titan active: reroll any physical die that rolled below its ▟ (d6 on 1, d8 on 1-2, ...) and enter the new values.</div>');
     }
+    notices.push(...getCallTimeNotices(result));
     const chainCost = getChainMaxedDieCost(result, uiState.currentResolutionAssignments);
     if (chainCost.dueCount > 0 && !result.chainCostPaid) {
         notices.push(`<div class="result-notice">Chain cost: ${chainCost.dueCount} maxed ${chainCost.dueCount === 1 ? 'die is' : 'dice are'} used in this chained check — pay 1 resource each (Health, Energy, Reflex, or Shadow) in the Chain Cost panel, or set the ${chainCost.dueCount === 1 ? 'die' : 'dice'} to Unused.</div>`);
@@ -1009,6 +1012,7 @@ export function renderResolution() {
         ${renderChainCostPanel(result)}
         ${renderAmmoResolution(result)}
         ${renderFreebiePanel(result)}
+        ${renderPostRollBurnPanel(result)}
         ${renderTitanResolutionPanel(result)}
         ${warningHtml}
     `;

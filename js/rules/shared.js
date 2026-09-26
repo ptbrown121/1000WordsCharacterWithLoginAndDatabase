@@ -11,7 +11,8 @@ export const RESOURCE_LABELS = {
     hp: 'Health',
     en: 'Energy',
     rx: 'Reflex',
-    sh: 'Shadow'
+    sh: 'Shadow',
+    core: 'Core'
 };
 
 // ---------------------------------------------------------------------------

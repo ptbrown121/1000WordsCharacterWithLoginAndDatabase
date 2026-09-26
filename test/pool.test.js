@@ -1671,3 +1671,145 @@ describe('parsed-tag adoption: a GM (Exempt) suffix no longer disables tag mecha
         assert.equal(engine.classifyTagForLimit('Keen (Exempt)').counts, false);
     });
 });
+
+describe('Call-time rules', () => {
+    const engine = new PoolEngine();
+    const stats = { BODY: 'd6', SPEED: 'd8' };
+    const costSummary = (res) => res.resourceCosts.map(cost => `${cost.reason}:${cost.resource}:${cost.amount}:${cost.sourceTileName}`);
+
+    it('charges Heavy 1 EN and Fluid 1 RX when the tile is called (pp.29-31)', () => {
+        const mace = { id: 'm', type: 'Gear', name: 'Long Mace', colors: ['Red'], dice: ['d6'], tags: ['Heavy', 'Throw'] };
+        const whip = { id: 'w', type: 'Gear', name: 'Whip', colors: ['Red'], dice: ['d6'], tags: ['Detail: Fluid'] };
+        assert.deepEqual(costSummary(engine.compilePool(['Red'], stats, mace, [], [mace], [])), ['Heavy:en:1:Long Mace']);
+        assert.deepEqual(costSummary(engine.compilePool(['Red'], stats, whip, [], [whip], [])), ['Fluid:rx:1:Whip']);
+    });
+
+    it('charges call costs on chained tiles but not on burned tiles or broken gear', () => {
+        const heavyArmor = { id: 'a', type: 'Gear', name: 'Plate', colors: ['Red'], dice: ['d6'], tags: ['Detail: Heavy'] };
+        const skill = { id: 's', name: 'Brawl', colors: ['Red'], dice: ['d8'], tags: ['Chain Plate'] };
+        assert.deepEqual(costSummary(engine.compilePool(['Red'], stats, skill, [], [skill, heavyArmor], [])), ['Heavy:en:1:Plate']);
+
+        const plain = { id: 'p', name: 'Sword', colors: ['Red'], dice: ['d8'], tags: '' };
+        assert.deepEqual(engine.compilePool(['Red'], stats, plain, [heavyArmor], [plain, heavyArmor], []).resourceCosts, []);
+
+        const broken = { ...heavyArmor, gearBroken: true };
+        assert.deepEqual(engine.compilePool(['Red'], stats, broken, [], [broken], []).resourceCosts, []);
+    });
+
+    it('does not treat a Crit: tag of the same name as a call-cost flaw', () => {
+        const tile = { id: 't', name: 'Odd', colors: ['Red'], dice: ['d6'], tags: ['Crit: Heavy'] };
+        assert.deepEqual(engine.compilePool(['Red'], stats, tile, [], [tile], []).resourceCosts, []);
+    });
+
+    it('charges Hungry 1 Core to call (p.65)', () => {
+        const arm = { id: 'c', name: 'Servo Arm', colors: ['Red'], dice: ['d6'], tags: ['Cyber', 'Hungry'] };
+        assert.deepEqual(costSummary(engine.compilePool(['Red'], stats, arm, [], [arm], [])), ['Hungry:core:1:Servo Arm']);
+    });
+
+    it('reports Witch as a mote-or-burn requirement that a burn meets (p.48)', () => {
+        const spell = { id: 'sp', name: 'Hex', colors: ['Red'], dice: ['d4'], tags: ['Witch'] };
+        const res = engine.compilePool(['Red'], stats, spell, [], [spell], []);
+        assert.deepEqual(res.resourceCosts, []);
+        assert.deepEqual(res.burnRequirements.map(req => [req.reason, req.sourceTileName]), [['Witch', 'Hex']]);
+        assert.equal(res.burnRequirementMet, false);
+
+        const fuel = { id: 'f', name: 'Grudge', colors: ['Red'], dice: ['d4'], tags: '' };
+        const burned = engine.compilePool(['Red'], stats, spell, [fuel], [spell, fuel], []);
+        assert.equal(burned.burnRequirementMet, true);
+    });
+
+    it('picks up Witch from a spell modification value too', () => {
+        const spell = { id: 'sp', name: 'Hex', colors: ['Red'], dice: ['d4'], tags: '', spellState: { 'spell-mod-val-witch': '1' } };
+        assert.equal(engine.compilePool(['Red'], stats, spell, [], [spell], []).burnRequirements.length, 1);
+    });
+
+    it('drops the lowest pool die under FEAR (p.40)', () => {
+        const tile = { id: 't', name: 'Axe', colors: ['Red'], dice: ['d8', 'd4'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, tile, [], [tile], [], { fear: true });
+        assert.equal(res.error, null);
+        assert.deepEqual(res.fearDrop, { source: 'Tile (Axe)', die: 'd4' });
+        assert.deepEqual(res.dice.map(d => d.die), ['d6', 'd8']);
+        assert.equal(engine.compilePool(['Red'], stats, tile, [], [tile], []).fearDrop, null);
+    });
+
+    it('keeps a paid Freebie die when FEAR drops a die', () => {
+        const tile = { id: 't', name: 'Axe', colors: ['Red'], dice: ['d6'], tags: '' };
+        const res = engine.compilePool(['Red'], { BODY: 'd6' }, tile, [], [tile], [], { fear: true, freebieDie: 'd6' });
+        assert.notEqual(res.fearDrop.source, 'Freebie');
+        assert.ok(res.dice.some(d => d.source === 'Freebie'));
+        assert.equal(res.dice.length, 2);
+    });
+
+    it('warns that GOAD requires a burn without blocking the pool (p.40)', () => {
+        const tile = { id: 't', name: 'Axe', colors: ['Red'], dice: ['d6'], tags: '' };
+        const res = engine.compilePool(['Red'], stats, tile, [], [tile], [], { goad: true });
+        assert.equal(res.error, null);
+        assert.deepEqual(res.burnRequirements.map(req => req.reason), ['GOAD']);
+        assert.equal(res.burnRequirementMet, false);
+    });
+
+    it('activates Zenith only for a called Orange/Red/Purple tile (p.64)', () => {
+        const red = { id: 'z', name: 'Chassis', colors: ['Red', 'Blue'], dice: ['d6'], tags: ['Zenith'] };
+        const green = { id: 'g', name: 'Optics', colors: ['Green', 'Blue'], dice: ['d6'], tags: ['Zenith'] };
+        assert.equal(engine.compilePool(['Red'], stats, red, [], [red], []).zenithActive, true);
+        assert.equal(engine.compilePool(['Green'], stats, green, [], [green], []).zenithActive, false);
+
+        const plain = { id: 'p', name: 'Sword', colors: ['Red'], dice: ['d8'], tags: '' };
+        assert.equal(engine.compilePool(['Red'], stats, plain, [red], [plain, red], []).zenithActive, false);
+    });
+
+    it('rerolls one die below its steps for Zenith, the one with most to gain', () => {
+        const rolled = [
+            { source: 'a', die: 'd6', val: 1 },  // gain 2.5
+            { source: 'b', die: 'd10', val: 1 }, // gain 4.5 -> rerolled
+            { source: 'c', die: 'd8', val: 2 }   // gain 2.5
+        ];
+        const { rolls, rerolls } = engine.applyZenithReroll(rolled, () => 9);
+        assert.deepEqual(rolls.map(r => r.val), [1, 9, 2]);
+        assert.deepEqual(rerolls.map(r => [r.die, r.from, r.to]), [['d10', 1, 9]]);
+
+        const none = engine.applyZenithReroll([{ source: 'a', die: 'd6', val: 4 }], () => 1);
+        assert.deepEqual(none.rerolls, []);
+    });
+
+    it('discounts Unborn Green/Yellow/Orange tiles 1 XP per die advance and per 3+ XP tag (p.64)', () => {
+        const greenBoxes = [{ type: 'color', color: 'Green' }, { type: 'color', color: 'Blue' }];
+        const redBoxes = [{ type: 'color', color: 'Red' }, { type: 'color', color: 'Blue' }];
+        const tags = ['Unborn', 'FEAR', 'Keen'];
+        // d6 3 + Unborn 4 + FEAR 3 + Keen 2 = 12.
+        assert.equal(engine.estimateTileXp(['d6'], tags, null, { boxes: redBoxes }), 12);
+        // Dice: 2 advances at 1 less; FEAR 3 -> 2; Keen (2) and Unborn itself unchanged.
+        assert.equal(engine.estimateTileXp(['d6'], tags, null, { boxes: greenBoxes }), 9);
+        // Without the Unborn tag nothing changes.
+        assert.equal(engine.estimateTileXp(['d6'], ['FEAR'], null, { boxes: greenBoxes }), 6);
+    });
+
+    it('validates post-roll burns with the pre-roll burn rules (p.24)', () => {
+        const call = { id: 'c', name: 'Leap', colors: ['Purple', 'Orange'], dice: ['d6'], tags: '' };
+        const evade = { id: 'e', name: 'Evade', colors: ['Purple', 'Blue'], dice: ['d4'], tags: '' };
+        const red = { id: 'r', name: 'Grit', colors: ['Red', 'Green'], dice: ['d6'], tags: '' };
+        const hitched = { id: 'h', name: 'Oath', colors: ['Purple'], dice: ['d6'], tags: 'Hitch 3' };
+        const colors = ['Orange', 'Purple'];
+
+        const ok = engine.compilePostRollBurn(colors, call, [evade]);
+        assert.equal(ok.error, null);
+        assert.equal(ok.adds, 1);
+        assert.deepEqual(ok.dice, [{ source: 'Burn (Evade)', die: 'd4' }]);
+        assert.deepEqual(ok.burnTileIds, ['e']);
+
+        assert.match(engine.compilePostRollBurn(colors, call, [red]).error, /share one selected Call color/);
+        assert.match(engine.compilePostRollBurn(colors, call, [hitched]).error, /cannot be burned/);
+        assert.match(engine.compilePostRollBurn(colors, call, [{ ...evade, isBurnt: true }]).error, /burnt/);
+        assert.match(engine.compilePostRollBurn(colors, call, [evade], { alreadyBurned: true }).error, /Burn twice/);
+        assert.match(engine.compilePostRollBurn(colors, null, [evade]).error, /Call/);
+        assert.match(engine.compilePostRollBurn(colors, call, []).error, /at least one/);
+        assert.match(engine.compilePostRollBurn(colors, call, [evade], { calledTileIds: ['e'] }).error, /was called/);
+    });
+
+    it('pushes post-roll burn dice in an Aberrant Blast Zone and keeps the base die', () => {
+        const call = { id: 'c', name: 'Leap', colors: ['Purple'], dice: ['d6'], tags: '' };
+        const evade = { id: 'e', name: 'Evade', colors: ['Purple'], dice: ['d8'], tags: '' };
+        const res = engine.compilePostRollBurn(['Purple'], call, [evade], { aberrantEffects: { fallen: true } });
+        assert.deepEqual(res.dice, [{ source: 'Burn (Evade)', die: 'd10', baseDie: 'd8' }]);
+    });
+});

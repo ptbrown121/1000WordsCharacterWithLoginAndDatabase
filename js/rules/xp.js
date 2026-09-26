@@ -22,6 +22,20 @@ export const ARCANE_SACRIFICE_COSTS = {
     tire: { resource: 'rx', reason: 'Tire' },
     drain: { resource: 'hp', reason: 'Drain' }
 };
+// Witch (p.48 Sacrifice table): "Mote or burn to cast." It costs no pool
+// resource; compilePool reports it as a burn requirement instead.
+export const WITCH_SACRIFICE_KEY = 'witch';
+// Flaws that charge a resource whenever their tile is called: "Heavy ...
+// Spend 1 EN on call", "Fluid ... Spend 1 RX on call" (equipment tables
+// pp.29-31; glossary p.79) and the Cyber flaw "Hungry 1 Core to call"
+// (p.65). Only prefixes that keep a tag's own function count - a Crit:,
+// Shield:, Range: or Duration: tag with the same name is something else.
+export const CALL_COST_FLAWS = {
+    heavy: { resource: 'en', reason: 'Heavy' },
+    fluid: { resource: 'rx', reason: 'Fluid' },
+    hungry: { resource: 'core', reason: 'Hungry' }
+};
+export const CALL_COST_PREFIXES = new Set([null, 'build', 'detail', 'flaw']);
 const ARCANE_SACRIFICE_ALIASES = {
     saps: 'sap',
     drains: 'drain'
