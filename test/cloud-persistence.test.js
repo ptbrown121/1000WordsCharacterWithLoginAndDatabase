@@ -428,6 +428,49 @@ describe('DataManager cloud behavior', () => {
         }
     });
 
+    it('keeps the previous character active when a cloud character fails to load', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        const cloudState = cloneDefaultState();
+        cloudState.name = 'Cloud Hero';
+        cloud.characters.push({ id: 'cloud-1', name: cloudState.name, state: cloudState, updatedAt: 't-0' });
+
+        const manager = new DataManager({ localStore: new LocalCharacterStore(storage), saveDebounceMs: 0 });
+        await manager.connectCloud(cloud);
+        const localId = manager.localRoster[0].id;
+        assert.equal(await manager.switchCharacter(localId), true);
+        manager.updateName('Local Hero');
+
+        cloud.loadCharacter = async () => { throw new Error('offline'); };
+        assert.equal(await manager.switchCharacter('cloud-1'), false);
+        assert.equal(manager.activeStorage, 'local');
+        assert.equal(manager.activeCharId, localId);
+        assert.equal(manager.cloudStatus, 'error');
+
+        manager.updateName('Local Hero Edited');
+        await new Promise(resolve => setTimeout(resolve, 10));
+        await manager.cloudSaveChain;
+
+        assert.equal(cloud.characters[0].state.name, 'Cloud Hero');
+        assert.equal(manager.loadState(localId).name, 'Local Hero Edited');
+    });
+
+    it('does not re-point the active character when a new cloud character fails to load', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        const state = cloneDefaultState();
+        state.name = 'First Hero';
+        cloud.characters.push({ id: 'cloud-1', name: state.name, state, updatedAt: 't-0' });
+
+        const manager = new DataManager({ localStore: new LocalCharacterStore(storage), saveDebounceMs: 0 });
+        await manager.connectCloud(cloud);
+        cloud.loadCharacter = async () => { throw new Error('offline'); };
+
+        await assert.rejects(manager.createNewCharacter('Second Hero'));
+        assert.equal(manager.activeCharId, 'cloud-1');
+        assert.equal(manager.state.name, 'First Hero');
+    });
+
     it('uploads local characters to cloud without deleting browser saves', async () => {
         const storage = new MemoryStorage();
         const manager = new DataManager({ localStore: new LocalCharacterStore(storage) });
