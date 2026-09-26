@@ -1,7 +1,7 @@
 // @ts-check
 // Spell school color rules — pure (no DOM), so they are unit-testable.
 // The spell builder's DOM controls live in js/ui/spellColors.js.
-import { getTileBoxes, serializeTileBoxes } from './pool.js';
+import { DIE_STEPS, activeTileTagList, getTileBoxes, parseTag, serializeTileBoxes } from './pool.js';
 
 /** @type {ReadonlySet<import('./types.js').NormalColor>} */
 export const SPELL_NORMAL_COLORS = new Set(['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple']);
@@ -54,4 +54,48 @@ export function spellBoxesDifferFromDefault(school, tile) {
     const defaultKeys = getDefaultSpellBoxes(school).map(box => box.type === 'shadow' ? box.kind : box.color).sort();
     const tileKeys = boxes.map(box => box.type === 'shadow' ? box.kind : box.color).sort();
     return defaultKeys.length !== tileKeys.length || defaultKeys.some((key, index) => key !== tileKeys[index]);
+}
+
+/** @param {import('./types.js').Tile} tile */
+function isArcanaSkillTile(tile) {
+    return tile?.type === 'Skill' && (tile.exoticSkill?.system === 'Arcana' || Boolean(tile.isSpellcastSkill));
+}
+
+/** @param {import('./types.js').Tile} tile @returns {string[]} lowercased Chain targets */
+function chainTargets(tile) {
+    return activeTileTagList(tile)
+        .map(parseTag)
+        .filter(parsed => parsed.prefix === null && parsed.base === 'chain' && parsed.args.target)
+        .map(parsed => String(parsed.args.target).trim().toLowerCase());
+}
+
+// Casting Test (p.48): "The spell's XP investment is its Test to cast. The
+// action check must meet the Test to trigger the spell. The chained tile
+// reduces the Test difficulty by its ▟." Only an Arcana skill tile that was
+// actually called with the spell (i.e. its chain link was not disabled)
+// reduces the Test. A Test at or below 0 means the spell always casts.
+/**
+ * @param {import('./types.js').Tile[]} calledTiles
+ * @returns {Array<{spellId: string, spellName: string, spellXp: number, arcanaName: string|null, reduction: number, test: number}>}
+ */
+export function getSpellCastTests(calledTiles = []) {
+    const arcanaByName = new Map(calledTiles
+        .filter(isArcanaSkillTile)
+        .map(tile => [String(tile.name || '').trim().toLowerCase(), tile]));
+
+    return calledTiles.filter(tile => tile?.isSpell).map(spell => {
+        const spellXp = Math.max(0, parseInt(String(spell.xpCost ?? 0), 10) || 0);
+        const arcana = chainTargets(spell).map(target => arcanaByName.get(target)).find(Boolean) || null;
+        const reduction = arcana
+            ? (arcana.dice || []).reduce((steps, die) => steps + (DIE_STEPS[die] || 0), 0)
+            : 0;
+        return {
+            spellId: spell.id,
+            spellName: spell.name || 'Unnamed spell',
+            spellXp,
+            arcanaName: arcana ? (arcana.name || 'Arcana skill') : null,
+            reduction,
+            test: Math.max(0, spellXp - reduction)
+        };
+    });
 }
