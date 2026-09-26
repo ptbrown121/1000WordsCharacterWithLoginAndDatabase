@@ -177,7 +177,11 @@ export function renderColorCostNote() {
     const selection = getSpellBoxSelection();
     const flags = getColorBuildFlagsFromForm(selection.boxes);
     const labels = [];
-    if (flags.shadow) labels.push('Shadow +2 XP');
+    if (flags.shadow) {
+        labels.push(flags.shadowBoxes > 1
+            ? `Shadow ${flags.shadowBoxes} boxes × 2 = +${flags.shadowBoxes * 2} XP`
+            : 'Shadow +2 XP');
+    }
     if (flags.divergent) labels.push('Divergent +2 XP');
     note.textContent = labels.length > 0
         ? `Color build: ${labels.join(' + ')} = ${flags.xp} XP.`

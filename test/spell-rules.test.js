@@ -2,10 +2,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     SPELL_DEFAULT_BOXES,
+    calculateSpellTagXp,
+    calculateSpellTotalXp,
     getColorBuildFlags,
     getDefaultSpellBoxes,
     getSpellCastTests,
+    getSpellTagXpList,
     getSpellTileCastTest,
+    migrateSpellFormTags,
     spellBoxesDifferFromDefault
 } from '../js/spell-rules.js';
 
@@ -27,7 +31,7 @@ describe('spell-rules', () => {
             customMode: false,
             boxes: getDefaultSpellBoxes('Forge')
         });
-        assert.deepEqual(flags, { shadow: false, divergent: false, xp: 0 });
+        assert.deepEqual(flags, { shadow: false, shadowBoxes: 0, divergent: false, xp: 0 });
     });
 
     it('prices a shadow box at +2 XP without divergent (Forge Red+Qi)', () => {
@@ -39,7 +43,7 @@ describe('spell-rules', () => {
                 { type: 'shadow', kind: 'Qi', resource: 'health' }
             ]
         });
-        assert.deepEqual(flags, { shadow: true, divergent: false, xp: 2 });
+        assert.deepEqual(flags, { shadow: true, shadowBoxes: 1, divergent: false, xp: 2 });
     });
 
     it('prices shadow plus off-school color at +4 XP (Forge Blue+Qi)', () => {
@@ -51,7 +55,30 @@ describe('spell-rules', () => {
                 { type: 'shadow', kind: 'Qi', resource: 'health' }
             ]
         });
-        assert.deepEqual(flags, { shadow: true, divergent: true, xp: 4 });
+        assert.deepEqual(flags, { shadow: true, shadowBoxes: 1, divergent: true, xp: 4 });
+    });
+
+    it('charges +2 XP per shadow box (p.58), keeping Divergent at a flat +2', () => {
+        const flags = getColorBuildFlags({
+            school: 'Forge',
+            customMode: true,
+            boxes: [
+                { type: 'shadow', kind: 'Qi', resource: 'health' },
+                { type: 'shadow', kind: 'Id', resource: 'energy' }
+            ]
+        });
+        // Two shadow boxes (+4); with no normal colors it is not Divergent.
+        assert.deepEqual(flags, { shadow: true, shadowBoxes: 2, divergent: false, xp: 4 });
+
+        const divergent = getColorBuildFlags({
+            school: 'Divergent',
+            customMode: true,
+            boxes: [
+                { type: 'shadow', kind: 'Qi', resource: 'health' },
+                { type: 'shadow', kind: 'Id', resource: 'energy' }
+            ]
+        });
+        assert.equal(divergent.xp, 6);
     });
 
     it('treats the Divergent school as divergent regardless of colors', () => {
@@ -63,7 +90,7 @@ describe('spell-rules', () => {
                 { type: 'color', color: 'Red' }
             ]
         });
-        assert.deepEqual(flags, { shadow: false, divergent: true, xp: 2 });
+        assert.deepEqual(flags, { shadow: false, shadowBoxes: 0, divergent: true, xp: 2 });
     });
 
     it('ignores off-school colors when custom mode is off', () => {
@@ -74,7 +101,7 @@ describe('spell-rules', () => {
             customMode: false,
             boxes: [{ type: 'color', color: 'Blue' }, { type: 'color', color: 'Red' }]
         });
-        assert.deepEqual(flags, { shadow: false, divergent: false, xp: 0 });
+        assert.deepEqual(flags, { shadow: false, shadowBoxes: 0, divergent: false, xp: 0 });
     });
 
     it('detects when tile boxes differ from the school defaults', () => {
@@ -96,6 +123,86 @@ describe('spell-rules', () => {
 
         // Schools without defaults (Divergent) always count as custom.
         assert.equal(spellBoxesDifferFromDefault('Divergent', defaultTile), true);
+    });
+
+    describe('calculateSpellTotalXp (p.56)', () => {
+        it('floors only the 🗱 tally at 0 and always pays for the dice', () => {
+            // Amonkenet's aid: -1🗱 on a d6 (3 XP of dice) costs 3.
+            assert.equal(calculateSpellTotalXp(-1, 3), 3);
+            assert.equal(calculateSpellTotalXp(-5, 1), 1);
+            assert.equal(calculateSpellTotalXp(4, 3), 7);
+        });
+    });
+
+    describe('calculateSpellTagXp (p.57)', () => {
+        it('adds 2 for each duplicate copy (Keen +2, Keen +4)', () => {
+            const tags = [{ name: 'Keen', xp: 2 }, { name: 'Keen', xp: 2 }, { name: 'Throw', xp: 2 }];
+            assert.deepEqual(getSpellTagXpList(tags), [2, 4, 2]);
+            assert.equal(calculateSpellTagXp(tags), 8);
+            assert.equal(calculateSpellTagXp([...tags, { name: 'Keen', xp: 2 }]), 14);
+        });
+
+        it('treats crit picks case-insensitively and ignores the generic price rows', () => {
+            assert.equal(calculateSpellTagXp([{ name: 'DOWN', xp: 2 }, { name: 'Down', xp: 2 }]), 6);
+            assert.equal(calculateSpellTagXp([
+                { name: '2 XP Crit/Tag', xp: 2 },
+                { name: '2 XP Crit/Tag', xp: 2 },
+                { name: 'World Homeworld', xp: 0 },
+                { name: 'World Homeworld', xp: 0 }
+            ]), 4);
+        });
+
+        it('sums an empty list to 0', () => {
+            assert.equal(calculateSpellTagXp([]), 0);
+        });
+    });
+
+    describe('migrateSpellFormTags', () => {
+        it('turns legacy Sacrifice / Escape! modifier counts into tags at the same price', () => {
+            const { tags, consumedKeys } = migrateSpellFormTags({
+                tagsList: [{ name: 'Keen', xp: 2 }],
+                'spell-mod-val-Sap': '1',
+                'spell-mod-val-Escape!': '1',
+                'spell-mod-val-Tire': '0',
+                'spell-mod-val-And/Or': '2'
+            });
+            assert.deepEqual(tags, [
+                { name: 'Keen', xp: 2 },
+                { name: 'Escape!', xp: 4 },
+                { name: 'Sap', xp: -2 }
+            ]);
+            assert.equal(calculateSpellTagXp(tags), 4); // 2 + 4 - 2, as before
+            assert.ok(consumedKeys.includes('spell-mod-val-Sap'));
+            assert.ok(!consumedKeys.includes('spell-mod-val-And/Or'));
+        });
+
+        it('does not add a second copy of a Sacrifice the spell already has as a tag', () => {
+            const { tags } = migrateSpellFormTags({
+                tagsList: [{ name: 'Sap', xp: -2 }],
+                'spell-mod-val-Sap': '1',
+                'spell-mod-val-Saps': '1'
+            });
+            assert.deepEqual(tags, [{ name: 'Sap', xp: -2 }]);
+        });
+
+        it('collapses a count above 1 to a single tag', () => {
+            const { tags } = migrateSpellFormTags({ 'spell-mod-val-Drain': '2' });
+            assert.deepEqual(tags, [{ name: 'Drain', xp: -4 }]);
+        });
+
+        it('fixes the sign of legacy inflicted-flaw pills', () => {
+            const { tags } = migrateSpellFormTags({
+                tagsList: [{ name: '-2 XP Flaw', xp: -2 }, { name: '-4 XP Flaw', xp: -4 }, { name: 'Bulky', xp: -2 }]
+            });
+            assert.deepEqual(tags.map(tag => tag.xp), [2, 4, -2]);
+        });
+
+        it('copies the pills rather than aliasing the saved list', () => {
+            const saved = { tagsList: [{ name: 'Keen', xp: 2 }] };
+            migrateSpellFormTags(saved).tags[0].xp = 99;
+            assert.equal(saved.tagsList[0].xp, 2);
+            assert.deepEqual(migrateSpellFormTags({}).tags, []);
+        });
     });
 
     describe('getSpellCastTests (p.48)', () => {
@@ -141,6 +248,15 @@ describe('spell-rules', () => {
 
         it('returns nothing when no spell is called', () => {
             assert.deepEqual(getSpellCastTests([forge]), []);
+        });
+
+        it('skips Gizmo tiles, which need no spell test (p.68)', () => {
+            const gizmo = { ...primalBurst, id: 'g', tags: ['Spell', 'Gizmo'] };
+            const detailGizmo = { ...primalBurst, id: 'g2', tags: ['Spell', 'Detail: Gizmo', 'Chain Forge'] };
+            assert.deepEqual(getSpellCastTests([gizmo, detailGizmo, forge]), []);
+            assert.equal(getSpellTileCastTest(gizmo, [gizmo, forge]), null);
+            const broken = { ...gizmo, gearBroken: true };
+            assert.equal(getSpellTileCastTest(broken, [broken, forge]), null);
         });
     });
 

@@ -86,22 +86,33 @@ export const RESOLUTION_PLUS_BUCKETS = {
 
 // On-the-fly Range/Duration extension (pp.52-53): spare dice assigned to
 // 'extend' raise Range or Duration tags one increment each on the Space and
-// Time table. The first die applied needs a 3, the second a 4, the third a
-// 5, etc. Dice are sorted descending so the player's spare dice are applied
-// in their best order. Instant, Sustain, and Rite durations cannot be
-// modified; modifications are one-use.
+// Time table. "The first die applied needs a 3 ... The second die applied
+// needs a 4, and the third die needs a 5, etc." (p.53). The player picks
+// the order, so the dice are applied in their best order: lowest first,
+// each against the next threshold. A die too low for the current threshold
+// is simply not applied (it does not use up a threshold), so a 4 and a 3
+// give two increments, as in Amonkenet's primal burst example (p.53).
+// Instant, Sustain, and Rite durations cannot be modified; modifications
+// are one-use.
+/**
+ * @returns {{entries: Array<{val: number, threshold: number, success: boolean}>, increments: number}}
+ *   entries in application order; an unsuccessful entry was not applied,
+ *   and its `threshold` is the value it would have needed.
+ */
 export function getRangeExtensionResults(result, assignments) {
     const values = [];
     (result.originalRolls || []).forEach((roll, index) => {
         if ((assignments[getRollId(roll, index)] || 'unused') === 'extend') values.push(roll.val);
     });
-    values.sort((a, b) => b - a);
+    values.sort((a, b) => a - b);
 
-    const entries = values.map((val, index) => ({
-        val,
-        threshold: 3 + index,
-        success: val >= 3 + index
-    }));
+    let threshold = 3;
+    const entries = values.map(val => {
+        const success = val >= threshold;
+        const entry = { val, threshold, success };
+        if (success) threshold += 1;
+        return entry;
+    });
 
     return { entries, increments: entries.filter(entry => entry.success).length };
 }

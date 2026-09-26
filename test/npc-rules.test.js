@@ -12,7 +12,8 @@ import {
     reviewNpcBuild,
     rollNpcAttack,
     rollNpcDefense,
-    rollNpcStat
+    rollNpcStat,
+    rollNpcStatCheck
 } from '../js/npc-rules.js';
 
 describe('NPC budgets (v5.02 p.71)', () => {
@@ -90,6 +91,15 @@ describe('NPC Aberrant Blast Zones (p.59)', () => {
         assert.deepEqual(attack.rolls.map(roll => roll.die), ['d10']);
         assert.equal(attack.total, 7); // 5 + rank 2
         assert.deepEqual(rollNpcDefense(npc, () => 5).rolls.map(roll => roll.die), ['d10']);
+    });
+
+    it('Might impact and stat checks read the NPC blastZone flag too', () => {
+        const npc = { rank: 2, might: 'd8', charm: 'd8', skill: 'd6', blastZone: 'fallen' };
+        assert.deepEqual(rollNpcStatCheck(npc, 'might', () => 3).rolls.map(roll => roll.die), ['d10']);
+        assert.deepEqual(rollNpcStatCheck(npc, 'charm', () => 3).rolls.map(roll => roll.die), ['d10']);
+        assert.equal(rollNpcStatCheck(npc, 'might', () => 3).total, 3); // no Rank added
+        const calm = { ...npc, blastZone: '' };
+        assert.deepEqual(rollNpcStatCheck(calm, 'might', () => 3).rolls.map(roll => roll.die), ['d8']);
     });
 
     it('normalizes the flag and drops junk values', () => {

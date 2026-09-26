@@ -7,7 +7,12 @@ import {
     tagLimitErrorMessage as buildTagLimitErrorMessage,
     validateShadowTags
 } from './pool.js';
-import { spellBoxesDifferFromDefault } from './spell-rules.js';
+import {
+    calculateSpellTagXp,
+    calculateSpellTotalXp,
+    getSpellTagXpList,
+    spellBoxesDifferFromDefault
+} from './spell-rules.js';
 import {
     applyDefaultSpellBoxes,
     getColorBuildFlagsFromForm,
@@ -283,6 +288,8 @@ export class SpellBuilder {
 
     renderTags() {
         this.tagsContainer.innerHTML = '';
+        // Pill prices include the duplicate-copy surcharge (p.57).
+        const tagXpList = getSpellTagXpList(this.currentFormTags);
         this.currentFormTags.forEach((tagObj, index) => {
             const span = document.createElement('span');
             span.className = 'badge';
@@ -293,7 +300,8 @@ export class SpellBuilder {
             span.style.gap = '0.3rem';
 
             const text = document.createElement('span');
-            const xpLabel = tagObj.xp > 0 ? `+${tagObj.xp}` : String(tagObj.xp);
+            const tagXp = tagXpList[index];
+            const xpLabel = tagXp > 0 ? `+${tagXp}` : String(tagXp);
             text.textContent = `${tagObj.name} (${xpLabel}🗱) `;
 
             const removeBtn = document.createElement('button');
@@ -388,8 +396,8 @@ export class SpellBuilder {
         // Base actions
         this.currentActions.forEach(act => xp += act.xp);
 
-        // Tags List
-        this.currentFormTags.forEach(t => xp += t.xp);
+        // Tags List, with the +2 per duplicate copy (p.57)
+        xp += calculateSpellTagXp(this.currentFormTags);
 
         const getSelectXP = (id) => {
             const sel = editorElement(id);
@@ -426,7 +434,7 @@ export class SpellBuilder {
         const baseXp = this.calculateBaseXP();
         const { diceArray, invalidDice } = this.getSpellDiceInfo();
         const diceXp = invalidDice.length > 0 ? 0 : this.poolEngine.calculateOptimalXpCost(diceArray);
-        const totalXp = Math.max(0, baseXp + diceXp);
+        const totalXp = calculateSpellTotalXp(baseXp, diceXp);
         const diceLabel = invalidDice.length > 0 ? 'invalid dice' : `${diceXp} dice`;
 
         this.xpBadge.textContent = `${totalXp} 🗱 (${baseXp} base + ${diceLabel})`;
@@ -601,8 +609,12 @@ export class SpellBuilder {
                 if(t.trim()) tagsArr.push(t.trim());
             });
         }
+        // Picked tags keep their duplicate copies ("Duplicating a tag adds 2
+        // for each copy", p.57) - they were paid for. Only a pick that
+        // repeats an auto/custom tag above (Spell, Chain ...) is skipped.
+        const presetTags = new Set(tagsArr);
         this.currentFormTags.forEach(tag => {
-            if (tag.name && !tagsArr.includes(tag.name)) tagsArr.push(tag.name);
+            if (tag.name && !presetTags.has(tag.name)) tagsArr.push(tag.name);
         });
 
         // Build the spell's textual description. The wizard auto-generates a
