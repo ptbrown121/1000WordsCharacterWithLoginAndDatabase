@@ -4,6 +4,10 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    { "path": "/api/cron/keepalive", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/backup", "schedule": "0 10 * * 1" }
+  ],
   "headers": [
     {
       "source": "/",
