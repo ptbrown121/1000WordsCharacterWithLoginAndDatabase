@@ -1,6 +1,7 @@
 // @ts-check
 import { escapeHtml, getExoticSkillLabel, getTileBoxes, getTileNormalCallColors, isGearTagsBroken, isHitchedTile, RESOURCE_LABELS, tileTagList } from '../pool.js';
 import { COLOR_HEX } from '../data.js';
+import { getSpellTileCastTest } from '../spell-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { formatAmmoBase, formatArmorBase, formatWeaponBase } from './tileModal/formFields.js';
@@ -288,6 +289,10 @@ export function renderCards() {
             ? `<button class="btn-toggle-gear-break" title="${gearBroken ? 'Repair' : 'Mark BREAK on'} ${tileNameLabel} gear tags" aria-label="${gearBroken ? 'Repair' : 'Mark BREAK on'} ${tileNameLabel} gear tags">${gearBroken ? 'Repair Tags' : 'Break Tags'}</button>`
             : '';
         const exoticLabel = getExoticSkillLabel(tile.exoticSkill);
+        const castTest = getSpellTileCastTest(tile, dataManager.state.tiles);
+        const castTestLabel = castTest
+            ? `Cast Test ${castTest.test} (${castTest.arcanaName ? `${castTest.spellXp} XP − ${castTest.reduction}▟ ${castTest.arcanaName}` : `${castTest.spellXp} XP; no Arcana tile chained`})`
+            : '';
         const linkedAmmoTiles = tile.weapon
             ? dataManager.state.tiles.filter(t => t.gearSubtype === 'Ammo' && t.ammo?.targetTileId === tile.id && !t.isBuried)
             : [];
@@ -361,6 +366,7 @@ export function renderCards() {
                 ${weaponLabel ? `<div class="tile-weapon" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${escapeHtml(weaponLabel)}</div>` : ''}
                 ${linkedAmmoTiles.length ? `<div class="tile-ammo-links" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">Ammo: ${escapeHtml(linkedAmmoTiles.map(t => `${t.name} ${t.ammo?.currentSupply ?? 0}/${t.ammo?.maxSupply ?? 0}`).join(', '))}</div>` : ''}
                 ${needsAmmoLink ? `<div class="tile-ammo-warning" style="font-size: 0.8rem; color: #ffd166; margin-top: 0.25rem;">Reload weapon has no linked ammo</div>` : ''}
+                ${castTestLabel ? `<div class="tile-cast-test" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${escapeHtml(castTestLabel)}</div>` : ''}
                 ${ammoLabel ? `<div class="tile-ammo" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${escapeHtml(ammoLabel)}</div>` : ''}
                 <div class="tile-dice">${isAmmo ? 'No dice' : escapeHtml((tile.dice || []).join(', '))}</div>
                 <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
