@@ -811,6 +811,35 @@
     font-weight: 700;
 }
 
+.movement-summary {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.movement-summary strong {
+    color: var(--text-primary);
+}
+
+.movement-note {
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.sustain-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+}
+
+.sustain-row .btn {
+    padding: 0.2rem 0.6rem;
+}
+
 .core-ability-row {
     display: flex;
     align-items: center;

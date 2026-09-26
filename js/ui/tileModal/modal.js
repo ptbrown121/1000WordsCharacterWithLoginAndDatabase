@@ -19,6 +19,7 @@ import { renderArmorSoak } from '../armorSoak.js';
 import { renderCards } from '../cards.js';
 import { updatePoolPreview } from '../pool.js';
 import { updateXpTracker } from '../stats.js';
+import { withTileResourceSync } from '../vitals.js';
 import { renderRulesReview } from '../rulesReview.js';
 import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, createSearchableSelect, syncOptionGrids } from '../modalWidgets.js';
 import { showAlert } from '../dialogService.js';
@@ -133,7 +134,7 @@ export function init(deps) {
     els.btnDelete.addEventListener('click', () => {
         const id = editorElement('tile-id').value;
         if (id) {
-            dataManager.deleteTile(id);
+            withTileResourceSync(() => dataManager.deleteTile(id));
             if (uiState.callTile && uiState.callTile.id === id) uiState.callTile = null;
             uiState.hitchCallTiles = uiState.hitchCallTiles.filter(t => t.id !== id);
             uiState.burnTiles = uiState.burnTiles.filter(t => t.id !== id);
@@ -431,14 +432,18 @@ export async function saveTileFromForm() {
         return;
     }
 
+    withTileResourceSync(() => {
+        if (id) {
+            dataManager.updateTile(tile);
+        } else {
+            dataManager.addTile(tile);
+        }
+    });
     if (id) {
-        dataManager.updateTile(tile);
         // Update pool selections if modified
         if (uiState.callTile && uiState.callTile.id === id) uiState.callTile = tile;
         uiState.hitchCallTiles = uiState.hitchCallTiles.map(t => t.id === id ? tile : t);
         uiState.burnTiles = uiState.burnTiles.map(t => t.id === id ? tile : t);
-    } else {
-        dataManager.addTile(tile);
     }
 
     closeModal();

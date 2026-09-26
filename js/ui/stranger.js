@@ -3,6 +3,7 @@
 // Aural/Astral aspect, and the Bestial pace/resource notes. Hidden entirely
 // for characters with no Stranger features.
 import { els } from '../els.js';
+import { withTileResourceSync } from './vitals.js';
 import {
     applyFormToTiles,
     calculateBestialTileCount,
@@ -29,7 +30,8 @@ function setCurrentForm(formName) {
     if (!dataManager.canEditActiveCharacter()) return;
     const state = dataManager.state;
     state.currentForm = String(formName || '');
-    applyFormToTiles(state.tiles || [], state.currentForm);
+    // Switching forms buries / restores While X tiles, so pools follow (p.11).
+    withTileResourceSync(() => applyFormToTiles(state.tiles || [], state.currentForm));
     dataManager.saveState();
     if (renderAll) renderAll();
 }

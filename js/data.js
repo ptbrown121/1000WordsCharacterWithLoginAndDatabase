@@ -1,5 +1,5 @@
 // @ts-check
-import { normalizeActiveCrits } from './status-rules.js';
+import { normalizeActiveCrits, normalizeActiveSustains } from './status-rules.js';
 
 // The six stats and their Rosette colors (pp.5-7).
 export const STAT_COLORS = {
@@ -265,6 +265,7 @@ export const DEFAULT_STATE = {
     showOptionalStats: false,
     activeCrits: {}, // { critId: count } - see CRIT_DASHBOARD in status-rules.js
     pressCount: 0,   // per-fight Press/Haywire counter (p.37); reset when the fight ends
+    activeSustains: [], // tile ids of Sustain spells currently kept up (p.50)
     stats: {
         'BODY': '',
         'POWER': '',
@@ -307,6 +308,7 @@ export function normalizeStateForShadowRules(state) {
     state.aberration = normalizeNumber(state.aberration, 0);
     state.activeCrits = normalizeActiveCrits(state.activeCrits);
     state.pressCount = Math.max(0, normalizeNumber(state.pressCount, 0));
+    state.activeSustains = normalizeActiveSustains(state.activeSustains);
     if (state.sh === undefined) state.sh = 0;
     if (state.shTemp === undefined) state.shTemp = 0;
     if (state.shPerm === undefined) state.shPerm = 0;

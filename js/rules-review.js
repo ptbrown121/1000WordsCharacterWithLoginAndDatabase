@@ -13,6 +13,7 @@ import {
     tileTagList,
     validateShadowTags
 } from './pool.js';
+import { getResourceMaxDrift } from './sheet-rules.js';
 
 function hasStickyTag(tile) {
     return tileTagList(tile).some(tag => parseTag(tag).base === 'sticky');
@@ -76,6 +77,21 @@ export function buildRulesReviewItems(state, poolEngine) {
             severity: 'low',
             category: 'GM review',
             message: `Creation split is over the PDF start budget (${statXp}/25 stat XP, ${tileXp}/50 tile XP).`
+        });
+    }
+
+    // "Pools are adjusted whenever new tiles are gained." (p.11) Tile
+    // changes now shift the stored HP / EN / RX base with the tiles, but a
+    // base saved before that (or typed in by older builds) can still be
+    // off. It is not overwritten automatically in case the difference was
+    // deliberate; flag it instead.
+    const drift = getResourceMaxDrift(state, poolEngine.calculateResourceMaxes(tiles));
+    if (drift.length > 0) {
+        const details = drift.map(entry => `${entry.key.toUpperCase()} ${entry.stored} (tiles give ${entry.computed})`).join(', ');
+        items.push({
+            severity: 'low',
+            category: 'Vitals',
+            message: `Stored base max differs from the tiles: ${details}. Use Auto-Calculate Vitals to match the tiles; record deliberate changes as a Perm bonus (⚙️).`
         });
     }
 
