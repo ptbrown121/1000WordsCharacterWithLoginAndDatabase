@@ -82,7 +82,7 @@ export async function transcribePoolAssistantAudio(audio, character, model = pro
         return { failed: false, errorMessage: '', transcript, model, usage: result?.usage || null };
     } catch (error) {
         console.error('Pool assistant transcription failed', error);
-        return { failed: true, errorMessage: error?.message || 'Audio transcription failed.', transcript: '', model, usage: null };
+        return { failed: true, errorMessage: 'Audio transcription failed.', transcript: '', model, usage: null };
     }
 }
 
@@ -118,6 +118,6 @@ export async function runPoolAssistantSelection({ commandText, character, callCo
         return { failed: false, errorMessage: '', result: secondValidation.suggestion, model, usage: combinedUsage, repaired: true };
     } catch (error) {
         console.error('Pool assistant selection failed', error);
-        return { failed: true, errorMessage: error?.message || 'Pool selection failed.', result: null, model, usage: null, repaired: false };
+        return { failed: true, errorMessage: 'Pool selection failed.', result: null, model, usage: null, repaired: false };
     }
 }

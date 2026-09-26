@@ -29,6 +29,7 @@ The core separation is **pure rules logic vs. UI**, enforced by what gets tested
 - **Shared UI plumbing**: `js/els.js` is the centralized DOM cache (UI modules import element refs from here, never call `getElementById` directly); `js/state.js` is the shared mutable `uiState` singleton (selected call tile, burn tiles, resolution mode); `js/render.js` exposes `renderAll()` which delegates to each UI module.
 - **Markup**: `index.html` is the entire UI shell including all modals (it's large; search by element id). `css/styles.css` only `@import`s the partials in `css/`.
 - **Server side**: `api/ai/*` are Vercel functions for campaign AI documents/settings and the guided character-creation chat; `api/_lib/aiWorkflow.js` + `openaiWorkflow.js` hold prompt builders, structured-output schemas, OpenAI calls, and deterministic local fallbacks used when `OPENAI_API_KEY` is unset. `api/cron/` (backup, keepalive) requires a `CRON_SECRET` bearer token.
+- **Security headers**: `vercel.json` sends a strict Content-Security-Policy (same-origin scripts; only Google Fonts and `*.supabase.co` allowed off-origin). A new external script, font, image, or API origin must be added there or the browser will block it.
 - **Supabase**: optional — without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` the app is localStorage-only. Server routes use `SUPABASE_SECRET_KEY` (new-style `sb_secret_...`; legacy `SUPABASE_SERVICE_ROLE_KEY` read as fallback).
 
 ## Domain notes
