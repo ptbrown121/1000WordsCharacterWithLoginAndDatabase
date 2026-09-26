@@ -31,7 +31,7 @@ class FakeCloudStore {
     async listRoster() {
         return {
             campaigns: this.campaigns,
-            roster: this.characters.map(character => ({
+            roster: this.characters.filter(character => !character.archived).map(character => ({
                 id: character.id,
                 name: character.name,
                 source: 'cloud',
@@ -72,6 +72,22 @@ class FakeCloudStore {
         this.characters.push({ id, name, state: JSON.parse(JSON.stringify(state)), updatedAt: 't-0' });
         return id;
     }
+
+    async archiveCharacter(id) {
+        this.characters.find(candidate => candidate.id === id).archived = true;
+    }
+}
+
+function cloudCharacter(id, name) {
+    const state = cloneDefaultState();
+    state.name = name;
+    return { id, name, state, updatedAt: 't-0' };
+}
+
+// Lets the debounce timer fire and any queued cloud saves settle.
+async function settle(manager) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    await manager.cloudSaveChain;
 }
 
 // Minimal chainable stand-in for the supabase-js query builder, recording
@@ -485,5 +501,138 @@ describe('DataManager cloud behavior', () => {
         assert.ok(storage.getItem('1000words_roster'));
         const savedLocal = manager.localRoster.find(character => character.name === 'Second Local');
         assert.ok(storage.getItem(`1000words_state_${savedLocal.id}`));
+    });
+
+    it('does not let a live-sync reload replace edits made while it was loading', async () => {
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Hero'));
+        const manager = new DataManager({ localStore: new LocalCharacterStore(new MemoryStorage()), saveDebounceMs: 0 });
+        await manager.connectCloud(cloud);
+
+        // Another device saves, and this tab fetches that copy on resume...
+        await cloud.saveCharacter('cloud-1', { ...cloud.characters[0].state, name: 'Remote Edit' });
+        const loaded = await cloud.loadCharacter('cloud-1');
+        // ...but the player edits before the fetch lands.
+        manager.updateName('Local Edit');
+
+        assert.equal(manager.applyRemoteCloudCharacter('cloud-1', loaded), false);
+        assert.equal(manager.state.name, 'Local Edit');
+        await settle(manager);
+        // The save is guarded against the stale stamp, so it conflicts
+        // instead of silently overwriting the other device's edit.
+        assert.equal(cloud.characters[0].state.name, 'Remote Edit');
+        assert.equal(manager.cloudStatus, 'error');
+    });
+
+    it('applies a live-sync reload when nothing is being edited', async () => {
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Hero'));
+        const manager = new DataManager({ localStore: new LocalCharacterStore(new MemoryStorage()), saveDebounceMs: 0 });
+        await manager.connectCloud(cloud);
+
+        await cloud.saveCharacter('cloud-1', { ...cloud.characters[0].state, name: 'Remote Edit' });
+        assert.equal(manager.applyRemoteCloudCharacter('cloud-1', await cloud.loadCharacter('cloud-1')), true);
+        assert.equal(manager.state.name, 'Remote Edit');
+        assert.equal(manager.cloudUpdatedAt, cloud.characters[0].updatedAt);
+    });
+
+    it('switches away cleanly when the active character leaves the roster elsewhere', async () => {
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'First'), cloudCharacter('cloud-2', 'Second'));
+        const manager = new DataManager({ localStore: new LocalCharacterStore(new MemoryStorage()), saveDebounceMs: 0 });
+        await manager.connectCloud(cloud);
+        assert.equal(manager.activeCharId, 'cloud-1');
+
+        cloud.characters[0].archived = true; // archived on another device
+        await manager.refreshCloudRoster();
+        // The active id and state never diverge...
+        assert.equal(manager.activeCharId, 'cloud-1');
+        assert.equal(manager.state.name, 'First');
+        // ...and the switch loads the next character's own state.
+        await manager.missingCharacterRecovery;
+        assert.equal(manager.activeCharId, 'cloud-2');
+        assert.equal(manager.state.name, 'Second');
+        assert.match(manager.cloudMessage, /no longer available/);
+
+        manager.updateName('Second Edited');
+        await settle(manager);
+        assert.equal(cloud.characters[1].state.name, 'Second Edited');
+        assert.equal(cloud.characters[0].state.name, 'First');
+    });
+
+    it('drops a pending edit when deleting a cloud character instead of saving it elsewhere', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Doomed'), cloudCharacter('cloud-2', 'Survivor'));
+        const manager = new DataManager({ localStore: new LocalCharacterStore(storage), saveDebounceMs: 60_000 });
+        await manager.connectCloud(cloud);
+
+        manager.updateName('Doomed Edited'); // debounced, not yet saved
+        await manager.deleteCurrentCharacter();
+        await manager.missingCharacterRecovery;
+        await settle(manager);
+
+        assert.equal(manager.activeCharId, 'cloud-2');
+        assert.equal(manager.state.name, 'Survivor');
+        assert.equal(cloud.characters[1].state.name, 'Survivor');
+        assert.equal(cloud.saveCount ?? 0, 0);
+        assert.equal(manager.pendingSaveTimer, null);
+        assert.equal(manager.loadCloudDraft('cloud-1'), null);
+    });
+
+    it('does not duplicate local characters when uploading twice', async () => {
+        const manager = new DataManager({ localStore: new LocalCharacterStore(new MemoryStorage()) });
+        await manager.createNewCharacter('Second Local');
+        const cloud = new FakeCloudStore();
+        await manager.connectCloud(cloud);
+
+        assert.equal(await manager.uploadLocalCharacters(), 2);
+        assert.equal(await manager.uploadLocalCharacters(), 0);
+        assert.equal(cloud.characters.length, 2);
+        assert.match(manager.cloudMessage, /2 already in the cloud/);
+    });
+
+    it('re-uploads only local characters that changed or whose cloud copy is gone', async () => {
+        const storage = new MemoryStorage();
+        const localStore = new LocalCharacterStore(storage);
+        const manager = new DataManager({ localStore });
+        await manager.createNewCharacter('Second Local');
+        const edited = manager.localRoster[1];
+        const cloud = new FakeCloudStore();
+        await manager.connectCloud(cloud);
+        await manager.uploadLocalCharacters();
+
+        const editedState = localStore.loadState(edited.id);
+        editedState.name = 'Second Local v2';
+        localStore.saveState(edited.id, editedState);
+        cloud.characters[0].archived = true; // first upload deleted in the cloud
+
+        assert.equal(await manager.uploadLocalCharacters(), 2);
+        // The edited one goes up as a new copy (its first copy stays), and the
+        // one whose cloud copy was deleted goes up again.
+        assert.deepEqual(
+            cloud.characters.filter(c => !c.archived).map(c => c.name).sort(),
+            ['Hero Name', 'Second Local', 'Second Local v2']
+        );
+    });
+
+    it('resumes a partially failed upload without duplicating the finished part', async () => {
+        const manager = new DataManager({ localStore: new LocalCharacterStore(new MemoryStorage()) });
+        await manager.createNewCharacter('Second Local');
+        const cloud = new FakeCloudStore();
+        await manager.connectCloud(cloud);
+
+        const create = cloud.createCharacter.bind(cloud);
+        let calls = 0;
+        cloud.createCharacter = async (name, state) => {
+            calls += 1;
+            if (calls === 2) throw new Error('offline');
+            return create(name, state);
+        };
+        await assert.rejects(manager.uploadLocalCharacters(), /Uploaded 1 character, then failed/);
+        assert.equal(cloud.characters.length, 1);
+
+        assert.equal(await manager.uploadLocalCharacters(), 1);
+        assert.equal(cloud.characters.length, 2);
     });
 });
