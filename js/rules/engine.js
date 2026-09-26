@@ -16,6 +16,8 @@ import {
 import {
     ARCANE_DETAIL_TAGS,
     ARCANE_SACRIFICE_COSTS,
+    CALL_COST_FLAWS,
+    CALL_COST_PREFIXES,
     CRIT_SHIELD_XP,
     EXOTIC_TAGS,
     FLAW_TAGS,
@@ -27,7 +29,8 @@ import {
     getDuplicateKey,
     isCrowdTag,
     isHitchedTile,
-    isThrowDetailTag
+    isThrowDetailTag,
+    WITCH_SACRIFICE_KEY
 } from './xp.js';
 import { ARMOR_COVERAGE_XP, ARMOR_DETAIL_TAGS, ARMOR_MATERIAL_XP, getWeaponTemplateById } from './equipment.js';
 import {
@@ -51,6 +54,53 @@ const CONTEXTUAL_TAG_BONUSES = {
     ironclad: { name: 'Ironclad', context: 'soak', description: '+▟ to soak' },
     rugged: { name: 'Rugged', context: 'grit', description: '+▟ to grit' }
 };
+
+// Cyber Build/Detail tags that only work on tiles of listed colors (p.64,
+// printed as color swatches: "Unborn (Green Yellow Orange tiles)", "Zenith
+// (Orange Red Purple tiles)"). Read literally, the tag's effect applies to
+// the tile carrying it when that tile has one of the listed colors; Qi/Id
+// boxes match any color, as they do for a Call.
+const CYBER_TAG_COLORS = {
+    unborn: ['Green', 'Yellow', 'Orange'],
+    zenith: ['Orange', 'Red', 'Purple']
+};
+
+/**
+ * True when the tile carries the color-gated Cyber tag (Unborn / Zenith)
+ * and has one of that tag's listed colors (p.64).
+ * @param {any} tile
+ * @param {'unborn'|'zenith'} baseTag
+ */
+export function tileHasActiveColorGatedTag(tile, baseTag) {
+    const hasTag = activeParsedTags(tile)
+        .some(parsed => parsed.base === baseTag && MECHANICAL_PREFIXES.has(parsed.prefix));
+    if (!hasTag) return false;
+    return CYBER_TAG_COLORS[baseTag].some(color => tileMatchesCallColor(tile, color));
+}
+
+// FEAR (p.40): "target's pools lose a die". The text does not say which
+// die, so the pool loses its lowest die (by ▟) - the die the character
+// would give up anyway. A Freebie die is only dropped when every die is a
+// Freebie, since it was paid for. Among equals, the last one goes.
+/** @param {Array<{source: string, die: string}>} pool */
+function getFearDropIndex(pool) {
+    let dropIndex = -1;
+    pool.forEach((entry, index) => {
+        if (dropIndex < 0) {
+            dropIndex = index;
+            return;
+        }
+        const current = pool[dropIndex];
+        const entryIsFreebie = entry.source === 'Freebie';
+        const currentIsFreebie = current.source === 'Freebie';
+        if (entryIsFreebie !== currentIsFreebie) {
+            if (currentIsFreebie) dropIndex = index;
+            return;
+        }
+        if ((DIE_STEPS[entry.die] ?? 0) <= (DIE_STEPS[current.die] ?? 0)) dropIndex = index;
+    });
+    return dropIndex;
+}
 
 function getArcaneSacrificeCostTags(tile) {
     if (isGearTagsBroken(tile)) return [];
@@ -326,6 +376,19 @@ export class PoolEngine {
 
         const exoticSpecialty = (options.exoticSkill?.specialty || '').toLowerCase();
 
+        // Unborn (p.64): "(Green Yellow Orange tiles) Tile advances for 1 XP
+        // less on dice and any tag of 3 XP or higher." Every die advance
+        // (each new d4 and each promotion, p.6) costs at least 1 XP, so the
+        // dice discount is 1 XP per ▟. Tags are judged by their price on
+        // this tile after the other modifiers; the Unborn tag itself is the
+        // purchase that grants the discount, so it pays full price.
+        const isUnborn = tileHasActiveColorGatedTag({
+            tags: tagsArray,
+            boxes: options.boxes,
+            specialIdentity: options.specialIdentity
+        }, 'unborn');
+        if (isUnborn) xp -= this.calculateSteps(diceArray);
+
         tagsArray.forEach(tag => {
             const parsed = parseTag(tag);
             const tagRule = this.classifyTagForXp(tag);
@@ -357,6 +420,9 @@ export class PoolEngine {
                 tagXp -= 1;
             }
             if (isTitanIdentity && TITAN_IDENTITY_CATEGORIES.has(tagRule.category) && tagXp > 0) {
+                tagXp -= 1;
+            }
+            if (isUnborn && baseTag !== 'unborn' && tagXp >= 3) {
                 tagXp -= 1;
             }
 
@@ -490,6 +556,8 @@ export class PoolEngine {
         let chainOptions = [];
         let resourceCosts = [];
         let calledTileIds = [];
+        /** @type {import('../types.js').BurnRequirement[]} */
+        let burnRequirements = [];
         let error = null;
         const activeCallColors = [...new Set(callColors.filter(Boolean))];
         const disabledChainIds = options.disabledChainIds || new Set();
@@ -497,6 +565,7 @@ export class PoolEngine {
         const aberrantEffects = options.aberrantEffects || {};
         const hitchCallTiles = options.hitchCallTiles || [];
         const usedTiles = [];
+        const calledTiles = [];
         const dieStepEffects = [];
         const buildResult = (overrides = {}) => ({
             dice: pool,
@@ -506,11 +575,15 @@ export class PoolEngine {
             chainOptions,
             resourceCosts,
             calledTileIds,
+            burnRequirements,
+            burnRequirementMet: (burnTiles || []).length > 0,
+            fearDrop: null,
             shadowUse: null,
             dieStepEffects,
             haywireThreshold: 1,
             freebieDie: null,
             titanActive: false,
+            zenithActive: false,
             error: null,
             ...overrides
         });
@@ -608,6 +681,7 @@ export class PoolEngine {
 
             calledTileIds.push(tile.id);
             usedTiles.push(tile);
+            calledTiles.push(tile);
             if (isHitchedTile(tile)) {
                 resourceCosts.push({
                     resource: 'en',
@@ -617,8 +691,35 @@ export class PoolEngine {
                     reason: 'Hitch'
                 });
             }
+            // Heavy / Fluid / Hungry charge their resource on every call,
+            // including a call through a Chain. Broken gear tags are
+            // inactive (activeParsedTags), so they cost nothing.
+            activeParsedTags(tile).forEach(parsed => {
+                const callCost = CALL_COST_FLAWS[parsed.base];
+                if (!callCost || !CALL_COST_PREFIXES.has(parsed.prefix)) return;
+                resourceCosts.push({
+                    resource: callCost.resource,
+                    amount: 1,
+                    sourceTileId: tile.id,
+                    sourceTileName: tile.name,
+                    reason: callCost.reason
+                });
+            });
             getArcaneSacrificeCostTags(tile).forEach(tag => {
                 const sacrificeKey = getArcaneSacrificeKey(tag);
+                // Witch (p.48): "Mote or burn to cast." A mote is not a
+                // tracked resource (the only mote in the book is the
+                // "flame mote" Ammo tile, "For spell pool", p.72), so the
+                // requirement is reported; a burn in this check meets it.
+                if (sacrificeKey === WITCH_SACRIFICE_KEY) {
+                    burnRequirements.push({
+                        reason: 'Witch',
+                        sourceTileId: tile.id,
+                        sourceTileName: tile.name,
+                        message: `Witch (${tile.name}): mote or burn to cast - burn a tile or spend a mote.`
+                    });
+                    return;
+                }
                 const sacrificeCost = ARCANE_SACRIFICE_COSTS[sacrificeKey];
                 if (!sacrificeCost) return;
                 resourceCosts.push({
@@ -791,22 +892,8 @@ export class PoolEngine {
                 return buildResult({ error: "Select a Call Tile before adding Burn tiles." });
             }
 
-            const unavailableBurnTile = burnTiles.find(tile => this.getUnavailableReason(tile));
-            if (unavailableBurnTile) {
-                const reason = this.getUnavailableReason(unavailableBurnTile);
-                return buildResult({ error: `Burn tile '${unavailableBurnTile.name}' is ${reason} and cannot be used.` });
-            }
-
-            const hitchedBurnTile = burnTiles.find(tile => isHitchedTile(tile));
-            if (hitchedBurnTile) {
-                return buildResult({ error: `Hitched tile '${hitchedBurnTile.name}' cannot be burned.` });
-            }
-
-            const sharedBurnColors = getSharedCallColors(callTile, ...burnTiles);
-
-            if (sharedBurnColors.length === 0) {
-                return buildResult({ error: "Burn tiles must share one selected Call color with the Call Tile." });
-            }
+            const burnError = this.getBurnTilesError(activeCallColors, callTile, burnTiles);
+            if (burnError) return buildResult({ error: burnError });
 
             burnTiles.forEach(bt => {
                 bt.dice.forEach(d => pool.push({ source: `Burn (${bt.name})`, die: d }));
@@ -854,6 +941,22 @@ export class PoolEngine {
         // own ▟ are rerolled, and Titan spends can maximize any pool die.
         const titanActive = usedTiles.some(tile => tileHasTitanTag(tile));
 
+        // Zenith (p.64): "One reroll dice on dice in the pool below ▟" from a
+        // called Orange/Red/Purple tile. Burned tiles do not trigger tags.
+        const zenithActive = calledTiles.some(tile => tileHasActiveColorGatedTag(tile, 'zenith'));
+
+        // GOAD (p.40): "target must burn for actions". Reported as a burn
+        // requirement (a warning, not a block): a defense is not an action,
+        // and a Call can still burn after rolling (p.24).
+        if (options.goad) {
+            burnRequirements.push({
+                reason: 'GOAD',
+                sourceTileId: null,
+                sourceTileName: 'GOAD',
+                message: 'GOAD: you must burn for actions.'
+            });
+        }
+
         const netDieStep = getAberrantDieStepNet(aberrantEffects);
         if (netDieStep !== 0) {
             pool = pool.map(dieEntry => {
@@ -874,25 +977,131 @@ export class PoolEngine {
             });
         }
 
-        return buildResult({ shadowUse: shadowUse.kind, haywireThreshold, freebieDie, titanActive });
+        // FEAR (p.40): "target's pools lose a die" - one die while FEAR is
+        // active. Special Crits "stick until removed" and, unlike Sticky
+        // Crits ("can pile up and stack", p.43), are not said to stack, so
+        // a second FEAR costs no second die.
+        let fearDrop = null;
+        if (options.fear && pool.length > 0) {
+            const dropIndex = getFearDropIndex(pool);
+            fearDrop = { ...pool[dropIndex] };
+            pool = pool.filter((_, index) => index !== dropIndex);
+        }
+
+        return buildResult({ shadowUse: shadowUse.kind, haywireThreshold, freebieDie, titanActive, zenithActive, fearDrop });
+    }
+
+    /**
+     * Burn validation shared by pre-roll and post-roll burns (p.24): burned
+     * tiles must be available, not Hitched (p.20), and share one selected
+     * Call color with the Call tile. Returns an error message or null.
+     * @param {string[]} callColors
+     * @param {any} callTile
+     * @param {any[]} burnTiles
+     */
+    getBurnTilesError(callColors, callTile, burnTiles) {
+        const unavailableBurnTile = burnTiles.find(tile => this.getUnavailableReason(tile));
+        if (unavailableBurnTile) {
+            const reason = this.getUnavailableReason(unavailableBurnTile);
+            return `Burn tile '${unavailableBurnTile.name}' is ${reason} and cannot be used.`;
+        }
+
+        const hitchedBurnTile = burnTiles.find(tile => isHitchedTile(tile));
+        if (hitchedBurnTile) {
+            return `Hitched tile '${hitchedBurnTile.name}' cannot be burned.`;
+        }
+
+        const colors = [...new Set((callColors || []).filter(Boolean))];
+        const tiles = [callTile, ...burnTiles];
+        const sharedBurnColors = colors.filter(color => tiles.every(tile => tileMatchesCallColor(tile, color)));
+        if (sharedBurnColors.length === 0) {
+            return "Burn tiles must share one selected Call color with the Call Tile.";
+        }
+        return null;
+    }
+
+    /**
+     * Post-roll burn (p.24): "Tiles can be burned after rolling on a Call,
+     * but not after rolling a Burn. i.e., you can't Burn twice on an
+     * action." One burn step after the roll: the chosen tiles (one or more,
+     * under the pre-roll burn color rules) add their dice and one Add each.
+     * Tiles already called in the check cannot also be burned. The dice
+     * take the same Aberrant Blast Zone push as the rest of the pool.
+     * @param {string[]} callColors
+     * @param {any} callTile
+     * @param {any[]} burnTiles
+     * @param {{alreadyBurned?: boolean, calledTileIds?: string[], aberrantEffects?: {risen?: boolean, fallen?: boolean}}} [options]
+     * @returns {{dice: Array<{source: string, die: string, baseDie?: string}>, adds: number, burnTileIds: string[], error: string|null}}
+     */
+    compilePostRollBurn(callColors, callTile, burnTiles = [], options = {}) {
+        /** @param {string} error */
+        const fail = (error) => ({ dice: [], adds: 0, burnTileIds: [], error });
+        if (options.alreadyBurned) return fail("This check already burned tiles; you can't Burn twice on an action.");
+        if (!callTile) return fail('Tiles can only be burned after rolling on a Call.');
+        if (!burnTiles || burnTiles.length === 0) return fail('Select at least one tile to burn.');
+        const calledIds = new Set(options.calledTileIds || []);
+        const calledBurn = burnTiles.find(tile => tile.id === callTile.id || calledIds.has(tile.id));
+        if (calledBurn) return fail(`Tile '${calledBurn.name}' was called in this check and cannot also be burned.`);
+        const burnError = this.getBurnTilesError(callColors, callTile, burnTiles);
+        if (burnError) return fail(burnError);
+
+        const aberrantEffects = options.aberrantEffects || {};
+        /** @type {Array<{source: string, die: string, baseDie?: string}>} */
+        const dice = [];
+        burnTiles.forEach(tile => (tile.dice || []).forEach(die => {
+            const adjustedDie = applyAberrantDieStepEffects(die, aberrantEffects);
+            dice.push({
+                source: `Burn (${tile.name})`,
+                die: adjustedDie,
+                ...(adjustedDie !== die ? { baseDie: die } : {})
+            });
+        }));
+        return { dice, adds: burnTiles.length, burnTileIds: burnTiles.map(tile => tile.id), error: null };
     }
 
     /**
      * Titan reroll (p.69): "reroll any die in the pool that rolls below its
      * ▟ - e.g., d6s reroll on a 1, d8s reroll on a 1 or 2." Each qualifying
      * die is rerolled once and the new value kept. `rollFn` is injectable
-     * for tests.
+     * for tests. `shouldReroll` narrows which qualifying dice reroll (the
+     * Zenith reroll uses it to reroll a single die).
+     * @param {Array<{source: string, die: string, val: number}>} rolledArray
+     * @param {(die: string) => number} [rollFn]
+     * @param {(roll: {source: string, die: string, val: number}, index: number) => boolean} [shouldReroll]
      */
-    applyTitanRerolls(rolledArray, rollFn = (die) => this.rollDie(die)) {
+    applyTitanRerolls(rolledArray, rollFn = (die) => this.rollDie(die), shouldReroll = () => true) {
         const rerolls = [];
-        const rolls = rolledArray.map(roll => {
+        const rolls = rolledArray.map((roll, index) => {
             const steps = DIE_STEPS[roll.die] || 0;
-            if (roll.val >= steps) return roll;
+            if (roll.val >= steps || !shouldReroll(roll, index)) return roll;
             const newVal = rollFn(roll.die);
             rerolls.push({ source: roll.source, die: roll.die, from: roll.val, to: newVal });
             return { ...roll, val: newVal };
         });
         return { rolls, rerolls };
+    }
+
+    /**
+     * Zenith reroll (p.64): "One reroll dice on dice in the pool below ▟."
+     * Read literally as one reroll per check: of the dice that rolled below
+     * their own ▟, the one with the most to gain (largest average minus its
+     * roll) is rerolled once, using the Titan reroll mechanism.
+     */
+    applyZenithReroll(rolledArray, rollFn = (die) => this.rollDie(die)) {
+        let bestIndex = -1;
+        let bestGain = 0;
+        rolledArray.forEach((roll, index) => {
+            const steps = DIE_STEPS[roll.die] || 0;
+            if (roll.val >= steps) return;
+            const sides = parseInt(String(roll.die).replace('d', ''), 10) || 0;
+            const gain = (sides + 1) / 2 - roll.val;
+            if (gain > bestGain) {
+                bestGain = gain;
+                bestIndex = index;
+            }
+        });
+        if (bestIndex < 0) return { rolls: rolledArray, rerolls: [] };
+        return this.applyTitanRerolls(rolledArray, rollFn, (_roll, index) => index === bestIndex);
     }
 
     rollDie(dieString) {

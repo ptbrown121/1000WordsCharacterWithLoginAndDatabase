@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     CRIT_DASHBOARD,
     calculatePressCost,
+    getCritPoolEffects,
     getStatusConditions,
     getWoundPenalty,
     normalizeActiveCrits
@@ -62,6 +63,15 @@ describe('getStatusConditions (p.43)', () => {
 
     it('treats missing and non-numeric values as 0', () => {
         assert.deepEqual(ids({}), ['death', 'unconscious', 'paralyzed', 'exhausted', 'riven', 'cornered', 'fatigued']);
+    });
+});
+
+describe('getCritPoolEffects', () => {
+    it('flags FEAR and GOAD from the active crits (p.40)', () => {
+        assert.deepEqual(getCritPoolEffects({}), { fear: false, goad: false });
+        assert.deepEqual(getCritPoolEffects({ fear: 1, jolt: 2 }), { fear: true, goad: false });
+        assert.deepEqual(getCritPoolEffects({ GOAD: '1', fear: 0 }), { fear: false, goad: true });
+        assert.deepEqual(getCritPoolEffects(null), { fear: false, goad: false });
     });
 });
 

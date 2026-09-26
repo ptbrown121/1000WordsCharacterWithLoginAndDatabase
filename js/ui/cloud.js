@@ -158,7 +158,10 @@ function renderRollLogs() {
 
         const tiles = document.createElement('span');
         tiles.className = 'roll-log-tiles';
-        tiles.textContent = `Called: ${(log.calledTiles || []).map(tile => tile.name).filter(Boolean).join(', ') || 'No tiles'}`;
+        // Post-roll burns (p.24) get their own row, flagged per tile.
+        tiles.textContent = `Called: ${(log.calledTiles || [])
+            .map(tile => tile.name && tile.burnedAfterRoll ? `${tile.name} (burned after roll)` : tile.name)
+            .filter(Boolean).join(', ') || 'No tiles'}`;
 
         const total = document.createElement('span');
         total.className = 'roll-log-total';
