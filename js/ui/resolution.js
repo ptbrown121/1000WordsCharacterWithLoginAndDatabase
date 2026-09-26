@@ -1,5 +1,5 @@
 // @ts-check
-import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getDefenseShieldSources, isGearTagsBroken, isHinderTile, isHitchedTile, RESOURCE_LABELS, tileHasMechanicalTag } from '../pool.js';
+import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, getAvailableShadowAbilities, getDefenseShieldSources, getShadowTagCounts, isGearTagsBroken, isHinderTile, isHitchedTile, RESOURCE_LABELS, tileHasMechanicalTag } from '../pool.js';
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { getSpellCastTests } from '../spell-rules.js';
@@ -14,7 +14,7 @@ import {
     getRollId,
     getDefaultResolutionAssignments,
     getAssignmentOptions,
-    getResolutionBonusTotals,
+    getResolutionModifierTotals,
     calculateAssignedTotals,
     calculateResolutionPlusUsage,
     getHealingAssignments,
@@ -22,7 +22,14 @@ import {
     parseCritList,
     getRangeExtensionResults,
     getChainMaxedDieCost,
-    CHAIN_COST_RESOURCE_KEYS
+    CHAIN_COST_RESOURCE_KEYS,
+    getJoltGritPenalty,
+    getRiskyHpLoss,
+    getCyberFlawTriggers,
+    getCoreRollSpendOptions,
+    getShadowRollSpendOptions,
+    TEST_CHART,
+    evaluateActionTest
 } from '../resolution-rules.js';
 
 /** @type {import('../data.js').DataManager} */
@@ -80,6 +87,13 @@ export function init(deps) {
             return;
         }
 
+        if (target.id === 'action-test-preset' && target.value) {
+            const testInput = document.getElementById('action-test');
+            if (testInput instanceof HTMLInputElement) testInput.value = target.value;
+            renderResolutionDetails();
+            return;
+        }
+
         if (target.classList.contains('resolution-extra')) {
             renderResolutionDetails();
         }
@@ -109,12 +123,23 @@ export function init(deps) {
             payChainCost();
             return;
         }
+        if (target.classList.contains('btn-core-roll-spend') && target.dataset.coreOption) {
+            spendCoreOnRoll(target.dataset.coreOption);
+            return;
+        }
+        if (target.classList.contains('btn-shadow-roll-spend') && target.dataset.shadowOption) {
+            spendShadowOnRoll(target.dataset.shadowOption);
+            return;
+        }
         if (!target.classList.contains('btn-resolve-ammo') || !target.dataset.ammoTileId) return;
         resolveAmmo(target.dataset.ammoTileId);
     });
 
     els.resultNotices?.addEventListener('click', (e) => {
-        if (e.target instanceof Element && e.target.classList.contains('btn-bleed-burn')) burnCalledTilesForBleed();
+        if (!(e.target instanceof Element)) return;
+        if (e.target.classList.contains('btn-bleed-burn')) burnCalledTilesForBleed();
+        if (e.target.classList.contains('btn-risky-hp')) payRiskyHp();
+        if (e.target.classList.contains('btn-numb-reroll')) rerollMaxedForNumb();
     });
 }
 
@@ -302,7 +327,27 @@ export function renderResolutionExtraFields() {
         `;
     }
 
-    return '';
+    // Action mode: the GM's Test from the Test Chart (p.23).
+    const testValue = getResolutionExtraValue('action-test');
+    const presetOptions = TEST_CHART.map(entry => {
+        const selected = String(entry.value) === testValue.trim() ? ' selected' : '';
+        return `<option value="${entry.value}"${selected}>${escapeHtml(entry.label)} (${entry.value}${entry.value === 24 ? '+' : ''})</option>`;
+    }).join('');
+    return `
+        <div class="resolution-extra-grid">
+            <div class="resolution-field">
+                <label for="action-test">Test</label>
+                <input id="action-test" class="resolution-extra" type="text" inputmode="numeric" value="${escapeHtml(testValue)}" placeholder="GM's Test">
+            </div>
+            <div class="resolution-field">
+                <label for="action-test-preset">Test Chart</label>
+                <select id="action-test-preset">
+                    <option value="">-- Preset --</option>
+                    ${presetOptions}
+                </select>
+            </div>
+        </div>
+    `;
 }
 
 /** @param {import('../types.js').RollResult} result */
@@ -527,6 +572,203 @@ function renderTitanResolutionPanel(result) {
     `;
 }
 
+// Core spends on the current roll (p.64): Machine adds Core to Soak;
+// Boost / Enhanced maximize a stat's or a tile's dice. Options come from
+// getCoreRollSpendOptions, so a spend is offered only when the character
+// carries the tag and the dice are in the roll.
+function getCoreEffectiveMaxValue() {
+    if (!dataManager) return 0;
+    return getEffectiveMax(dataManager.state, 'core', calculateCoreMax(dataManager.state.tiles || []));
+}
+
+async function spendOneCore(reason) {
+    const state = dataManager.state;
+    const current = parseInt(state.core, 10) || 0;
+    if (current <= 0 && !state.gmOverride) {
+        showAlert('No Core available to spend.');
+        return false;
+    }
+    if (!await showConfirm(`Spend 1 Core to ${reason}?`, { title: 'Spend Core?' })) return false;
+    state.core = Math.max(0, current - 1);
+    dataManager.saveState();
+    if (renderAll) renderAll();
+    return true;
+}
+
+async function spendCoreOnRoll(optionId) {
+    const result = uiState.lastRollResult;
+    if (!result || !poolEngine || !dataManager?.canEditActiveCharacter()) return;
+    const option = getCoreRollSpendOptions(result, dataManager.state.tiles || [], uiState.currentResolutionMode)
+        .find(entry => entry.id === optionId);
+    if (!option) return;
+
+    if (option.ability === 'machine') {
+        const after = Math.max(0, (parseInt(dataManager.state.core, 10) || 0) - 1);
+        if (!await spendOneCore(`add Core to Soak (+${after} after paying)`)) return;
+        result.coreSoak = Math.max(0, parseInt(dataManager.state.core, 10) || 0);
+        result.coreSpends = [...(result.coreSpends || []), `Machine: +${result.coreSoak} soak`];
+        renderResolution();
+        return;
+    }
+
+    const targetIds = new Set(option.rollIds);
+    const targets = (result.originalRolls || []).filter((roll, index) => targetIds.has(getRollId(roll, index)));
+    if (targets.length === 0) return;
+    if (!await spendOneCore(option.label.replace(/^\w+: /, '').toLowerCase())) return;
+    const changes = targets.map(roll => {
+        const faces = parseInt(String(roll.die || '').replace('d', ''), 10) || roll.val;
+        const change = `${roll.die} ${roll.val}→${faces}`;
+        roll.val = faces;
+        return change;
+    });
+    result.coreSpends = [...(result.coreSpends || []), `${option.label} (${changes.join(', ')})`];
+    recalculateRollTotals(result);
+    renderResolution();
+}
+
+/** @param {import('../types.js').RollResult} result */
+function renderCoreResolutionPanel(result) {
+    if (!dataManager || getCoreEffectiveMaxValue() <= 0) return '';
+    const options = getCoreRollSpendOptions(result, dataManager.state.tiles || [], uiState.currentResolutionMode);
+    const spent = result.coreSpends || [];
+    if (options.length === 0 && spent.length === 0) return '';
+    const current = parseInt(dataManager.state.core, 10) || 0;
+    const disabled = current <= 0 && !dataManager.state.gmOverride ? ' disabled' : '';
+    const buttons = options.map(option =>
+        `<button class="btn btn-outline btn-core-roll-spend" type="button" data-core-option="${escapeHtml(option.id)}"${disabled}>${escapeHtml(option.label)} (1 Core)</button>`
+    ).join('');
+    const spentHtml = spent.length
+        ? `<p class="resolution-success">Spent: ${spent.map(entry => escapeHtml(entry)).join('; ')}.</p>`
+        : '';
+
+    return `
+        <div class="freebie-resolution-panel" style="margin-top: 0.5rem;">
+            <h3>Core (${current} available)</h3>
+            <p class="hint-text">Spend 1 Core for a roll-changing Core ability. Machine adds your Core (after paying) to Soak on this defense.</p>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                ${buttons}
+            </div>
+            ${spentHtml}
+        </div>
+    `;
+}
+
+// Shadow spends on the current roll (p.59): Qi adds max Shadow to a test,
+// Id adds max Shadow to impact, each gated by Aberration alignment.
+function getShadowContext() {
+    const tiles = dataManager?.state?.tiles || [];
+    const maxShadow = getEffectiveMax(dataManager?.state || {}, 'sh', poolEngine ? poolEngine.calculateShadowMax(tiles) : 0);
+    return {
+        maxShadow,
+        aberration: parseInt(dataManager?.state?.aberration, 10) || 0,
+        tagCounts: getShadowTagCounts(tiles)
+    };
+}
+
+/** @param {import('../types.js').RollResult} result */
+function getShadowSpendOptionsFor(result) {
+    return getShadowRollSpendOptions({
+        ...getShadowContext(),
+        mode: uiState.currentResolutionMode,
+        spent: (result.shadowSpends || []).map(spend => spend.id)
+    });
+}
+
+async function spendShadowOnRoll(optionId) {
+    const result = uiState.lastRollResult;
+    if (!result || !dataManager?.canEditActiveCharacter()) return;
+    const option = getShadowSpendOptionsFor(result).find(entry => entry.id === optionId);
+    if (!option) return;
+    const { maxShadow } = getShadowContext();
+    const state = dataManager.state;
+    const current = parseInt(state.sh, 10) || 0;
+    if (current <= 0 && !state.gmOverride) {
+        showAlert('No Shadow available to spend.');
+        return;
+    }
+    const target = option.id === 'qi-test' ? 'this test' : 'impact';
+    if (!await showConfirm(`Spend 1 Shadow to add max Shadow (+${maxShadow}) to ${target}?`, { title: 'Spend Shadow?' })) return;
+    state.sh = Math.max(0, current - 1);
+    dataManager.saveState();
+    result.shadowSpends = [...(result.shadowSpends || []), { id: option.id, amount: maxShadow }];
+    if (renderAll) renderAll();
+    renderResolution();
+}
+
+/** @param {import('../types.js').RollResult} result */
+function renderShadowResolutionPanel(result) {
+    if (!dataManager || !poolEngine) return '';
+    const context = getShadowContext();
+    if (context.maxShadow <= 0) return '';
+    const options = getShadowSpendOptionsFor(result);
+    const spent = result.shadowSpends || [];
+    const available = new Set(getAvailableShadowAbilities(context.aberration, context.maxShadow, context.tagCounts)
+        .map(ability => ability.id));
+    const reminders = [];
+    if (available.has('qi-color')) reminders.push('add a color to a tile for one check (decide before the call)');
+    if (available.has('id-press')) reminders.push('pay for a Press (deduct 1 SH instead of the RX)');
+    if (options.length === 0 && spent.length === 0) return '';
+
+    const current = parseInt(dataManager.state.sh, 10) || 0;
+    const disabled = current <= 0 && !dataManager.state.gmOverride ? ' disabled' : '';
+    const buttons = options.map(option =>
+        `<button class="btn btn-outline btn-shadow-roll-spend" type="button" data-shadow-option="${escapeHtml(option.id)}"${disabled}>${escapeHtml(option.label)} (1 SH)</button>`
+    ).join('');
+    const spentHtml = spent.length
+        ? `<p class="resolution-success">Spent: ${spent.map(spend => `${spend.id === 'qi-test' ? 'Qi +' : 'Id impact +'}${spend.amount}`).join('; ')}.</p>`
+        : '';
+    const reminderHtml = reminders.length
+        ? `<p class="hint-text">Also available for 1 Shadow (not automated here): ${escapeHtml(reminders.join('; '))}.</p>`
+        : '';
+
+    return `
+        <div class="freebie-resolution-panel" style="margin-top: 0.5rem;">
+            <h3>Shadow (${current} available)</h3>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                ${buttons}
+            </div>
+            ${spentHtml}
+            ${reminderHtml}
+        </div>
+    `;
+}
+
+// Risky (p.20): lose 1 HP per 1 rolled on a called Risky tile's dice.
+// Shown as a notice with a one-click deduction, like the BLEED burn.
+async function payRiskyHp() {
+    const result = uiState.lastRollResult;
+    if (!result || result.riskyPaid || !dataManager?.canEditActiveCharacter()) return;
+    const risky = getRiskyHpLoss(result, getCalledTiles(result));
+    if (risky.total <= 0) return;
+    if (!await showConfirm(`Lose ${risky.total} HP for Risky (${risky.entries.map(entry => `${entry.tileName}: ${entry.ones}×1`).join(', ')})?`, { title: 'Risky HP loss' })) return;
+    const state = dataManager.state;
+    state.hp = Math.max(0, (parseInt(state.hp, 10) || 0) - risky.total);
+    dataManager.saveState();
+    result.riskyPaid = risky.total;
+    if (renderAll) renderAll();
+    renderResolutionDetails();
+}
+
+// Numb (p.65): "Reroll each maxed die" - rerolled once, new values kept.
+function rerollMaxedForNumb() {
+    const result = uiState.lastRollResult;
+    if (!result || result.numbRerolls || !poolEngine) return;
+    const numb = getCyberFlawTriggers(result, getCalledTiles(result)).find(entry => entry.tag === 'numb');
+    if (!numb) return;
+    const targetIds = new Set(numb.maxedRollIds);
+    /** @type {Array<{die: string, from: number, to: number}>} */
+    const rerolls = [];
+    (result.originalRolls || []).forEach((roll, index) => {
+        if (!targetIds.has(getRollId(roll, index))) return;
+        const to = poolEngine.rollDie(roll.die);
+        rerolls.push({ die: roll.die, from: roll.val, to });
+        roll.val = to;
+    });
+    result.numbRerolls = rerolls;
+    recalculateRollTotals(result);
+    renderResolution();
+}
+
 // Chain cost (p.25, upcoming-edition ruling): in a chained check every
 // maxed die that is used costs 1 resource of the player's choice. The
 // panel lists each maxed die; leaving it on Unused in the assignment list
@@ -705,7 +947,7 @@ function resolveAmmo(tileId) {
 
 export function renderBonusDetails(details) {
     if (!details.length) return '';
-    return `<p><strong>Tag Bonuses:</strong><br>${details.map(detail => escapeHtml(detail)).join('<br>')}</p>`;
+    return `<p><strong>Tag Bonuses &amp; Modifiers:</strong><br>${details.map(detail => escapeHtml(detail)).join('<br>')}</p>`;
 }
 
 /** @param {import('../types.js').RollResult} result */
@@ -734,10 +976,17 @@ function renderSpellCastLines(result, checkTotal) {
     }).join('');
 }
 
+// "+ 2" / "- 3" for a signed bonus in a "(dice + bonus)" breakdown.
+function formatSigned(value) {
+    return value < 0 ? `- ${-value}` : `+ ${value}`;
+}
+
 /** @param {import('../types.js').RollResult} result */
 export function calculateResolutionSummary(result) {
     const { totals, usedCount } = calculateAssignedTotals(result, uiState.currentResolutionAssignments);
-    const bonusInfo = getResolutionBonusTotals(result, uiState.currentResolutionMode);
+    // Opted-in tag bonuses, automatic called-tile modifiers (Piercing,
+    // Blinding, Loose, Old/Worn/Primitive flaws), and Shadow/Core spends.
+    const bonusInfo = getResolutionModifierTotals(result, uiState.currentResolutionMode, getCalledTiles(result));
     const bonuses = bonusInfo.totals;
     const adds = result.adds ?? 2;
     const warnings = [];
@@ -757,15 +1006,23 @@ export function calculateResolutionSummary(result) {
     }
 
     if (uiState.currentResolutionMode === 'attack') {
-        const attackTotal = (totals.attack || 0) + bonuses.attack;
-        const impactTotal = (totals.impact || 0) + bonuses.impact;
-        const targetEvasion = getResolutionNumber('target-evasion');
-        const targetSoak = getResolutionNumber('target-soak') || 0;
+        // Flaw penalties can push a total below 0; a total never goes negative.
+        const attackTotal = Math.max(0, (totals.attack || 0) + bonuses.attack);
+        const impactTotal = Math.max(0, (totals.impact || 0) + bonuses.impact);
+        // Blinding and Piercing (p.30) lower the foe's evasion and soak, floored at 0.
+        const enteredEvasion = getResolutionNumber('target-evasion');
+        const targetEvasion = enteredEvasion === null ? null : Math.max(0, enteredEvasion - bonuses.foeEvasion);
+        const enteredSoak = getResolutionNumber('target-soak') || 0;
+        const targetSoak = Math.max(0, enteredSoak - bonuses.foeSoak);
         const targetGrit = getResolutionNumber('target-grit') || 0;
         const crits = getResolutionText('attack-crits');
+        const evasionNote = bonuses.foeEvasion > 0 && enteredEvasion !== null
+            ? ` (${enteredEvasion} - ${bonuses.foeEvasion} Blinding)`
+            : '';
+        const soakNote = bonuses.foeSoak > 0 ? ` [${enteredSoak} - ${bonuses.foeSoak} Piercing]` : '';
         const lines = [
-            `<p><strong>Attack:</strong> ${attackTotal} (${totals.attack || 0} dice + ${bonuses.attack} bonus)</p>`,
-            `<p><strong>Impact:</strong> ${impactTotal} HP (${totals.impact || 0} dice + ${bonuses.impact} bonus)</p>`,
+            `<p><strong>Attack:</strong> ${attackTotal} (${totals.attack || 0} dice ${formatSigned(bonuses.attack)} bonus)</p>`,
+            `<p><strong>Impact:</strong> ${impactTotal} HP (${totals.impact || 0} dice ${formatSigned(bonuses.impact)} bonus)</p>`,
             `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`,
             renderSpellCastLines(result, plusesAreLegal ? attackTotal : null)
         ];
@@ -774,12 +1031,12 @@ export function calculateResolutionSummary(result) {
             lines.push('<p class="resolution-warning">Reduce plus use before resolving attack.</p>');
         } else if (targetEvasion !== null) {
             const hit = attackTotal >= targetEvasion;
-            lines.push(`<p class="${hit ? 'resolution-success' : 'resolution-warning'}">${hit ? 'Hit' : 'Miss'} vs target evasion ${targetEvasion}.</p>`);
+            lines.push(`<p class="${hit ? 'resolution-success' : 'resolution-warning'}">${hit ? 'Hit' : 'Miss'} vs target evasion ${targetEvasion}${evasionNote}.</p>`);
 
             if (hit) {
                 const hpLoss = Math.max(0, impactTotal - targetSoak);
                 const critsApply = crits && hpLoss > targetGrit;
-                lines.push(`<p><strong>After Soak:</strong> ${hpLoss} HP (${impactTotal} impact - ${targetSoak} soak).</p>`);
+                lines.push(`<p><strong>After Soak:</strong> ${hpLoss} HP (${impactTotal} impact - ${targetSoak} soak${soakNote}).</p>`);
                 lines.push(`<p><strong>Grit Check:</strong> ${targetGrit} grit ${hpLoss > targetGrit ? 'does not prevent crits' : 'prevents crits'}.</p>`);
                 if (crits) lines.push(`<p><strong>Crits:</strong> ${escapeHtml(crits)} ${critsApply ? 'apply' : 'do not apply'}.</p>`);
             }
@@ -803,13 +1060,17 @@ export function calculateResolutionSummary(result) {
     }
 
     if (uiState.currentResolutionMode === 'defense') {
-        const evasionTotal = (totals.evasion || 0) + bonuses.evasion;
+        const evasionTotal = Math.max(0, (totals.evasion || 0) + bonuses.evasion);
         // Core adds its current value to Grit (p.64) - automatic for any
         // character whose tiles grant a Core pool.
         const coreGrit = calculateCoreMax(dataManager?.state?.tiles || []) > 0
             ? Math.max(0, parseInt(dataManager.state.core, 10) || 0)
             : 0;
-        const gritTotal = (totals.grit || 0) + bonuses.grit + coreGrit;
+        // JOLT (p.38): "target loses 3 Grit on next defense", per active
+        // JOLT. Grit (with Old's -3) is floored at 0.
+        const activeJolts = normalizeActiveCrits(dataManager?.state?.activeCrits).jolt || 0;
+        const joltPenalty = getJoltGritPenalty(activeJolts);
+        const gritTotal = Math.max(0, (totals.grit || 0) + bonuses.grit + coreGrit - joltPenalty);
         const otherSoak = getResolutionNumber('defense-soak') || 0;
         const calledArmor = getCalledArmorSoak(result);
         const soakTotal = otherSoak + bonuses.soak + calledArmor.total;
@@ -820,17 +1081,17 @@ export function calculateResolutionSummary(result) {
             ? ` + ${calledArmor.total} called armor (${calledArmor.sources.map(source => source.tileName).join(', ')})`
             : '';
         const coreGritText = coreGrit > 0 ? ` + ${coreGrit} Core` : '';
+        const joltGritText = joltPenalty > 0 ? ` - ${joltPenalty} JOLT` : '';
         const lines = [
-            `<p><strong>Evasion:</strong> ${evasionTotal} (${totals.evasion || 0} dice + ${bonuses.evasion} bonus)</p>`,
-            `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice + ${bonuses.grit} bonus${coreGritText})</p>`,
+            `<p><strong>Evasion:</strong> ${evasionTotal} (${totals.evasion || 0} dice ${formatSigned(bonuses.evasion)} bonus)</p>`,
+            `<p><strong>Grit:</strong> ${gritTotal} (${totals.grit || 0} dice ${formatSigned(bonuses.grit)} bonus${coreGritText}${joltGritText})</p>`,
             `<p><strong>Soak:</strong> ${soakTotal} (${otherSoak} other + ${bonuses.soak} bonus${escapeHtml(armorSoakText)})</p>`,
             `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`,
             renderSpellCastLines(result, null)
         ];
 
-        const activeJolts = normalizeActiveCrits(dataManager?.state?.activeCrits).jolt || 0;
         if (activeJolts > 0) {
-            lines.push(`<p class="resolution-warning">JOLT active ×${activeJolts}: reduce Grit by 3 each on this defense, then clear the JOLT from the Condition panel.</p>`);
+            lines.push(`<p class="resolution-warning">JOLT active ×${activeJolts}: -${joltPenalty} Grit applied to this defense. Clear the JOLT from the Condition panel afterwards.</p>`);
         }
 
         if (!plusesAreLegal) {
@@ -875,7 +1136,7 @@ export function calculateResolutionSummary(result) {
         const difficulty = baseDifficulty + (spareCount * 2) + (uiState.healingInCombat ? 4 : 0);
         const succeeds = plusesAreLegal && spareCount > 0 && diagnosisTotal >= difficulty;
         const lines = [
-            `<p><strong>Diagnosis:</strong> ${diagnosisTotal} (${totals.diagnosis || 0} dice + ${bonuses.diagnosis} bonus)</p>`,
+            `<p><strong>Diagnosis:</strong> ${diagnosisTotal} (${totals.diagnosis || 0} dice ${formatSigned(bonuses.diagnosis)} bonus)</p>`,
             `<p><strong>Pluses Used:</strong> ${plusUsage?.used ?? 0}/${plusUsage?.budget ?? 0}</p>`,
             renderSpellCastLines(result, null)
         ];
@@ -904,9 +1165,19 @@ export function calculateResolutionSummary(result) {
     }
 
     const actionTotal = (totals.action || 0) + bonuses.action;
+    const legalAction = usedCount <= adds;
+    // Test Chart (p.23): pass/fail against the GM's Test when one is entered.
+    const testOutcome = evaluateActionTest(actionTotal, getResolutionExtraValue('action-test'));
+    let testLine = '';
+    if (testOutcome) {
+        const tierText = testOutcome.tier ? `, ${testOutcome.tier}` : '';
+        testLine = legalAction
+            ? `<p class="${testOutcome.passes ? 'resolution-success' : 'resolution-warning'}">${testOutcome.passes ? 'Pass' : 'Fail'}: ${actionTotal} vs Test ${testOutcome.test}${escapeHtml(tierText)} (${testOutcome.margin >= 0 ? '+' : ''}${testOutcome.margin}).</p>`
+            : `<p class="resolution-warning">Move dice to Unused before checking against Test ${testOutcome.test}.</p>`;
+    }
     return {
         headline: String(actionTotal),
-        html: `<p><strong>Action Total:</strong> ${actionTotal} (${totals.action || 0} dice + ${bonuses.action} bonus)</p>${renderSpellCastLines(result, usedCount > adds ? null : actionTotal)}${renderBonusDetails(bonusInfo.details)}`,
+        html: `<p><strong>Action Total:</strong> ${actionTotal} (${totals.action || 0} dice ${formatSigned(bonuses.action)} bonus)</p>${testLine}${renderSpellCastLines(result, legalAction ? actionTotal : null)}${renderBonusDetails(bonusInfo.details)}`,
         warnings
     };
 }
@@ -962,6 +1233,28 @@ export function renderResolutionDetails() {
     if (result.isHaywire && calledTiles.some(tile => tileHasMechanicalTag(tile, 'gizmo'))) {
         notices.push('<div class="result-notice">Haywire with a gizmo in the check: the gizmo may BREAK (it has ▟ HP; GM call).</div>');
     }
+    // Risky (p.20): 1 HP per 1 rolled on a called Risky tile's dice.
+    const risky = getRiskyHpLoss(result, calledTiles);
+    if (result.riskyPaid) {
+        notices.push(`<div class="result-notice">Risky: ${result.riskyPaid} HP lost.</div>`);
+    } else if (risky.total > 0) {
+        const detail = risky.entries.map(entry => `${escapeHtml(entry.tileName)} rolled ${entry.ones}×1`).join(', ');
+        notices.push(`<div class="result-notice">Risky: lose ${risky.total} HP (${detail}). <button type="button" class="btn btn-outline btn-risky-hp">Lose ${risky.total} HP</button></div>`);
+    }
+    // Cyber flaws (p.65) triggered by this roll's 1s, haywire, or maxed dice.
+    getCyberFlawTriggers(result, calledTiles).forEach(flaw => {
+        const source = `${escapeHtml(flaw.name)} (${escapeHtml(flaw.tileName)})`;
+        if (flaw.tag === 'numb') {
+            if (result.numbRerolls) return;
+            notices.push(`<div class="result-notice">${source}: reroll each maxed die (${flaw.maxedRollIds.length}). <button type="button" class="btn btn-outline btn-numb-reroll">Reroll maxed dice</button></div>`);
+            return;
+        }
+        const trigger = flaw.trigger === 'one' ? 'a 1 was rolled' : 'the check went haywire';
+        notices.push(`<div class="result-notice">${source}: ${trigger} — ${escapeHtml(flaw.effect)}. Apply it from the Condition panel.</div>`);
+    });
+    if (result.numbRerolls && result.numbRerolls.length > 0) {
+        notices.push(`<div class="result-notice">Numb reroll: ${result.numbRerolls.map(r => `${escapeHtml(r.die)} ${r.from}→${r.to}`).join(', ')}.</div>`);
+    }
     const titanRerolls = result.titanRerolls || [];
     if (titanRerolls.length > 0) {
         notices.push(`<div class="result-notice">Titan reroll: ${titanRerolls.map(r => `${escapeHtml(r.die)} ${r.from}→${r.to}`).join(', ')}.</div>`);
@@ -1014,6 +1307,8 @@ export function renderResolution() {
         ${renderFreebiePanel(result)}
         ${renderPostRollBurnPanel(result)}
         ${renderTitanResolutionPanel(result)}
+        ${renderCoreResolutionPanel(result)}
+        ${renderShadowResolutionPanel(result)}
         ${warningHtml}
     `;
 

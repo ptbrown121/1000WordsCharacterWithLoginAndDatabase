@@ -22,6 +22,10 @@ test('builds a tile pool, rolls it, and switches resolution mode', async ({ page
     await expect(page.locator('#roll-results')).toBeVisible();
     await expect(page.locator('#result-total')).toHaveText(/^\d+$/);
 
+    await page.locator('#action-test-preset').selectOption('8');
+    await expect(page.locator('#action-test')).toHaveValue('8');
+    await expect(page.locator('#result-details')).toContainText(/(Pass|Fail): \d+ vs Test 8, Average/);
+
     await page.locator('#resolution-mode').selectOption('attack');
     await expect(page.locator('#result-total')).toContainText('Attack');
     await expect(page.locator('#resolution-controls')).toContainText('Assign Rolled Dice');

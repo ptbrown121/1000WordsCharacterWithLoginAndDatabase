@@ -16,7 +16,18 @@ import {
     applyShieldsToCrits,
     parseCritList,
     getRangeExtensionResults,
-    getChainMaxedDieCost
+    getChainMaxedDieCost,
+    getCalledTileModifiers,
+    getJoltGritPenalty,
+    getRiskyHpLoss,
+    getMaxedRollIds,
+    getCyberFlawTriggers,
+    getCoreRollSpendOptions,
+    getShadowRollSpendOptions,
+    getResolutionSpendTotals,
+    getResolutionModifierTotals,
+    TEST_CHART,
+    evaluateActionTest
 } from '../js/resolution-rules.js';
 
 // Roll factory: roll[i] gets implicit id=String(i) so tests can build
@@ -465,5 +476,271 @@ describe('getChainMaxedDieCost', () => {
         assert.equal(cost.chained, false);
         assert.deepEqual(cost.entries, []);
         assert.equal(cost.dueCount, 0);
+    });
+});
+
+function tile(name, dice, tags, overrides = {}) {
+    return { id: `id-${name}`, name, type: 'Gear', dice, tags, ...overrides };
+}
+
+describe('getCalledTileModifiers', () => {
+    it('Piercing and Blinding lower the foe\'s soak and evasion by the tile\'s ▟ in attack mode', () => {
+        const blade = tile('Blade', ['d6', 'd4'], ['Detail: Piercing', 'Blinding']);
+        const mods = getCalledTileModifiers([blade], 'attack');
+        assert.equal(mods.totals.foeSoak, 3);
+        assert.equal(mods.totals.foeEvasion, 3);
+        assert.deepEqual(mods.details, [
+            'Piercing from Blade: -3 foe\'s soak',
+            'Blinding from Blade: -3 foe\'s evasion'
+        ]);
+    });
+
+    it('ignores Piercing outside attack mode', () => {
+        const blade = tile('Blade', ['d6'], ['Piercing']);
+        const mods = getCalledTileModifiers([blade], 'defense');
+        assert.equal(mods.totals.foeSoak, 0);
+        assert.deepEqual(mods.details, []);
+    });
+
+    it('Loose adds the tile\'s ▟ to Evasion in defense mode', () => {
+        const jacket = tile('Jacket', ['d8'], ['Detail: Loose']);
+        const mods = getCalledTileModifiers([jacket], 'defense');
+        assert.equal(mods.totals.evasion, 3);
+        assert.equal(mods.totals.grit, 0);
+    });
+
+    it('applies the Old, Worn, and Primitive flaws automatically in their modes', () => {
+        const armor = tile('Plate', ['d6'], ['Flaw: Old']);
+        const pistol = tile('Pistol', ['d6'], ['Worn', 'Detail: Primitive']);
+        const defense = getCalledTileModifiers([armor, pistol], 'defense');
+        assert.equal(defense.totals.grit, -3);
+        assert.deepEqual(defense.details, ['Old flaw on Plate: -3 grit']);
+
+        const attack = getCalledTileModifiers([armor, pistol], 'attack');
+        assert.equal(attack.totals.attack, -3);
+        assert.equal(attack.totals.impact, -3);
+        assert.equal(attack.totals.grit, 0);
+    });
+
+    it('turns broken gear tags off', () => {
+        const blade = tile('Blade', ['d6'], ['Piercing', 'Worn'], { gearBroken: true });
+        const mods = getCalledTileModifiers([blade], 'attack');
+        assert.equal(mods.totals.foeSoak, 0);
+        assert.equal(mods.totals.attack, 0);
+    });
+
+    it('does not apply a Crit-prefixed Piercing', () => {
+        const blade = tile('Blade', ['d6'], ['Crit: Piercing']);
+        assert.equal(getCalledTileModifiers([blade], 'attack').totals.foeSoak, 0);
+    });
+});
+
+describe('getJoltGritPenalty', () => {
+    it('is 3 Grit per active JOLT', () => {
+        assert.equal(getJoltGritPenalty(0), 0);
+        assert.equal(getJoltGritPenalty(2), 6);
+        assert.equal(getJoltGritPenalty(undefined), 0);
+    });
+});
+
+describe('getRiskyHpLoss', () => {
+    it('counts 1s on the called Risky tile\'s own dice', () => {
+        const res = result([
+            { source: 'Stat (BODY)', die: 'd6', val: 1 },
+            { source: 'Tile (Grenade)', die: 'd6', val: 1 },
+            { source: 'Tile (Grenade)', die: 'd4', val: 1 },
+            { source: 'Tile (Grenade)', die: 'd4', val: 3 }
+        ]);
+        const risky = getRiskyHpLoss(res, [tile('Grenade', ['d6', 'd4', 'd4'], ['Single', 'Risky'])]);
+        assert.equal(risky.total, 2);
+        assert.deepEqual(risky.entries.map(entry => [entry.tileName, entry.ones]), [['Grenade', 2]]);
+    });
+
+    it('counts chained Risky tiles but not burned dice', () => {
+        const res = result([
+            { source: 'Chain (Sonic Blade)', die: 'd6', val: 1 },
+            { source: 'Burn (Sonic Blade)', die: 'd6', val: 1 }
+        ]);
+        assert.equal(getRiskyHpLoss(res, [tile('Sonic Blade', ['d6'], ['Risky'])]).total, 1);
+    });
+
+    it('is zero without Risky or without 1s', () => {
+        const res = result([{ source: 'Tile (Blade)', die: 'd6', val: 1 }]);
+        assert.equal(getRiskyHpLoss(res, [tile('Blade', ['d6'], ['Sharp'])]).total, 0);
+        const noOnes = result([{ source: 'Tile (Blade)', die: 'd6', val: 2 }]);
+        assert.equal(getRiskyHpLoss(noOnes, [tile('Blade', ['d6'], ['Risky'])]).total, 0);
+    });
+});
+
+describe('getCyberFlawTriggers', () => {
+    const arm = (tags) => tile('Arm', ['d8'], tags);
+
+    it('fires Feedback and Rube once when any die in the check rolls a 1', () => {
+        const res = result([
+            { source: 'Stat (BODY)', die: 'd6', val: 1 },
+            { source: 'Stat (BODY)', die: 'd6', val: 1 },
+            { source: 'Tile (Arm)', die: 'd8', val: 5 }
+        ]);
+        const triggers = getCyberFlawTriggers(res, [arm(['Cyber', 'Feedback', 'Rube'])]);
+        assert.deepEqual(triggers.map(entry => [entry.name, entry.effect]), [
+            ['Feedback', 'take SLOW'],
+            ['Rube', 'take DOWN']
+        ]);
+    });
+
+    it('fires the haywire flaws only on a haywire check; Torn deals the tile\'s ▟ HP', () => {
+        const tags = ['Overload', 'Solo', 'Torn', 'Undroid'];
+        const calm = result([{ source: 'Tile (Arm)', die: 'd8', val: 5 }]);
+        assert.deepEqual(getCyberFlawTriggers(calm, [arm(tags)]), []);
+
+        const haywire = result([{ source: 'Tile (Arm)', die: 'd8', val: 5 }], { isHaywire: true });
+        const triggers = getCyberFlawTriggers(haywire, [arm(tags)]);
+        assert.deepEqual(triggers.map(entry => entry.effect), ['take PAIN', 'take FEAR', 'lose 3 HP', 'take WOUND']);
+        assert.equal(triggers.find(entry => entry.tag === 'torn').hp, 3);
+    });
+
+    it('fires Numb on maxed dice and lists them', () => {
+        const res = result([
+            { source: 'Stat (MIND)', die: 'd6', val: 6 },
+            { source: 'Tile (Arm)', die: 'd8', val: 8 },
+            { source: 'Tile (Arm)', die: 'd8', val: 3 }
+        ]);
+        assert.deepEqual(getMaxedRollIds(res), ['0', '1']);
+        const [numb] = getCyberFlawTriggers(res, [arm(['Numb'])]);
+        assert.equal(numb.name, 'Numb');
+        assert.deepEqual(numb.maxedRollIds, ['0', '1']);
+    });
+
+    it('ignores flaws on tiles that were not called and on broken gear', () => {
+        const res = result([{ source: 'Stat (BODY)', die: 'd6', val: 1 }], { isHaywire: true });
+        assert.deepEqual(getCyberFlawTriggers(res, []), []);
+        const broken = tile('Arm', ['d8'], ['Feedback'], { gearBroken: true });
+        assert.deepEqual(getCyberFlawTriggers(res, [broken]), []);
+    });
+});
+
+describe('getCoreRollSpendOptions', () => {
+    const roll = result([
+        { source: 'Stat (BODY)', die: 'd6', val: 2 },
+        { source: 'Stat (MIND)', die: 'd6', val: 6 },
+        { source: 'Tile (Arm)', die: 'd8', val: 3 },
+        { source: 'Tile (Arm)', die: 'd4', val: 4 }
+    ]);
+
+    it('offers nothing without the Core tags', () => {
+        assert.deepEqual(getCoreRollSpendOptions(roll, [tile('Arm', ['d8', 'd4'], ['Cyber'])], 'defense'), []);
+    });
+
+    it('offers Machine only in defense mode and only once', () => {
+        const tiles = [tile('Chassis', ['d6'], ['Cyber', 'Machine'])];
+        assert.deepEqual(getCoreRollSpendOptions(roll, tiles, 'defense').map(option => option.id), ['machine']);
+        assert.deepEqual(getCoreRollSpendOptions(roll, tiles, 'attack'), []);
+        assert.deepEqual(getCoreRollSpendOptions({ ...roll, coreSoak: 2 }, tiles, 'defense'), []);
+    });
+
+    it('offers bare Boost for every stat with unmaxed dice in the roll', () => {
+        const tiles = [tile('Core', ['d6'], ['Cyber', 'Boost'])];
+        const options = getCoreRollSpendOptions(roll, tiles, 'action');
+        // MIND's only die is already maxed, so only BODY is offered.
+        assert.deepEqual(options.map(option => [option.id, option.rollIds]), [['boost:BODY', ['0']]]);
+    });
+
+    it('limits "Boost: STAT" to that stat', () => {
+        const tiles = [tile('Core', ['d6'], ['Cyber', 'Boost: MIND'])];
+        assert.deepEqual(getCoreRollSpendOptions(roll, tiles, 'action'), []);
+        const bodyTiles = [tile('Core', ['d6'], ['Boost: body'])];
+        assert.deepEqual(getCoreRollSpendOptions(roll, bodyTiles, 'action').map(option => option.id), ['boost:BODY']);
+    });
+
+    it('offers Enhanced for the tile\'s own unmaxed dice', () => {
+        const tiles = [tile('Arm', ['d8', 'd4'], ['Cyber', 'Enhanced'])];
+        const options = getCoreRollSpendOptions(roll, tiles, 'attack');
+        assert.deepEqual(options.map(option => [option.id, option.rollIds]), [['enhanced:id-Arm', ['2']]]);
+    });
+
+    it('skips Enhanced tiles whose dice are not in the roll, and buried tiles', () => {
+        assert.deepEqual(getCoreRollSpendOptions(roll, [tile('Leg', ['d6'], ['Enhanced'])], 'action'), []);
+        const buried = tile('Arm', ['d8', 'd4'], ['Enhanced'], { isBuried: true });
+        assert.deepEqual(getCoreRollSpendOptions(roll, [buried], 'action'), []);
+    });
+});
+
+describe('getShadowRollSpendOptions', () => {
+    it('offers both spends at Neutral, impact only in attack mode', () => {
+        assert.deepEqual(getShadowRollSpendOptions({ aberration: 0, maxShadow: 4, mode: 'attack' }).map(option => option.id),
+            ['qi-test', 'id-impact']);
+        assert.deepEqual(getShadowRollSpendOptions({ aberration: 0, maxShadow: 4, mode: 'action' }).map(option => option.id),
+            ['qi-test']);
+    });
+
+    it('follows alignment: Rising cannot add to impact, Falling cannot add to a test', () => {
+        assert.deepEqual(getShadowRollSpendOptions({ aberration: 2, maxShadow: 4, mode: 'attack' }).map(option => option.id),
+            ['qi-test']);
+        assert.deepEqual(getShadowRollSpendOptions({ aberration: -2, maxShadow: 4, mode: 'attack' }).map(option => option.id),
+            ['id-impact']);
+    });
+
+    it('is once per check and needs a Shadow pool', () => {
+        assert.deepEqual(getShadowRollSpendOptions({ maxShadow: 4, mode: 'attack', spent: ['qi-test', 'id-impact'] }), []);
+        assert.deepEqual(getShadowRollSpendOptions({ maxShadow: 0, mode: 'attack' }), []);
+    });
+});
+
+describe('getResolutionSpendTotals', () => {
+    it('puts a Qi test spend in the mode\'s primary bucket and an Id spend on impact', () => {
+        const res = result([], { shadowSpends: [{ id: 'qi-test', amount: 4 }, { id: 'id-impact', amount: 4 }] });
+        const attack = getResolutionSpendTotals(res, 'attack');
+        assert.equal(attack.totals.attack, 4);
+        assert.equal(attack.totals.impact, 4);
+
+        const defense = getResolutionSpendTotals(res, 'defense');
+        assert.equal(defense.totals.evasion, 4);
+        assert.equal(defense.totals.impact, 0);
+        assert.ok(defense.details.includes('Id Shadow spend: not used in defense resolution'));
+    });
+
+    it('adds Machine Core soak in defense mode only', () => {
+        const res = result([], { coreSoak: 3 });
+        assert.equal(getResolutionSpendTotals(res, 'defense').totals.soak, 3);
+        assert.equal(getResolutionSpendTotals(res, 'attack').totals.soak, 0);
+    });
+});
+
+describe('getResolutionModifierTotals', () => {
+    it('merges tag bonuses, called-tile modifiers, and spends', () => {
+        const res = result([], {
+            appliedTagBonuses: [{ tag: 'Keen', sourceTileName: 'Blade', steps: 2, context: 'attack' }],
+            shadowSpends: [{ id: 'qi-test', amount: 3 }]
+        });
+        const merged = getResolutionModifierTotals(res, 'attack', [tile('Blade', ['d6'], ['Worn', 'Piercing'])]);
+        assert.equal(merged.totals.attack, 2 - 3 + 3);
+        assert.equal(merged.totals.foeSoak, 2);
+        assert.deepEqual(merged.details, [
+            'Keen from Blade: +2 attack',
+            'Worn flaw on Blade: -3 attack',
+            'Piercing from Blade: -2 foe\'s soak',
+            'Qi Shadow spend: +3 attack'
+        ]);
+    });
+});
+
+describe('evaluateActionTest', () => {
+    it('lists the p.23 Test Chart', () => {
+        assert.deepEqual(TEST_CHART.map(entry => entry.value), [4, 8, 12, 16, 20, 24]);
+    });
+
+    it('passes when the total meets the Test', () => {
+        assert.deepEqual(evaluateActionTest(12, 12), { test: 12, passes: true, margin: 0, tier: 'Tough' });
+        assert.deepEqual(evaluateActionTest(10, '16'), { test: 16, passes: false, margin: -6, tier: 'Heroic' });
+    });
+
+    it('names Legendary for 24 and above and no tier below Simple', () => {
+        assert.equal(evaluateActionTest(30, 28).tier, 'Legendary');
+        assert.equal(evaluateActionTest(3, 2).tier, null);
+    });
+
+    it('returns null without a Test', () => {
+        assert.equal(evaluateActionTest(10, ''), null);
+        assert.equal(evaluateActionTest(10, null), null);
     });
 });
