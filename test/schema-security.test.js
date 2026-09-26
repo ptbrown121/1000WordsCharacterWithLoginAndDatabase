@@ -26,3 +26,14 @@ describe('campaign membership database boundary', () => {
         assert.match(schema, /grant execute on function public\.join_campaign_by_code\(text\) to authenticated;/);
     });
 });
+
+describe('plpgsql variable names', () => {
+    it('never declares a variable that SQL would resolve as a keyword instead', () => {
+        // e.g. a variable named current_time silently becomes CURRENT_TIME
+        // (a time-of-day value) inside the function's SQL statements.
+        const keywordNames = /^\s+(current_time|current_date|current_timestamp|current_user|session_user|localtime|localtimestamp|user)\s+\w/im;
+        for (const [, body] of schema.matchAll(/\ndeclare\n([\s\S]*?)\nbegin\n/g)) {
+            assert.doesNotMatch(body, keywordNames);
+        }
+    });
+});

@@ -349,7 +349,7 @@ security definer
 set search_path = public
 as $$
 declare
-    current_time timestamptz := now();
+    request_time timestamptz := now();
     bounded_requests integer := greatest(1, least(coalesce(max_requests, 1), 1000000));
     bounded_window integer := greatest(1, least(coalesce(window_seconds, 3600), 2592000));
     current_window public.ai_rate_limit_windows;
@@ -364,19 +364,19 @@ begin
         request_count,
         updated_at
     )
-    values (target_user_id, current_time, 1, current_time)
+    values (target_user_id, request_time, 1, request_time)
     on conflict (user_id) do update
     set window_started_at = case
-            when windows.window_started_at + make_interval(secs => bounded_window) <= current_time
-                then current_time
+            when windows.window_started_at + make_interval(secs => bounded_window) <= request_time
+                then request_time
             else windows.window_started_at
         end,
         request_count = case
-            when windows.window_started_at + make_interval(secs => bounded_window) <= current_time
+            when windows.window_started_at + make_interval(secs => bounded_window) <= request_time
                 then 1
             else windows.request_count + 1
         end,
-        updated_at = current_time
+        updated_at = request_time
     returning * into current_window;
 
     allowed := current_window.request_count <= bounded_requests;
