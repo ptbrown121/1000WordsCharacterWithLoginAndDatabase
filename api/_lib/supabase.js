@@ -60,22 +60,31 @@ export async function requireUser(req) {
     return { client, user: data.user, token };
 }
 
+// Messages from our own `raise exception` (SQLSTATE P0001) are written for
+// players; anything else (constraint/column names, RLS text) stays in the
+// server log and the client gets the route's generic message.
+export function publicSupabaseMessage(error, fallbackMessage) {
+    if (error?.code === 'P0001' && error.message) return error.message;
+    console.error(fallbackMessage, error);
+    return fallbackMessage;
+}
+
 export function assertNoSupabaseError(result, fallbackMessage = 'Database request failed.') {
-    if (result.error) throw new ApiError(400, result.error.message || fallbackMessage, result.error);
+    if (result.error) throw new ApiError(400, publicSupabaseMessage(result.error, fallbackMessage));
     return result.data;
 }
 
 export async function requireCampaignMember(client, campaignId) {
     if (!campaignId) throw new ApiError(400, 'Campaign id is required.');
     const result = await client.rpc('is_campaign_member', { target_campaign_id: campaignId });
-    if (result.error) throw new ApiError(400, result.error.message || 'Could not verify campaign membership.');
+    if (result.error) throw new ApiError(400, publicSupabaseMessage(result.error, 'Could not verify campaign membership.'));
     if (!result.data) throw new ApiError(403, 'You are not a member of this campaign.');
 }
 
 export async function requireCampaignGm(client, campaignId) {
     if (!campaignId) throw new ApiError(400, 'Campaign id is required.');
     const result = await client.rpc('is_campaign_gm', { target_campaign_id: campaignId });
-    if (result.error) throw new ApiError(400, result.error.message || 'Could not verify GM access.');
+    if (result.error) throw new ApiError(400, publicSupabaseMessage(result.error, 'Could not verify GM access.'));
     if (!result.data) throw new ApiError(403, 'GM access is required for this campaign.');
 }
 

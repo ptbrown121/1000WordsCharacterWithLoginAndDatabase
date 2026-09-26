@@ -1,5 +1,5 @@
 import { ApiError } from './http.js';
-import { assertNoSupabaseError } from './supabase.js';
+import { assertNoSupabaseError, publicSupabaseMessage } from './supabase.js';
 
 export async function fetchCampaignContext(client, campaignId) {
     const [documentsResult, settingsResult] = await Promise.all([
@@ -58,7 +58,7 @@ export async function fetchLatestThreadForCharacter(client, characterId) {
         .limit(1)
         .maybeSingle();
 
-    if (result.error) throw new ApiError(400, result.error.message || 'Could not load AI thread.');
+    if (result.error) throw new ApiError(400, publicSupabaseMessage(result.error, 'Could not load AI thread.'));
     if (!result.data) return null;
     return fetchThreadBundle(client, result.data.id);
 }
@@ -70,7 +70,7 @@ export async function hasCommittedTurnRequest(client, threadId, requestId) {
         .eq('thread_id', threadId)
         .eq('request_id', requestId)
         .maybeSingle();
-    if (result.error) throw new ApiError(400, result.error.message || 'Could not check AI message request status.');
+    if (result.error) throw new ApiError(400, publicSupabaseMessage(result.error, 'Could not check AI message request status.'));
     return Boolean(result.data);
 }
 
@@ -81,7 +81,7 @@ export async function hasCommittedSummaryRequest(client, threadId, requestId) {
         .eq('thread_id', threadId)
         .eq('request_id', requestId)
         .maybeSingle();
-    if (result.error) throw new ApiError(400, result.error.message || 'Could not check AI summary request status.');
+    if (result.error) throw new ApiError(400, publicSupabaseMessage(result.error, 'Could not check AI summary request status.'));
     return Boolean(result.data);
 }
 
