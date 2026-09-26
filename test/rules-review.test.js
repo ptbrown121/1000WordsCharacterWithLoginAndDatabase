@@ -232,3 +232,21 @@ describe('GM rulings (2026-06-12)', () => {
         assert.ok(!ammo.some(item => /Sticky tag is Ammo-only/.test(item.message)));
     });
 });
+
+describe('starting dice checks (p.8)', () => {
+    const reviewTile = dice => buildRulesReviewItems({
+        xpEarned: 100,
+        stats: {},
+        tiles: [{ id: 't', type: 'Skill', name: 'Brawn', colors: ['Red', 'Orange'], dice, tags: [], xpCost: engine.estimateTileXp(dice, []) }]
+    }, engine);
+
+    it('flags a tile over 3▟ in total, not just a single die over 3▟', () => {
+        assert.ok(reviewTile(['d6', 'd6']).some(item => item.message.includes('above the 3▟ starting cap')));
+        assert.ok(!reviewTile(['d4', 'd6']).some(item => item.message.includes('starting cap')));
+    });
+
+    it('flags a d3 on a tile', () => {
+        assert.ok(reviewTile(['d3', 'd4']).some(item => item.message.includes('tiles start at d4')));
+        assert.ok(!reviewTile(['d4']).some(item => item.message.includes('tiles start at d4')));
+    });
+});

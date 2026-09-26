@@ -204,6 +204,13 @@ export function getCrowdXp(count) {
     return step ? step[1] : 8;
 }
 
+// "Throw" is both a Move range (1 XP, p.52) and a 2 XP Detail tag (p.30;
+// glossary "Throw D2 foe moved 1M / HP dealt"). Only a Range:-prefixed
+// Throw is the range; bare, Detail:, and Crit: Throw price as tags.
+export function isThrowDetailTag(parsed) {
+    return parsed.base === 'throw' && parsed.prefix !== 'range';
+}
+
 export function isCrowdTag(parsed) {
     return parsed.base === 'crowd' && parsed.args.count != null;
 }

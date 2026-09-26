@@ -18,7 +18,6 @@ import {
     ARCANE_SACRIFICE_COSTS,
     CRIT_SHIELD_XP,
     EXOTIC_TAGS,
-    F_FLAW_TAGS,
     FLAW_TAGS,
     FLAW_XP,
     RANGE_DURATION_XP,
@@ -27,7 +26,8 @@ import {
     getCrowdXp,
     getDuplicateKey,
     isCrowdTag,
-    isHitchedTile
+    isHitchedTile,
+    isThrowDetailTag
 } from './xp.js';
 import { ARMOR_COVERAGE_XP, ARMOR_DETAIL_TAGS, ARMOR_MATERIAL_XP, getWeaponTemplateById } from './equipment.js';
 import {
@@ -99,7 +99,7 @@ export class PoolEngine {
         }
 
         if (parsed.prefix === 'range' || parsed.prefix === 'duration'
-            || RANGE_DURATION_XP.has(baseTag) || isCrowdTag(parsed)) {
+            || (RANGE_DURATION_XP.has(baseTag) && !isThrowDetailTag(parsed)) || isCrowdTag(parsed)) {
             return { name, counts: false, reason: 'Range/Duration tags do not count' };
         }
 
@@ -164,6 +164,19 @@ export class PoolEngine {
             .split(',')
             .map(s => s.trim().toLowerCase())
             .filter(die => VALID_DICE.has(die));
+    }
+
+    /**
+     * The dice a stat rolls. "Your character starts with a d3 in each stat"
+     * (p.6), and the first advance turns that d3 into a d4 ("It is now a
+     * d4"), so a blank stat rolls a d3 and a d3 left beside bought dice is
+     * dropped.
+     * @param {string} str
+     */
+    getStatDice(str) {
+        const dice = this.parseDiceString(str);
+        const bought = dice.filter(die => die !== 'd3');
+        return bought.length > 0 ? bought : ['d3'];
     }
 
     /**
@@ -243,10 +256,13 @@ export class PoolEngine {
                 xp: FLAW_XP.get(baseTag) ?? 0,
                 recognized: true,
                 category: 'flaw',
-                hardArmorFlawEligible: F_FLAW_TAGS.has(baseTag)
+                // "Flaw tags on Hard armors rebate 1 more" (p.79) - every
+                // flaw, X-type included (the p.66 titanium chassis prices
+                // Stigma at -5). Hitch is a Story/Trait Build tag, not armor.
+                hardArmorFlawEligible: baseTag !== 'hitch'
             };
         }
-        if (RANGE_DURATION_XP.has(baseTag)) {
+        if (RANGE_DURATION_XP.has(baseTag) && !isThrowDetailTag(parsed)) {
             return { xp: RANGE_DURATION_XP.get(baseTag) ?? 0, recognized: true, category: 'rangeDuration' };
         }
         if (isCrowdTag(parsed)) {
@@ -306,6 +322,7 @@ export class PoolEngine {
         const TITAN_IDENTITY_CATEGORIES = new Set(['build', 'detail', 'shield', 'tag']);
         const unknownTags = [];
         const seenTags = new Map();
+        let refundXp = 0;
 
         const exoticSpecialty = (options.exoticSkill?.specialty || '').toLowerCase();
 
@@ -343,7 +360,14 @@ export class PoolEngine {
                 tagXp -= 1;
             }
 
-            xp += tagXp;
+            // Flaw and Hitch refunds are XP handed back to the sheet
+            // ("Hitched tiles do not have to be the tiles the XP is spent
+            // on", p.20), so they are kept out of the per-tile 0 floor.
+            if (tagRule.category === 'flaw' && tagXp < 0) {
+                refundXp += tagXp;
+            } else {
+                xp += tagXp;
+            }
             if (!tagRule.recognized && parsed.name) unknownTags.push(parsed.raw);
         });
 
@@ -372,6 +396,8 @@ export class PoolEngine {
             xp += weaponTemplate.extraXp;
         } else if (String(weapon?.category || '').trim().toLowerCase() === 'far') {
             xp += 2;
+        } else if (String(weapon?.range || '').trim().toLowerCase() === 'close') {
+            xp += 1;
         }
 
         xp += getExoticSkillBaseXp(options.exoticSkill);
@@ -379,7 +405,7 @@ export class PoolEngine {
             .filter(box => box.type === 'shadow')
             .length * 2;
 
-        return { xp: Math.max(0, xp), unknownTags };
+        return { xp: Math.max(0, xp) + refundXp, unknownTags };
     }
 
     estimateTileXp(diceArray, tagsArray, armorType = null, options = {}) {
@@ -525,13 +551,9 @@ export class PoolEngine {
             // Find stats matching this color
             for (const [stat, statColor] of Object.entries(STAT_COLORS)) {
                 if (statColor === color) {
-                    const diceString = stats[stat];
-                    if (diceString) {
-                        const parsed = this.parseDiceString(diceString);
-                        parsed.forEach(die => {
-                            pool.push({ source: `Stat (${stat})`, die });
-                        });
-                    }
+                    this.getStatDice(stats[stat]).forEach(die => {
+                        pool.push({ source: `Stat (${stat})`, die });
+                    });
                 }
             }
         });
