@@ -470,6 +470,26 @@ export class LocalCharacterStore {
         return true;
     }
 
+    // Which local characters were uploaded to this account, as
+    // { [localId]: { cloudId, fingerprint } } (see uploadLocalCharacters).
+    /** @param {string} userId */
+    loadUploadRecords(userId) {
+        const saved = this.storage.getItem(`1000words_uploaded_${userId}`);
+        if (!saved) return {};
+        try {
+            const records = JSON.parse(saved);
+            return records && typeof records === 'object' && !Array.isArray(records) ? records : {};
+        } catch (e) {
+            console.error('Failed to parse local upload records', e);
+            return {};
+        }
+    }
+
+    /** @param {string} userId @param {Record<string, { cloudId: string, fingerprint: string }>} records */
+    saveUploadRecords(userId, records) {
+        this.storage.setItem(`1000words_uploaded_${userId}`, JSON.stringify(records));
+    }
+
     /** @param {string} userId @param {string} charId @param {string | null} [expectedRevision] */
     deleteCloudDraft(userId, charId, expectedRevision = null) {
         if (expectedRevision) {
@@ -479,6 +499,19 @@ export class LocalCharacterStore {
         this.storage.removeItem(this.cloudDraftKey(userId, charId));
         return true;
     }
+}
+
+// Short FNV-1a hash of a character's saved state, used to tell whether a
+// local character changed since it was uploaded.
+/** @param {unknown} state */
+function stateFingerprint(state) {
+    const text = JSON.stringify(state);
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16);
 }
 
 export class DataManager {
@@ -504,6 +537,11 @@ export class DataManager {
         // read after the previous save has settled).
         this.cloudSaveChain = Promise.resolve();
         this.cloudSaveInFlight = false;
+        // Set while switching away from an active character that vanished
+        // from the cloud roster (see refreshCloudRoster).
+        /** @type {Promise<void> | null} */
+        this.missingCharacterRecovery = null;
+        this.uploadingLocalCharacters = false;
         this.localRoster = [];
         this.localActiveCharId = null;
 
@@ -660,6 +698,25 @@ export class DataManager {
         return Boolean(charId && this.loadCloudDraft(charId));
     }
 
+    // Applies a copy of the active character fetched for live sync. The
+    // checks run after the fetch, not before: an edit made while it was in
+    // flight must reach the save guard (and the conflict dialog) instead of
+    // being replaced by the fetched copy and then saved over it.
+    /** @param {string} charId @param {{ state: import('./types.js').CharacterState, updatedAt?: string | null }} loaded */
+    applyRemoteCloudCharacter(charId, loaded) {
+        if (this.activeStorage !== 'cloud' || this.activeCharId !== charId) return false;
+        const apply = shouldApplyRemoteCharacterUpdate({
+            remoteUpdatedAt: loaded.updatedAt || null,
+            ownUpdatedAt: this.cloudUpdatedAt,
+            savePending: Boolean(this.pendingSaveTimer) || this.hasCloudDraft(charId),
+            saveInFlight: Boolean(this.cloudSaveInFlight)
+        });
+        if (!apply) return false;
+        this.state = loaded.state;
+        this.cloudUpdatedAt = loaded.updatedAt || null;
+        return true;
+    }
+
     scheduleCloudSave() {
         if (!this.cloudStore || this.activeStorage !== 'cloud') return;
         clearTimeout(this.pendingSaveTimer ?? undefined);
@@ -709,7 +766,7 @@ export class DataManager {
                     const cleared = this.clearCloudDraft(charId, draftRevision);
                     if (!cleared && newUpdatedAt) this.advanceCloudDraftBase(charId, guard, newUpdatedAt);
                 }
-                await this.refreshCloudRoster({ keepActive: true });
+                await this.refreshCloudRoster();
                 this.setCloudStatus('saved', 'Cloud save complete.');
             } finally {
                 this.cloudSaveInFlight = false;
@@ -742,7 +799,7 @@ export class DataManager {
     // Conflict resolution, driven by the dialog in ui/cloud.js.
     async resolveCloudConflictByReloading(charId) {
         if (!this.cloudStore) return;
-        await this.refreshCloudRoster({ keepActive: true });
+        await this.refreshCloudRoster();
         if (this.activeStorage === 'cloud' && this.activeCharId === charId) {
             const loaded = await this.cloudStore.loadCharacter(charId);
             this.state = loaded.state;
@@ -760,7 +817,7 @@ export class DataManager {
         const updatedAt = await this.cloudStore.saveCharacter(charId, state);
         if (this.activeCharId === charId && updatedAt) this.cloudUpdatedAt = updatedAt;
         if (draftRevision) this.clearCloudDraft(charId, draftRevision);
-        await this.refreshCloudRoster({ keepActive: true });
+        await this.refreshCloudRoster();
         this.setCloudStatus('saved', 'Cloud copy replaced with this version.');
     }
 
@@ -953,14 +1010,19 @@ export class DataManager {
 
         if (this.activeStorage === 'cloud' && this.cloudStore) {
             const archivedId = this.activeCharId;
+            // Unsaved edits to a character being deleted are moot; a queued
+            // save firing later would write to the archived row.
+            clearTimeout(this.pendingSaveTimer ?? undefined);
+            this.pendingSaveTimer = null;
+            await this.cloudSaveChain;
             await this.cloudStore.archiveCharacter(archivedId);
             this.clearCloudDraft(archivedId);
             await this.refreshCloudRoster();
-            if (this.roster.length > 0) {
-                await this.switchCharacter(this.roster[0].id);
-            } else {
+            const next = this.cloudRoster.find(r => r.id !== archivedId);
+            if (!next || !await this.switchCharacter(next.id)) {
                 this.state = cloneDefaultState();
                 this.activeCharId = null;
+                this.cloudUpdatedAt = null;
             }
             return;
         }
@@ -1035,19 +1097,54 @@ export class DataManager {
         this.saveState();
     }
 
-    async refreshCloudRoster({ activeCharId = null, keepActive = false } = {}) {
+    // Refreshes the roster lists only. It never re-points the active
+    // character by itself: the active id and this.state must change together
+    // (switchCharacter), or the next save writes one character's state into
+    // another. Pass activeCharId only when the caller loads that character's
+    // state right after (create/import).
+    async refreshCloudRoster({ activeCharId = null } = {}) {
         if (!this.cloudStore || !this.isSignedIn) return;
         const { roster, campaigns, canCreateCampaign } = await this.cloudStore.listRoster();
         this.cloudRoster = roster;
         this.campaigns = campaigns;
         this.canCreateCampaign = Boolean(canCreateCampaign);
 
-        if (this.activeStorage !== 'cloud' && !activeCharId) return;
-
-        this.activeStorage = 'cloud';
+        if (activeCharId) {
+            this.activeStorage = 'cloud';
+            this.roster = this.cloudRoster;
+            this.activeCharId = activeCharId;
+            return;
+        }
+        if (this.activeStorage !== 'cloud') return;
         this.roster = this.cloudRoster;
-        const preferredId = activeCharId || (keepActive ? this.activeCharId : null);
-        this.activeCharId = this.roster.find(r => r.id === preferredId)?.id || this.roster[0]?.id || null;
+
+        if (this.activeCharId && !this.cloudRoster.some(r => r.id === this.activeCharId) && !this.missingCharacterRecovery) {
+            // Archived on another device, or campaign access was removed.
+            // Switch away on a later tick: this can run inside the save
+            // chain, and switchCharacter waits for that chain to drain.
+            this.missingCharacterRecovery = new Promise(resolve => setTimeout(resolve, 0))
+                .then(() => this.leaveMissingCharacter())
+                .catch(e => console.error('Failed to leave a removed cloud character', e))
+                .finally(() => { this.missingCharacterRecovery = null; });
+        }
+    }
+
+    async leaveMissingCharacter() {
+        const missingId = this.activeCharId;
+        if (this.activeStorage !== 'cloud' || !missingId || this.cloudRoster.some(r => r.id === missingId)) return;
+        const next = this.cloudRoster[0];
+        if (next && await this.switchCharacter(next.id)) {
+            if (this.cloudStatus !== 'error') {
+                this.setCloudStatus(this.cloudStatus, `That character is no longer available here; switched to ${next.name}.`);
+            }
+            return;
+        }
+        await this.flushCloudSave();
+        this.state = cloneDefaultState();
+        this.activeCharId = null;
+        this.cloudUpdatedAt = null;
+        this.setCloudStatus('error', 'That character is no longer available here.');
+        dispatchAppEvent('readonly-character-change');
     }
 
     async connectCloud(cloudStore) {
@@ -1078,19 +1175,51 @@ export class DataManager {
         this.setCloudStatus(this.cloudStore ? 'signed-out' : 'local-only', this.cloudStore ? 'Signed out. Using browser storage.' : 'Cloud save is not configured.');
     }
 
+    // Safe to re-run (a double click, or a retry after a partial failure):
+    // each local character remembers the cloud copy it became and the state
+    // it had then, and is skipped while unchanged and that copy still
+    // exists. A character edited since its upload goes up as a new copy.
     async uploadLocalCharacters() {
-        if (!this.cloudStore || !this.isSignedIn) return 0;
-        await this.flushCloudSave();
+        if (!this.cloudStore || !this.isSignedIn || this.uploadingLocalCharacters) return 0;
+        this.uploadingLocalCharacters = true;
+        const userId = this.cloudUser.id;
         let count = 0;
-        for (const entry of this.localRoster) {
-            const state = this.localStore.loadState(entry.id);
-            const name = state.name || entry.name || 'Imported Hero';
-            await this.cloudStore.createCharacter(name, state);
-            count += 1;
+        let skipped = 0;
+        try {
+            await this.flushCloudSave();
+            await this.refreshCloudRoster();
+            const cloudIds = new Set(this.cloudRoster.map(r => r.id));
+            const records = this.localStore.loadUploadRecords(userId);
+            for (const entry of this.localRoster) {
+                const state = this.localStore.loadState(entry.id);
+                const fingerprint = stateFingerprint(state);
+                const record = records[entry.id];
+                if (record && record.fingerprint === fingerprint && cloudIds.has(record.cloudId)) {
+                    skipped += 1;
+                    continue;
+                }
+                const name = state.name || entry.name || 'Imported Hero';
+                let cloudId;
+                try {
+                    cloudId = await this.cloudStore.createCharacter(name, state);
+                } catch (e) {
+                    throw new Error(`Uploaded ${count} character${count === 1 ? '' : 's'}, then failed on ${name}: ${errorMessage(e, 'upload failed')}. Try again to upload the rest.`);
+                }
+                records[entry.id] = { cloudId, fingerprint };
+                try {
+                    this.localStore.saveUploadRecords(userId, records);
+                } catch (e) {
+                    console.error('Failed to record uploaded local character', e);
+                }
+                count += 1;
+            }
+        } finally {
+            this.uploadingLocalCharacters = false;
+            if (count > 0) await this.refreshCloudRoster();
         }
-        await this.refreshCloudRoster();
-        if (this.cloudRoster.length > 0) await this.switchCharacter(this.cloudRoster[0].id);
-        this.setCloudStatus('saved', `${count} local character${count === 1 ? '' : 's'} uploaded.`);
+        if (count > 0 && this.cloudRoster.length > 0) await this.switchCharacter(this.cloudRoster[0].id);
+        const note = skipped > 0 ? ` ${skipped} already in the cloud.` : '';
+        this.setCloudStatus('saved', `${count} local character${count === 1 ? '' : 's'} uploaded.${note}`);
         return count;
     }
 
@@ -1101,7 +1230,7 @@ export class DataManager {
             return null;
         }
         const campaign = await this.cloudStore.createCampaign(name);
-        await this.refreshCloudRoster({ keepActive: true });
+        await this.refreshCloudRoster();
         this.setCloudStatus('saved', `Campaign "${campaign.name}" created.`);
         return campaign;
     }
@@ -1109,7 +1238,7 @@ export class DataManager {
     async joinCampaign(inviteCode) {
         if (!this.cloudStore || !this.isSignedIn) return null;
         const membership = await this.cloudStore.joinCampaign(inviteCode);
-        await this.refreshCloudRoster({ keepActive: true });
+        await this.refreshCloudRoster();
         this.setCloudStatus('saved', 'Campaign joined.');
         return membership;
     }
@@ -1120,7 +1249,7 @@ export class DataManager {
             return;
         }
         await this.cloudStore.assignCharacterToCampaign(this.activeCharId, campaignId || null);
-        await this.refreshCloudRoster({ keepActive: true });
+        await this.refreshCloudRoster();
         this.setCloudStatus('saved', campaignId ? 'Character assigned to campaign.' : 'Character removed from campaign.');
     }
 
@@ -1139,7 +1268,7 @@ export class DataManager {
         if (!this.cloudStore) return;
         await this.cloudStore.setCampaignMemberRole(campaignId, userId, role);
         await this.loadCampaignMembers(campaignId);
-        await this.refreshCloudRoster({ keepActive: true });
+        await this.refreshCloudRoster();
         this.setCloudStatus('saved', 'Campaign role updated.');
     }
 

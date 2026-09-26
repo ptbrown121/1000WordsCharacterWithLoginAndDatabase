@@ -43,10 +43,9 @@ async function reloadActiveCharacter(charId, { announce }) {
     try {
         if (!dataManager.cloudStore) return;
         const loaded = await dataManager.cloudStore.loadCharacter(charId);
-        // The user may have switched characters while the load was in flight.
-        if (dataManager.activeCharId !== charId || dataManager.activeStorage !== 'cloud') return;
-        dataManager.state = loaded.state;
-        dataManager.cloudUpdatedAt = loaded.updatedAt || null;
+        // Re-checked after the load: the user may have switched characters
+        // or started editing while it was in flight.
+        if (!dataManager.applyRemoteCloudCharacter(charId, loaded)) return;
         if (announce) dataManager.setCloudStatus('saved', 'Updated from another device.');
         renderAll();
     } catch (error) {
@@ -147,15 +146,10 @@ function syncSubscriptions() {
 // fresh state once instead of trusting the subscription gap.
 async function catchUpAfterResume() {
     const charId = dataManager.activeStorage === 'cloud' ? dataManager.activeCharId : null;
-    if (charId && dataManager.cloudStore && !dataManager.pendingSaveTimer && !dataManager.cloudSaveInFlight) {
+    if (charId && dataManager.cloudStore) {
         try {
             const loaded = await dataManager.cloudStore.loadCharacter(charId);
-            if (loaded.updatedAt && loaded.updatedAt !== dataManager.cloudUpdatedAt
-                && dataManager.activeCharId === charId && dataManager.activeStorage === 'cloud') {
-                dataManager.state = loaded.state;
-                dataManager.cloudUpdatedAt = loaded.updatedAt;
-                renderAll();
-            }
+            if (dataManager.applyRemoteCloudCharacter(charId, loaded)) renderAll();
         } catch (error) {
             console.error('Live sync resume reload failed', error);
         }
