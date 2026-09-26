@@ -3,6 +3,7 @@ import { ARMOR_COVERAGE_SOAK, calculateCoreMax, calculateTitanMax, escapeHtml, g
 import { getEffectiveMax } from '../data.js';
 import { normalizeActiveCrits } from '../status-rules.js';
 import { getSpellCastTests } from '../spell-rules.js';
+import { resolveAmmoDie } from '../ammo-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showAlert, showConfirm } from './dialogService.js';
@@ -681,13 +682,15 @@ function resolveAmmo(tileId) {
     const tile = (dataManager.state.tiles || []).find(candidate => candidate.id === tileId);
     if (!roll || !tile?.ammo) return;
 
-    const supply = Math.max(1, parseInt(tile.ammo.maxSupply, 10) || 1);
-    const retained = roll.val >= supply;
-    tile.ammo.currentSupply = Math.max(0, (parseInt(tile.ammo.currentSupply, 10) || 0) - 1);
-    if (!retained) {
+    const outcome = resolveAmmoDie({
+        dieValue: roll.val,
+        supply: tile.ammo.maxSupply,
+        currentSupply: tile.ammo.currentSupply
+    });
+    tile.ammo.currentSupply = outcome.currentSupply;
+    if (outcome.buried) {
         tile.isBuried = true;
         tile.isBurnt = false;
-        tile.ammo.currentSupply = 0;
     }
 
     dataManager.updateTile(tile);
@@ -783,7 +786,9 @@ export function calculateResolutionSummary(result) {
         const extension = getRangeExtensionResults(result, uiState.currentResolutionAssignments);
         if (extension.entries.length > 0) {
             const detail = extension.entries
-                .map(entry => `${entry.val} vs ${entry.threshold} ${entry.success ? '✓' : '✗'}`)
+                .map(entry => (entry.success
+                    ? `${entry.val} vs ${entry.threshold} ✓`
+                    : `${entry.val} not applied (needs ${entry.threshold})`))
                 .join(', ');
             lines.push(`<p><strong>Range/Duration:</strong> ${detail} → ${extension.increments} increment${extension.increments === 1 ? '' : 's'} on the Space &amp; Time table. One use; Instant, Sustain, and Rite durations cannot be modified.</p>`);
         }

@@ -109,6 +109,14 @@ export function rollNpcStat(diceValue, rollFn, blastZone = '') {
     return { rolls, total: rolls.reduce((sum, roll) => sum + roll.val, 0) };
 }
 
+// A plain Might / Charm / Skill roll (impact or a stat check). Like Attack
+// and Defense, it reads the NPC's blast-zone flag (interim ruling: flagged
+// NPCs roll pushed dice).
+/** @param {'might'|'charm'|'skill'} stat */
+export function rollNpcStatCheck(npc, stat, rollFn) {
+    return rollNpcStat(npc[stat], rollFn, npc.blastZone);
+}
+
 export function rollNpcAttack(npc, rollFn) {
     const result = rollNpcStat(npc.skill, rollFn, npc.blastZone);
     return { ...result, total: result.total + Math.max(0, toInt(npc.rank)) };

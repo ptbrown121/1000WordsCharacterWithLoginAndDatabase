@@ -16,7 +16,7 @@ import {
     reviewNpcBuild,
     rollNpcAttack,
     rollNpcDefense,
-    rollNpcStat
+    rollNpcStatCheck
 } from '../npc-rules.js';
 
 const STORAGE_KEY = '1000words_npcs';
@@ -253,11 +253,11 @@ async function handleNpcAction(npcId, action, payload) {
         npc.defenseStatic = defense.total;
         setNpcNote(npc, `Static set - Attack ${attack.total} (${formatRolls(attack)} + Rank ${npc.rank}), Defense ${defense.total} (${formatRolls(defense)} + Rank ${npc.rank}).`);
     } else if (action === 'roll-might') {
-        const result = rollNpcStat(npc.might, rollDie);
+        const result = rollNpcStatCheck(npc, 'might', rollDie);
         setNpcNote(npc, `Might (injury): ${result.total} (${formatRolls(result)}).`);
     } else if (action === 'check') {
         const stat = payload.stat;
-        const result = rollNpcStat(npc[stat], rollDie);
+        const result = rollNpcStatCheck(npc, stat, rollDie);
         setNpcNote(npc, `${stat.charAt(0).toUpperCase()}${stat.slice(1)} check: ${result.total} (${formatRolls(result)}).`);
     } else if (action === 'forced-burn') {
         if (npc.rank <= 1) {

@@ -95,6 +95,26 @@ export function validateAmmoSplit(total, xp, supply) {
     return { valid, expected: effective, shape };
 }
 
+// Resolving a devoted die (p.72): "If the devoted die equals or beats the
+// Ammo Supply (🞧), retain the Ammo tile after this action resolves.
+// Otherwise, it is buried (e.g., the Ammo runs out until replaced)." It is
+// pass/fail: a retained tile is unchanged (the app's current/max supply
+// counter only moves with the card's Use/Restock buttons), and a buried
+// tile's counter empties until it is restocked.
+/**
+ * @param {{dieValue: number, supply: number|string, currentSupply: number|string}} options
+ * @returns {{retained: boolean, buried: boolean, currentSupply: number}}
+ */
+export function resolveAmmoDie({ dieValue, supply, currentSupply }) {
+    const threshold = Math.max(1, toInt(supply) || 1);
+    const retained = toInt(dieValue) >= threshold;
+    return {
+        retained,
+        buried: !retained,
+        currentSupply: retained ? Math.max(0, toInt(currentSupply)) : 0
+    };
+}
+
 // Reagent and ammo templates from the printed cards. `xp` is the green 🞮
 // (tile XP cost); `supply` is the purple 🞧 (the threshold an assigned die
 // must meet to retain the tile - it is also the amount that "Supply"-keyed

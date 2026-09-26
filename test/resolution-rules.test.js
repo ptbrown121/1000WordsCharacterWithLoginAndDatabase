@@ -383,17 +383,38 @@ describe('applyShieldsToCrits', () => {
 });
 
 describe('getRangeExtensionResults', () => {
-    it('applies escalating thresholds (3, 4, 5...) to dice sorted descending', () => {
+    it('applies dice lowest-first against escalating thresholds (3, 4, 5...)', () => {
         const res = result(rolls(2, 5, 4, 6));
         const assignments = { 0: 'extend', 1: 'extend', 2: 'extend', 3: 'attack' };
         const { entries, increments } = getRangeExtensionResults(res, assignments);
-        // extend dice are 2, 5, 4 -> sorted 5, 4, 2 vs thresholds 3, 4, 5.
+        // extend dice are 2, 5, 4 -> 2 is not applied, then 4 vs 3, 5 vs 4.
         assert.deepEqual(entries, [
-            { val: 5, threshold: 3, success: true },
-            { val: 4, threshold: 4, success: true },
-            { val: 2, threshold: 5, success: false }
+            { val: 2, threshold: 3, success: false },
+            { val: 4, threshold: 3, success: true },
+            { val: 5, threshold: 4, success: true }
         ]);
         assert.equal(increments, 2);
+    });
+
+    it('gives a 4 and a 3 two increments (p.53 primal burst example)', () => {
+        const res = result(rolls(4, 3));
+        const { entries, increments } = getRangeExtensionResults(res, { 0: 'extend', 1: 'extend' });
+        assert.deepEqual(entries, [
+            { val: 3, threshold: 3, success: true },
+            { val: 4, threshold: 4, success: true }
+        ]);
+        assert.equal(increments, 2);
+    });
+
+    it('does not use up a threshold on a die that cannot meet it', () => {
+        const res = result(rolls(3, 3, 4, 6));
+        const assignments = { 0: 'extend', 1: 'extend', 2: 'extend', 3: 'extend' };
+        const { entries, increments } = getRangeExtensionResults(res, assignments);
+        // 3 vs 3 applied; the second 3 cannot meet 4; 4 vs 4; 6 vs 5.
+        assert.deepEqual(entries.map(entry => [entry.val, entry.threshold, entry.success]), [
+            [3, 3, true], [3, 4, false], [4, 4, true], [6, 5, true]
+        ]);
+        assert.equal(increments, 3);
     });
 
     it('returns no entries when nothing is assigned to extend', () => {

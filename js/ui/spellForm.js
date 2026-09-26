@@ -4,6 +4,7 @@
 // applySpellStateToForm (color boxes are restored separately by the
 // builder via js/ui/spellColors.js).
 import { editorElement, editorElements } from './editorDom.js';
+import { migrateSpellFormTags } from '../spell-rules.js';
 
 export const SPELL_METRIC_IDS = ['spell-range', 'spell-area', 'spell-volume', 'spell-displacement', 'spell-crowd', 'spell-duration'];
 
@@ -81,7 +82,10 @@ export function applySpellStateToForm(tile) {
         customXp.value = parsed;
     });
 
-    const tags = tile.spellState.tagsList ? [...tile.spellState.tagsList] : [];
+    // Legacy Sap/Tire/Drain/Witch/Escape! modifier counts come back as tag
+    // pills (Step 4 no longer has those counters), and old inflicted-flaw
+    // pills get their corrected +2/+4 🗱.
+    const { tags } = migrateSpellFormTags(tile.spellState);
     const actions = [];
     if (tile.spellState.actionsList) {
         actions.push(...tile.spellState.actionsList);

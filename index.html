@@ -1371,13 +1371,11 @@
                                     <option value="3 XP Crit" data-xp="3">3 XP Crit (+3🗱)</option>
                                     <option value="4 XP Crit/Tag" data-xp="4">4 XP Crit/Tag (+4🗱)</option>
                                     <option value="Exotic Tag" data-xp="5">Exotic Tag (+5🗱)</option>
-                                    <option value="-2 XP Flaw" data-xp="-2">-2 XP Flaw (-2🗱)</option>
-                                    <option value="-4 XP Flaw" data-xp="-4">-4 XP Flaw (-4🗱)</option>
+                                    <option value="-2 XP Flaw" data-xp="2">Inflict a -2 XP Flaw, e.g. Bulky (+2🗱)</option>
+                                    <option value="-4 XP Flaw" data-xp="4">Inflict a -4 XP Flaw (+4🗱)</option>
                                 </optgroup>
                                 <optgroup label="Arcane Detail Tags">
                                     <option value="Escape!" data-xp="4">Escape! (reaction evasion, +4🗱)</option>
-                                    <option value="Rite" data-xp="-2">Rite (1 min cast time, -2🗱)</option>
-                                    <option value="Sustain" data-xp="-3">Sustain (spend 1 res / 3 turns, -3🗱)</option>
                                 </optgroup>
                                 <optgroup label="Arcane Sacrifice Flaws">
                                     <option value="Sap" data-xp="-2">Sap (spend 1 EN to cast, -2🗱)</option>
@@ -1589,41 +1587,22 @@
                             <input type="number" class="spell-mod" data-xp="3" data-label="Crit-swapping" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
                         </label>
                         <label style="justify-content: space-between;">
-                            <span>Temp ally / Special defense (+4🗱)</span>
+                            <span>Temp ally (Bot) / other special defense (+4🗱)</span>
                             <input type="number" class="spell-mod" data-xp="4" data-label="Special Defense" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
                         </label>
-                        <label style="justify-content: space-between;">
-                            <span>Escape! (useable as reaction) (+4🗱)</span>
-                            <input type="number" class="spell-mod" data-xp="4" data-label="Escape!" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
-                        </label>
+                        <small style="color: var(--text-secondary);">Escape! and the Sacrifices (Sap, Tire, Drain, Witch) are added as tags in Step 2; Rite and Sustain are Durations in Step 3.</small>
                         <hr style="border-color: var(--glass-border); margin: 0.5rem 0;">
                         <label style="justify-content: space-between;">
                             <span>Slightly limited (-1🗱)</span>
                             <input type="number" class="spell-mod" data-xp="-1" data-label="Slightly limited" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
                         </label>
                         <label style="justify-content: space-between;">
-                            <span>Sap (1 EN to cast) (-2🗱)</span>
-                            <input type="number" class="spell-mod" data-xp="-2" data-label="Sap" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
-                        </label>
-                        <label style="justify-content: space-between;">
-                            <span>Tire (1 RX to cast) (-3🗱)</span>
-                            <input type="number" class="spell-mod" data-xp="-3" data-label="Tire" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
-                        </label>
-                        <label style="justify-content: space-between;">
                             <span>Very limited (-3🗱)</span>
                             <input type="number" class="spell-mod" data-xp="-3" data-label="Very limited" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
                         </label>
                         <label style="justify-content: space-between;">
-                            <span>Drain (1 HP to cast) (-4🗱)</span>
-                            <input type="number" class="spell-mod" data-xp="-4" data-label="Drain" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
-                        </label>
-                        <label style="justify-content: space-between;">
                             <span>Insanely niche (-5🗱)</span>
                             <input type="number" class="spell-mod" data-xp="-5" data-label="Insanely niche" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
-                        </label>
-                        <label style="justify-content: space-between;">
-                            <span>Witch (requires mote/burn) (-6🗱)</span>
-                            <input type="number" class="spell-mod" data-xp="-6" data-label="Witch" value="0" min="0" style="width: 50px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: none; padding: 0.3rem; border-radius: 4px;">
                         </label>
                         <hr style="border-color: var(--glass-border); margin: 0.5rem 0;">
                         <label style="justify-content: space-between;">
@@ -1820,7 +1799,7 @@
                     <li>Ammo may be <strong>linked</strong> to a weapon or left unlinked with <strong>-- Select weapon --</strong>. Edit the ammo tile later to change the linked weapon.</li>
                     <li>If there is exactly one weapon, a new ammo tile auto-selects it and auto-fills the ammo name. You can still change or clear the target before saving.</li>
                     <li>Ammo cards have <strong>Use</strong> and <strong>Restock</strong> buttons. Use decreases current supply by 1; Restock refills to max supply.</li>
-                    <li>After a roll, eligible ammo appears in <strong>Ammo Resolution</strong>. Assign a spare die; if it is below Supply, the ammo is buried/runs out.</li>
+                    <li>After a roll, eligible ammo appears in <strong>Ammo Resolution</strong>. Assign a spare die; if it equals or beats Supply, the ammo is kept unchanged; if it is below Supply, the ammo is buried/runs out.</li>
                     <li>A weapon with the <strong>Reload</strong> tag warns you when it has no linked, unburied ammo tile.</li>
                 </ul>
 

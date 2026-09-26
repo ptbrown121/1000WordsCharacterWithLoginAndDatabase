@@ -8,6 +8,7 @@ import {
     formatReagentDescription,
     getReagentTemplateById,
     getReagentTemplatesBySource,
+    resolveAmmoDie,
     suggestAmmoSplit,
     validateAmmoSplit
 } from '../js/ammo-rules.js';
@@ -129,5 +130,23 @@ describe('reagent templates (pp.72, 74)', () => {
 
     it('exposes function tier text for all five X values', () => {
         for (let x = 1; x <= 5; x++) assert.ok(AMMO_FUNCTION_TIERS[x]);
+    });
+});
+
+describe('resolveAmmoDie (p.72)', () => {
+    it('retains the tile unchanged when the die equals or beats Supply', () => {
+        assert.deepEqual(resolveAmmoDie({ dieValue: 4, supply: 4, currentSupply: 3 }),
+            { retained: true, buried: false, currentSupply: 3 });
+        assert.deepEqual(resolveAmmoDie({ dieValue: 6, supply: '4', currentSupply: '1' }),
+            { retained: true, buried: false, currentSupply: 1 });
+    });
+
+    it('buries the tile and empties its supply when the die is below Supply', () => {
+        assert.deepEqual(resolveAmmoDie({ dieValue: 3, supply: 4, currentSupply: 3 }),
+            { retained: false, buried: true, currentSupply: 0 });
+    });
+
+    it('treats a missing Supply as 1', () => {
+        assert.equal(resolveAmmoDie({ dieValue: 1, supply: 0, currentSupply: 1 }).retained, true);
     });
 });
