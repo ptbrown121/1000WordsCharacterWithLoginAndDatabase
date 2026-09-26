@@ -268,7 +268,7 @@ describe('pool assistant route feature and authentication gates', () => {
         try {
             let selectorArgs = null;
             const selectorFailure = createPoolAssistantHandler({
-                requireUserFn: async () => ({ client: {} }),
+                requireUserFn: async () => ({ user: { id: 'user-1' } }),
                 enforceRateLimitFn: async () => {},
                 selectFn: async args => {
                     selectorArgs = args;
@@ -286,7 +286,7 @@ describe('pool assistant route feature and authentication gates', () => {
 
             let audioSelectorArgs = null;
             const spokenColorHandler = createPoolAssistantHandler({
-                requireUserFn: async () => ({ client: {} }),
+                requireUserFn: async () => ({ user: { id: 'user-1' } }),
                 enforceRateLimitFn: async () => {},
                 transcribeFn: async () => ({
                     failed: false,
@@ -306,7 +306,7 @@ describe('pool assistant route feature and authentication gates', () => {
 
             let selectionCalled = false;
             const transcriptionFailure = createPoolAssistantHandler({
-                requireUserFn: async () => ({ client: {} }),
+                requireUserFn: async () => ({ user: { id: 'user-1' } }),
                 enforceRateLimitFn: async () => {},
                 transcribeFn: async () => ({ failed: true, errorMessage: 'Transcription provider failed.' }),
                 selectFn: async () => { selectionCalled = true; }
