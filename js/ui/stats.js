@@ -232,7 +232,7 @@ export function renderStatsSummary() {
     Object.entries(STAT_COLORS).forEach(([stat, color]) => {
         const span = document.createElement('span');
         span.style.color = COLOR_HEX[color] || '';
-        span.textContent = `${stat} ${dataManager.state.stats[stat] || '—'}`;
+        span.textContent = `${stat} ${poolEngine.getStatDice(dataManager.state.stats[stat] || '').join(', ')}`;
         els.statsSummary.appendChild(span);
     });
 }

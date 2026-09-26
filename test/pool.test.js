@@ -156,11 +156,32 @@ describe('calculateOptimalXpCost (cascade)', () => {
 });
 
 describe('estimateTileXp', () => {
-    it('adds tag modifiers to the dice cost (floored at 0)', () => {
+    it('adds tag modifiers to the dice cost', () => {
         assert.equal(engine.estimateTileXp(['d6'], ['Keen']), 5);      // 3 + 2
         assert.equal(engine.estimateTileXp(['d4'], ['Chain Foo']), 5); // 1 + 4
         assert.equal(engine.estimateTileXp(['d4'], ['World Foo']), 4); // World Build tag is 3 XP (v5.02 p.63)
-        assert.equal(engine.estimateTileXp(['d4'], ['Old', 'Worn']), 0); // 1 - 2 - 2 -> max(0)
+    });
+
+    it('keeps Flaw and Hitch refunds out of the per-tile 0 floor (p.20)', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Old', 'Worn']), -3); // 1 - 2 - 2
+        assert.equal(engine.estimateTileXp(['d4'], ['Hitch 6']), -5);     // the full 6 XP is extracted
+        assert.equal(engine.estimateTileXp(['d6'], ['Hitch 3']), 0);
+    });
+
+    it('prices a bare or Detail: Throw as the 2 XP Detail tag and Range: Throw as the Move range', () => {
+        assert.equal(engine.estimateTileXp(['d4'], ['Throw']), 3);         // 1 + 2 (p.30)
+        assert.equal(engine.estimateTileXp(['d4'], ['Detail: Throw']), 3);
+        assert.equal(engine.estimateTileXp(['d4'], ['Range: Throw']), 2);  // 1 + 1 (p.52)
+        assert.equal(engine.calculateTagLimit(['d4'], ['Throw']).count, 1);
+        assert.equal(engine.calculateTagLimit(['d4'], ['Range: Throw']).count, 0);
+    });
+
+    it('charges Close melee weapons +1 XP (p.30)', () => {
+        const estimate = weapon => engine.estimateTileXpDetails(['d4'], [], null, { weapon }).xp;
+        assert.equal(estimate({ templateId: 'short-blade', category: 'Melee', range: 'Close' }), 2);
+        assert.equal(estimate({ category: 'Melee', range: 'Close' }), 2);
+        assert.equal(estimate({ category: 'Melee', range: 'Touch' }), 1);
+        assert.equal(estimate({ category: 'Melee', range: 'Reach' }), 1);
     });
 
     it('charges duplicate tags 2 XP more than the previous copy', () => {
@@ -206,6 +227,14 @@ describe('estimateTileXp', () => {
     it('uses range/duration and crit/shield table costs instead of a flat structural default', () => {
         assert.equal(engine.estimateTileXp(['d6'], ['Range: Short', 'Duration: Instant']), 4); // 3 +2 -1
         assert.equal(engine.estimateTileXp(['d4'], ['Crit: FEAR', 'Shield: WOUND']), 8);       // 1 +3 +4
+    });
+
+    it('rebates 1 more for every flaw on Hard armor, X flaws included (p.79)', () => {
+        // The titanium chassis (p.28): d6, Cyber, Full Hard, Detail: Heavy
+        // Ironclad Wired, Stigma - the book prices it at 5.
+        const tags = ['Cyber', 'Detail: Heavy', 'Detail: Ironclad', 'Detail: Wired', 'Stigma'];
+        assert.equal(engine.estimateTileXp(['d6'], tags, { material: 'Hard', coverage: 'Full' }), 5);
+        assert.equal(engine.estimateTileXp(['d8'], ['Stigma'], { material: 'Hard', coverage: 'Open' }), 5); // 6 -5 +4
     });
 
     it('uses the hard-armor flaw rebate assumption and discounts Shield tags', () => {
@@ -666,6 +695,13 @@ describe('compilePool', () => {
         assert.equal(res.error, null);
         assert.equal(res.dice.length, 1);
         assert.equal(res.adds, 2);
+    });
+
+    it('rolls a d3 for a blank stat and drops a d3 left beside bought dice (p.6)', () => {
+        const blank = engine.compilePool(['Red'], { BODY: '' }, null, [], [], []);
+        assert.deepEqual(blank.dice.map(d => [d.source, d.die]), [['Stat (BODY)', 'd3']]);
+        const bought = engine.compilePool(['Red'], { BODY: 'd3, d6' }, null, [], [], []);
+        assert.deepEqual(bought.dice.map(d => d.die), ['d6']);
     });
 
     it('errors when no call color is selected', () => {

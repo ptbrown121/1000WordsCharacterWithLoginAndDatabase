@@ -122,12 +122,23 @@ export function buildRulesReviewItems(state, poolEngine) {
             });
         }
 
-        // "They may not start with more than 3▟ on any one tile." (p.8)
-        if (!tile.isSpell && dice.some(die => poolEngine.calculateSteps([die]) > 3)) {
+        // "Each tile costs 1XP and begins with ... a d4" (p.8): the free d3
+        // is only a stat baseline, so a d3 on a tile is a free die.
+        if (!tile.isSpell && dice.includes('d3')) {
+            items.push({
+                severity: 'medium',
+                category: 'Dice',
+                message: `${tile.name}: has a d3; tiles start at d4.`
+            });
+        }
+
+        // "They may not start with more than 3▟ on any one tile." (p.8) -
+        // the tile's total, so 2d6 (4▟) is over the cap.
+        if (!tile.isSpell && poolEngine.calculateSteps(dice) > 3) {
             items.push({
                 severity: 'low',
                 category: 'GM review',
-                message: `${tile.name}: has a die above 3▟; confirm this is not a starting tile.`
+                message: `${tile.name}: has ${poolEngine.calculateSteps(dice)}▟, above the 3▟ starting cap; confirm this is not a starting tile.`
             });
         }
 

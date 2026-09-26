@@ -6,18 +6,19 @@ import { DIE_STEPS } from './shared.js';
 
 // Weapon templates from the equipment lists (pp.30-31): category, range,
 // linked skill, and starting Detail tags. Far weapons cost +2 XP for the
-// first die (the green crosses on the Far table, p.31).
+// first die (the green crosses on the Far table, p.31), and Close melee
+// weapons +1 (the Close table's +1 badge, p.30; Touch and Reach are +0).
 export const WEAPON_TEMPLATES = [
     { id: 'fist', name: 'Fist / Cestus / Duster', category: 'Melee', range: 'Touch', skill: 'Knuckles', startingTags: ['Fast'] },
     { id: 'knife', name: 'Knife', category: 'Melee', range: 'Touch', skill: 'Knuckles', startingTags: ['Little'] },
     { id: 'small-improvised', name: 'Small Improvised', category: 'Melee', range: 'Touch', skill: 'Craft', startingTags: ['Ambush'] },
     { id: 'sap-short-mace', name: 'Sap / Short Mace', category: 'Melee', range: 'Touch', skill: 'Wiles', startingTags: ['Ambush'] },
     { id: 'kick', name: 'Kick', category: 'Melee', range: 'Touch', skill: 'Athletics', startingTags: ['Throw'] },
-    { id: 'short-blade', name: 'Short Blade', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Fast'] },
-    { id: 'long-blade', name: 'Long Blade', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Sharp'] },
-    { id: 'axe-foil', name: 'Axe / Foil', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Piercing'] },
-    { id: 'torch', name: 'Torch', category: 'Melee', range: 'Close', skill: 'Craft', startingTags: ['Blinding'] },
-    { id: 'flail', name: 'Flail', category: 'Melee', range: 'Close', skill: 'Athletics', startingTags: ['Keen'] },
+    { id: 'short-blade', name: 'Short Blade', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Fast'], extraXp: 1 },
+    { id: 'long-blade', name: 'Long Blade', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Sharp'], extraXp: 1 },
+    { id: 'axe-foil', name: 'Axe / Foil', category: 'Melee', range: 'Close', skill: 'Duel', startingTags: ['Piercing'], extraXp: 1 },
+    { id: 'torch', name: 'Torch', category: 'Melee', range: 'Close', skill: 'Craft', startingTags: ['Blinding'], extraXp: 1 },
+    { id: 'flail', name: 'Flail', category: 'Melee', range: 'Close', skill: 'Athletics', startingTags: ['Keen'], extraXp: 1 },
     { id: 'whip', name: 'Whip', category: 'Melee', range: 'Reach', skill: 'Wiles', startingTags: ['Fluid', 'Trap'] },
     { id: 'sonic-blade', name: 'Sonic Blade', category: 'Melee', range: 'Reach', skill: 'Wiles', startingTags: ['Risky', 'Sharp'] },
     { id: 'foil-katana', name: 'Foil / Katana', category: 'Melee', range: 'Reach', skill: 'Duel', startingTags: ['Fluid', 'Fast'] },
@@ -29,7 +30,7 @@ export const WEAPON_TEMPLATES = [
     { id: 'small-arms', name: 'Small Arms', category: 'Near', range: 'Reach', skill: 'Firearms', startingTags: ['Reload', 'Fast'] },
     { id: 'shotgun', name: 'Shotgun', category: 'Near', range: 'Reach', skill: 'Duel', startingTags: ['Reload', 'Sweep'] },
     { id: 'blowgun', name: 'Blowgun', category: 'Near', range: 'Reach', skill: 'Wiles', startingTags: ['Reload', 'Little'] },
-    { id: 'taser-energy-pistol', name: 'Taser / Energy Pistol', category: 'Near', range: 'Reach', skill: 'Craft', startingTags: [] },
+    { id: 'taser-energy-pistol', name: 'Taser / Energy Pistol', category: 'Near', range: 'Reach', skill: 'Craft', startingTags: ['Reload', 'Little'] },
     { id: 'javelin', name: 'Javelin', category: 'Far', range: 'Short', skill: 'Athletics', startingTags: ['Single'], extraXp: 2 },
     { id: 'long-arms', name: 'Long Arms', category: 'Far', range: 'Short', skill: 'Firearms', startingTags: ['Inside'], extraXp: 2 },
     { id: 'short-bow', name: 'Short Bow', category: 'Far', range: 'Short', skill: 'Firearms', startingTags: ['Reload'], extraXp: 2 },
