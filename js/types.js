@@ -211,6 +211,7 @@
  * @property {Array<{id: 'qi-test'|'id-impact', amount: number}>} [shadowSpends] Shadow spent on this roll (p.59)
  * @property {number} [coreSoak] Soak bought with the Machine Core spend (p.64)
  * @property {string[]} [coreSpends] Display log of Core spends on this roll
+ * @property {'Qi'|'Id'|null} [shadowUse]
  * @property {number} [riskyPaid] HP already deducted for Risky 1s
  * @property {Array<{die: string, from: number, to: number}>} [numbRerolls] Numb flaw rerolls of maxed dice
  */

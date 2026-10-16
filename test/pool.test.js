@@ -1812,4 +1812,26 @@ describe('Call-time rules', () => {
         const res = engine.compilePostRollBurn(['Purple'], call, [evade], { aberrantEffects: { fallen: true } });
         assert.deepEqual(res.dice, [{ source: 'Burn (Evade)', die: 'd10', baseDie: 'd8' }]);
     });
+
+    it('enforces Qi/Id exclusivity and reports shadowUse, haywireThreshold, and titanActive on post-roll burns', () => {
+        const normalCall = { id: 'c', name: 'Strike', colors: ['Red', 'Orange'], dice: ['d6'], tags: '' };
+        const qiTile = { id: 'q', name: 'Restore', colors: ['Qi', 'Red'], dice: ['d6'], tags: '' };
+        const idTile = { id: 'i', name: 'Nightblade', colors: ['Id', 'Red'], dice: ['d6'], tags: ['Glitch', 'Titan'] };
+
+        // Calling a Qi tile and trying to post-roll burn an Id tile is rejected.
+        const mixedFromCall = engine.compilePostRollBurn(['Red'], qiTile, [idTile]);
+        assert.match(mixedFromCall.error, /Qi tiles or Id tiles, but not both/);
+        assert.equal(mixedFromCall.shadowUse, 'mixed');
+
+        // Calling a normal tile when the check already used Qi (e.g. via a chain) also rejects burning an Id tile.
+        const mixedFromContext = engine.compilePostRollBurn(['Red'], normalCall, [idTile], { shadowUse: 'Qi' });
+        assert.match(mixedFromContext.error, /Qi tiles or Id tiles, but not both/);
+
+        // Burning an Id tile with Glitch and Titan on a normal Call reports shadowUse, haywireThreshold=2, and titanActive=true.
+        const validIdBurn = engine.compilePostRollBurn(['Red'], normalCall, [idTile]);
+        assert.equal(validIdBurn.error, null);
+        assert.equal(validIdBurn.shadowUse, 'Id');
+        assert.equal(validIdBurn.haywireThreshold, 2);
+        assert.equal(validIdBurn.titanActive, true);
+    });
 });

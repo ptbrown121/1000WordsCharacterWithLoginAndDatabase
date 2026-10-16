@@ -1030,12 +1030,20 @@ export class PoolEngine {
      * @param {string[]} callColors
      * @param {any} callTile
      * @param {any[]} burnTiles
-     * @param {{alreadyBurned?: boolean, calledTileIds?: string[], aberrantEffects?: {risen?: boolean, fallen?: boolean}}} [options]
-     * @returns {{dice: Array<{source: string, die: string, baseDie?: string}>, adds: number, burnTileIds: string[], error: string|null}}
+     * @param {{alreadyBurned?: boolean, calledTileIds?: string[], calledTiles?: any[], shadowUse?: 'Qi'|'Id'|null, aberrantEffects?: {risen?: boolean, fallen?: boolean}}} [options]
+     * @returns {{dice: Array<{source: string, die: string, baseDie?: string}>, adds: number, burnTileIds: string[], shadowUse: 'Qi'|'Id'|'mixed'|null, haywireThreshold: number, titanActive: boolean, error: string|null}}
      */
     compilePostRollBurn(callColors, callTile, burnTiles = [], options = {}) {
-        /** @param {string} error */
-        const fail = (error) => ({ dice: [], adds: 0, burnTileIds: [], error });
+        /** @param {string} error @param {'Qi'|'Id'|'mixed'|null} [shadowKind] */
+        const fail = (error, shadowKind = null) => ({
+            dice: [],
+            adds: 0,
+            burnTileIds: [],
+            shadowUse: shadowKind,
+            haywireThreshold: 1,
+            titanActive: false,
+            error
+        });
         if (options.alreadyBurned) return fail("This check already burned tiles; you can't Burn twice on an action.");
         if (!callTile) return fail('Tiles can only be burned after rolling on a Call.');
         if (!burnTiles || burnTiles.length === 0) return fail('Select at least one tile to burn.');
@@ -1044,6 +1052,16 @@ export class PoolEngine {
         if (calledBurn) return fail(`Tile '${calledBurn.name}' was called in this check and cannot also be burned.`);
         const burnError = this.getBurnTilesError(callColors, callTile, burnTiles);
         if (burnError) return fail(burnError);
+
+        const checkTiles = [callTile, ...(options.calledTiles || []), ...burnTiles].filter(Boolean);
+        const shadowValidationTiles = options.shadowUse === 'Qi' || options.shadowUse === 'Id'
+            ? [...checkTiles, { boxes: [{ type: 'shadow', kind: options.shadowUse }] }]
+            : checkTiles;
+        const shadowUse = validateShadowUseForCheck(shadowValidationTiles);
+        if (!shadowUse.valid) return fail(shadowUse.error || 'A check can include Qi tiles or Id tiles, but not both.', shadowUse.kind);
+
+        const haywireThreshold = checkTiles.some(tile => tileHasParsedBase(tile, 'glitch')) ? 2 : 1;
+        const titanActive = checkTiles.some(tile => tileHasTitanTag(tile));
 
         const aberrantEffects = options.aberrantEffects || {};
         /** @type {Array<{source: string, die: string, baseDie?: string}>} */
@@ -1056,7 +1074,15 @@ export class PoolEngine {
                 ...(adjustedDie !== die ? { baseDie: die } : {})
             });
         }));
-        return { dice, adds: burnTiles.length, burnTileIds: burnTiles.map(tile => tile.id), error: null };
+        return {
+            dice,
+            adds: burnTiles.length,
+            burnTileIds: burnTiles.map(tile => tile.id),
+            shadowUse: shadowUse.kind,
+            haywireThreshold,
+            titanActive,
+            error: null
+        };
     }
 
     /**

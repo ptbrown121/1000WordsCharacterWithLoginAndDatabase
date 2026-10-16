@@ -229,6 +229,7 @@ function finalizeRoll(result, compiledPool, mode, callColors) {
     result.aberrantEffects = getPoolOptions().aberrantEffects;
     result.fearDrop = compiledPool.fearDrop || null;
     result.burnRequirements = compiledPool.burnRequirements || [];
+    result.shadowUse = compiledPool.shadowUse || null;
     showResults(result);
 
     if (!testRoll) {

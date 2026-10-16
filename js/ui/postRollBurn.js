@@ -6,8 +6,9 @@
 //     action." Mirrors the post-roll Freebie panel.
 //   - Result notices for FEAR (p.40), GOAD / Witch burn requirements
 //     (pp.40, 48), and Zenith rerolls (p.64).
-import { escapeHtml } from '../pool.js';
+import { adjustAberrationForShadowUse, escapeHtml } from '../pool.js';
 import { getBurnTileChoices } from '../pool-tile-selection.js';
+import { getDefaultResolutionAssignments } from '../resolution-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showAlert, showConfirm } from './dialogService.js';
@@ -79,10 +80,16 @@ function getCallTile(result) {
     return (dataManager.state.tiles || []).find(tile => tile.id === result.callTileId) || null;
 }
 
+/** @param {import('../types.js').RollResult} result */
+function getCheckContextTiles(result) {
+    const calledIds = new Set([...(result.calledTileIds || []), ...(result.hitchTileIds || [])]);
+    return (dataManager.state.tiles || []).filter(tile => calledIds.has(tile.id));
+}
+
 /**
  * Burn candidates follow the pre-roll burn rules (getBurnTileChoices: same
- * shared color, available, not Hitched), minus tiles already called in
- * this check.
+ * shared color, available, not Hitched, and Qi/Id exclusive with the check),
+ * minus tiles already called in this check.
  * @param {import('../types.js').RollResult} result
  * @param {import('../types.js').Tile[]} selectedTiles
  */
@@ -90,7 +97,8 @@ function getPostRollBurnChoices(result, selectedTiles) {
     const callTile = getCallTile(result);
     if (!callTile) return [];
     const calledIds = new Set([...(result.calledTileIds || []), ...(result.hitchTileIds || [])]);
-    return getBurnTileChoices(dataManager.state.tiles || [], result.callColors || [], callTile, selectedTiles)
+    const contextTiles = getCheckContextTiles(result);
+    return getBurnTileChoices(dataManager.state.tiles || [], result.callColors || [], callTile, selectedTiles, contextTiles)
         .filter(tile => !calledIds.has(tile.id));
 }
 
@@ -140,9 +148,12 @@ async function burnAfterRoll() {
     const result = uiState.lastRollResult;
     if (!result || !poolEngine || !canBurnAfterRoll(result)) return;
     const burnTiles = /** @type {import('../types.js').Tile[]} */ (getSelectedTiles(result));
+    const calledTiles = getCheckContextTiles(result);
     const compiled = poolEngine.compilePostRollBurn(result.callColors || [], getCallTile(result), burnTiles, {
         alreadyBurned: (result.preRollBurnTileIds || []).length > 0 || (result.postRollBurnTileIds || []).length > 0,
         calledTileIds: [...(result.calledTileIds || []), ...(result.hitchTileIds || [])],
+        calledTiles,
+        shadowUse: result.shadowUse || null,
         aberrantEffects: result.aberrantEffects
     });
     if (compiled.error) {
@@ -155,6 +166,17 @@ async function burnAfterRoll() {
     if (!await showConfirm(`Burn ${names} after rolling? ${dice ? `Rolls ${dice} and adds` : 'Adds'} ${compiled.adds} Add${compiled.adds === 1 ? '' : 's'}. Burned tiles are out of play until the character rests.`, { title: 'Burn after rolling?' })) return;
     // The dialog is async: bail if another roll replaced this result.
     if (uiState.lastRollResult !== result) return;
+
+    const previousDefaultAssignments = getDefaultResolutionAssignments(result, uiState.currentResolutionMode);
+    const hasCustomAssignments = Object.keys(previousDefaultAssignments).some(
+        rollId => (uiState.currentResolutionAssignments[rollId] || 'unused') !== previousDefaultAssignments[rollId]
+    );
+
+    result.titanActive = Boolean(result.titanActive || compiled.titanActive);
+    if (result.titanActive && result.rollMode === 'manual') {
+        result.titanManualReminder = true;
+    }
+    result.haywireThreshold = Math.max(result.haywireThreshold || 1, compiled.haywireThreshold || 1);
 
     // New dice roll like the post-roll Freebie does (virtually). Titan and
     // an unused Zenith reroll still apply to them.
@@ -177,6 +199,20 @@ async function burnAfterRoll() {
     Object.assign(result, recalculated);
     result.adds = adds;
     result.postRollBurnTileIds = [...compiled.burnTileIds];
+
+    if (!hasCustomAssignments) {
+        uiState.currentResolutionAssignments = getDefaultResolutionAssignments(result, uiState.currentResolutionMode);
+    }
+
+    if (!result.shadowUse && (compiled.shadowUse === 'Qi' || compiled.shadowUse === 'Id')) {
+        result.shadowUse = compiled.shadowUse;
+        dataManager.state.aberration = adjustAberrationForShadowUse(dataManager.state.aberration, compiled.shadowUse);
+    }
+
+    if (result.isHaywire && !result.pressCounterBumped && !result.isTestRoll) {
+        dataManager.state.pressCount = (parseInt(String(dataManager.state.pressCount), 10) || 0) + 1;
+        result.pressCounterBumped = Boolean(dataManager.state.pressCount);
+    }
 
     burnTiles.forEach(tile => {
         tile.isBurnt = true;

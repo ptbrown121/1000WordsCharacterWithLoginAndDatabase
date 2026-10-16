@@ -65,4 +65,28 @@ describe('pool tile picker filtering', () => {
             ['yellow']
         );
     });
+
+    it('excludes conflicting Qi/Id shadow tiles from Burn choices and compatible burns (p.58)', () => {
+        const qiCall = tile('qi-call', ['Qi', 'Red']);
+        const qiBurn = tile('qi-burn', ['Qi', 'Blue']);
+        const idBurn = tile('id-burn', ['Id', 'Red']);
+        const normalBurn = tile('normal-burn', ['Red', 'Yellow']);
+        const tiles = [qiCall, qiBurn, idBurn, normalBurn];
+
+        assert.deepEqual(
+            getBurnTileChoices(tiles, ['Red', 'Blue'], qiCall, []).map(choice => choice.id),
+            ['qi-burn', 'normal-burn']
+        );
+        assert.deepEqual(
+            getCompatibleBurnTiles(['Red', 'Blue'], qiCall, [idBurn, qiBurn, normalBurn]).map(choice => choice.id),
+            ['qi-burn', 'normal-burn']
+        );
+
+        // Also respects contextTiles (e.g. a chained Qi tile when the Call tile itself is normal).
+        const normalCall = tile('normal-call', ['Red', 'Blue']);
+        assert.deepEqual(
+            getBurnTileChoices([normalCall, qiBurn, idBurn], ['Red', 'Blue'], normalCall, [], [qiCall]).map(choice => choice.id),
+            ['qi-burn']
+        );
+    });
 });

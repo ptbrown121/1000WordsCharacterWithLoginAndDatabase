@@ -97,6 +97,10 @@ function getTilesShadowUse(tiles = []) {
 }
 
 // "Any check can either include Qi or Id tiles, not both." (p.58)
+/**
+ * @param {any[]} [tiles]
+ * @returns {{valid: boolean, kind: 'Qi'|'Id'|'mixed'|null, error: string|null}}
+ */
 export function validateShadowUseForCheck(tiles = []) {
     const kinds = getTilesShadowUse(tiles);
     if (kinds.has('Qi') && kinds.has('Id')) {
