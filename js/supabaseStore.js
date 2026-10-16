@@ -210,11 +210,13 @@ export class SupabaseCharacterStore {
 
     /** @param {string} characterId @param {string|null} campaignId */
     async assignCharacterToCampaign(characterId, campaignId) {
-        assertNoError(await this.client
+        const rows = assertNoError(await this.client
             .from('characters')
             .update({ campaign_id: campaignId || null, updated_at: new Date().toISOString() })
             .eq('id', characterId)
-            .eq('owner_id', this.user.id));
+            .eq('owner_id', this.user.id)
+            .select('updated_at'));
+        return rows?.[0]?.updated_at || null;
     }
 
     /** @param {string} name */

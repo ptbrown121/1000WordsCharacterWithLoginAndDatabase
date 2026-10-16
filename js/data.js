@@ -1250,7 +1250,21 @@ export class DataManager {
             this.markReadOnlyAttempt();
             return;
         }
-        await this.cloudStore.assignCharacterToCampaign(this.activeCharId, campaignId || null);
+        await this.flushCloudSave();
+        const charId = this.activeCharId;
+        const previousUpdatedAt = this.cloudUpdatedAt;
+        this.cloudSaveInFlight = true;
+        try {
+            const newUpdatedAt = await this.cloudStore.assignCharacterToCampaign(charId, campaignId || null);
+            if (this.activeCharId === charId && newUpdatedAt) {
+                this.cloudUpdatedAt = newUpdatedAt;
+                if (previousUpdatedAt) {
+                    this.advanceCloudDraftBase(charId, previousUpdatedAt, newUpdatedAt);
+                }
+            }
+        } finally {
+            this.cloudSaveInFlight = false;
+        }
         await this.refreshCloudRoster();
         this.setCloudStatus('saved', campaignId ? 'Character assigned to campaign.' : 'Character removed from campaign.');
     }

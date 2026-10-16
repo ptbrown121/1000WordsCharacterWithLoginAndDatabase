@@ -76,6 +76,14 @@ class FakeCloudStore {
     async archiveCharacter(id) {
         this.characters.find(candidate => candidate.id === id).archived = true;
     }
+
+    async assignCharacterToCampaign(id, campaignId) {
+        const character = this.characters.find(candidate => candidate.id === id);
+        character.campaignId = campaignId || null;
+        this.saveCount = (this.saveCount || 0) + 1;
+        character.updatedAt = `t-${this.saveCount}`;
+        return character.updatedAt;
+    }
 }
 
 function cloudCharacter(id, name) {
@@ -150,6 +158,21 @@ describe('SupabaseCharacterStore optimistic concurrency', () => {
             /invalid character state/
         );
         assert.equal(calls.update, null);
+    });
+
+    it('returns the new updated_at stamp when assigning a character to a campaign', async () => {
+        const { client, calls } = makeUpdateClient([{ updated_at: '2026-10-16T12:00:00+00:00' }]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        const newStamp = await store.assignCharacterToCampaign('char-1', 'camp-1');
+
+        assert.equal(newStamp, '2026-10-16T12:00:00+00:00');
+        assert.equal(calls.update.campaign_id, 'camp-1');
+        assert.equal(calls.selected, 'updated_at');
+        assert.deepEqual(calls.filters, [
+            ['id', 'char-1'],
+            ['owner_id', 'user-1']
+        ]);
     });
 });
 
@@ -634,5 +657,33 @@ describe('DataManager cloud behavior', () => {
 
         assert.equal(await manager.uploadLocalCharacters(), 1);
         assert.equal(cloud.characters.length, 2);
+    });
+
+    it('updates cloudUpdatedAt on campaign assignment so subsequent edits do not trigger a conflict', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Campaign Hero'));
+        const manager = new DataManager({
+            localStore: new LocalCharacterStore(storage),
+            saveDebounceMs: 60_000
+        });
+        await manager.connectCloud(cloud);
+        assert.equal(manager.cloudUpdatedAt, 't-0');
+
+        // Make a debounced local edit, then assign the character to a campaign before the timer fires.
+        manager.updateName('Campaign Hero v2');
+        await manager.assignActiveCharacterToCampaign('camp-1');
+
+        assert.equal(cloud.characters[0].state.name, 'Campaign Hero v2');
+        assert.equal(cloud.characters[0].campaignId, 'camp-1');
+        assert.equal(manager.cloudUpdatedAt, cloud.characters[0].updatedAt);
+        assert.equal(manager.cloudStatus, 'saved');
+
+        // A subsequent edit must use the new updated_at guard and succeed cleanly.
+        manager.updateName('Campaign Hero v3');
+        await manager.flushCloudSave();
+
+        assert.equal(cloud.characters[0].state.name, 'Campaign Hero v3');
+        assert.equal(manager.cloudStatus, 'saved');
     });
 });
