@@ -44,9 +44,11 @@ export class SupabaseCharacterStore {
     constructor(client, user) {
         this.client = client;
         this.user = user;
+        this.profileEnsured = false;
     }
 
     async ensureProfile() {
+        if (this.profileEnsured) return;
         const email = this.user.email || '';
         assertNoError(await this.client
             .from('profiles')
@@ -55,7 +57,8 @@ export class SupabaseCharacterStore {
                 email,
                 display_name: this.user.user_metadata?.full_name || email.split('@')[0] || 'Player',
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'id' }));
+            }, { onConflict: 'id', ignoreDuplicates: true }));
+        this.profileEnsured = true;
     }
 
     async listRoster() {

@@ -686,4 +686,58 @@ describe('DataManager cloud behavior', () => {
         assert.equal(cloud.characters[0].state.name, 'Campaign Hero v3');
         assert.equal(manager.cloudStatus, 'saved');
     });
+
+    it('syncs the active character name in cloudRoster on auto-save without re-fetching listRoster', async () => {
+        const storage = new MemoryStorage();
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Initial Name'));
+        let listRosterCalls = 0;
+        const origListRoster = cloud.listRoster.bind(cloud);
+        cloud.listRoster = async () => {
+            listRosterCalls += 1;
+            return origListRoster();
+        };
+
+        const manager = new DataManager({
+            localStore: new LocalCharacterStore(storage),
+            saveDebounceMs: 0
+        });
+        await manager.connectCloud(cloud);
+        assert.equal(listRosterCalls, 1);
+
+        manager.updateName('Renamed Without Full Roster Fetch');
+        await settle(manager);
+
+        assert.equal(listRosterCalls, 1);
+        assert.equal(manager.cloudRoster[0].name, 'Renamed Without Full Roster Fetch');
+        assert.equal(cloud.characters[0].name, 'Renamed Without Full Roster Fetch');
+    });
+
+    it('upserts the user profile only once per SupabaseCharacterStore session with ignoreDuplicates', async () => {
+        const upserts = [];
+        const client = {
+            from(table) {
+                assert.equal(table, 'profiles');
+                return {
+                    async upsert(payload, options) {
+                        upserts.push({ payload, options });
+                        return { data: null, error: null };
+                    }
+                };
+            }
+        };
+        const store = new SupabaseCharacterStore(client, {
+            id: 'user-1',
+            email: 'player@example.com',
+            user_metadata: { full_name: 'Ash' }
+        });
+
+        await store.ensureProfile();
+        await store.ensureProfile();
+
+        assert.equal(upserts.length, 1);
+        assert.equal(upserts[0].payload.display_name, 'Ash');
+        assert.deepEqual(upserts[0].options, { onConflict: 'id', ignoreDuplicates: true });
+    });
 });
+

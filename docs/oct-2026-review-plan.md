@@ -87,14 +87,14 @@ Status: in progress (executing one step at a time). Follows the phased-step conv
 
 ## Step 6 — Cloud Sync & Profile Upsert Performance Optimization
 
-**Status: planned.**
+**Status: done 2026-10-16.**
 
 **Why:** `DataManager.queueCloudSave` called `refreshCloudRoster()` after every debounced save (up to 5 Supabase requests), and `SupabaseCharacterStore.ensureProfile` upserted `profiles` on every `listRoster()` call.
 
 **Code changes:**
-- `js/data.js`: update the saved character's name in the in-memory roster after `saveCharacter` instead of re-fetching the entire roster on every auto-save.
-- `js/supabaseStore.js`: run `ensureProfile()` once per user session and avoid clobbering existing `display_name`.
-- `test/cloud-persistence.test.js`: tests verifying roster name sync without redundant `listRoster()` calls on auto-save.
+- `js/data.js`: added `syncCloudRosterCharacterName(charId, name)` and used it in `queueCloudSave`, `resolveCloudConflictByOverwriting`, and `applyRemoteCloudCharacter` instead of re-fetching the entire roster on every auto-save.
+- `js/supabaseStore.js`: run `ensureProfile()` once per `SupabaseCharacterStore` session and pass `{ onConflict: 'id', ignoreDuplicates: true }` to avoid clobbering existing `display_name`.
+- `test/cloud-persistence.test.js`: tests verifying roster name sync without redundant `listRoster()` calls on auto-save and once-per-session `ensureProfile()`.
 
 ---
 

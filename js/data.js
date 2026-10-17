@@ -700,6 +700,15 @@ export class DataManager {
         return Boolean(charId && this.loadCloudDraft(charId));
     }
 
+    /** @param {string} charId @param {string} [name] */
+    syncCloudRosterCharacterName(charId, name) {
+        const cleanName = String(name || '').trim() || 'Unnamed';
+        const entry = this.cloudRoster.find(r => r.id === charId);
+        if (entry && entry.name !== cleanName) {
+            entry.name = cleanName;
+        }
+    }
+
     // Applies a copy of the active character fetched for live sync. The
     // checks run after the fetch, not before: an edit made while it was in
     // flight must reach the save guard (and the conflict dialog) instead of
@@ -716,6 +725,7 @@ export class DataManager {
         if (!apply) return false;
         this.state = loaded.state;
         this.cloudUpdatedAt = loaded.updatedAt || null;
+        this.syncCloudRosterCharacterName(charId, loaded.state?.name);
         return true;
     }
 
@@ -768,7 +778,7 @@ export class DataManager {
                     const cleared = this.clearCloudDraft(charId, draftRevision);
                     if (!cleared && newUpdatedAt) this.advanceCloudDraftBase(charId, guard, newUpdatedAt);
                 }
-                await this.refreshCloudRoster();
+                this.syncCloudRosterCharacterName(charId, state?.name);
                 this.setCloudStatus('saved', 'Cloud save complete.');
             } finally {
                 this.cloudSaveInFlight = false;
@@ -819,7 +829,7 @@ export class DataManager {
         const updatedAt = await this.cloudStore.saveCharacter(charId, state);
         if (this.activeCharId === charId && updatedAt) this.cloudUpdatedAt = updatedAt;
         if (draftRevision) this.clearCloudDraft(charId, draftRevision);
-        await this.refreshCloudRoster();
+        this.syncCloudRosterCharacterName(charId, state?.name);
         this.setCloudStatus('saved', 'Cloud copy replaced with this version.');
     }
 
