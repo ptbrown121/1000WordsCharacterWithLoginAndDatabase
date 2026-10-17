@@ -182,15 +182,27 @@ create index if not exists ai_creation_messages_thread_idx on public.ai_creation
 create index if not exists ai_scene_summaries_thread_idx on public.ai_scene_summaries(thread_id, created_at desc);
 create index if not exists ai_scene_summaries_campaign_idx on public.ai_scene_summaries(campaign_id, created_at desc);
 create index if not exists ai_agent_run_logs_thread_idx on public.ai_agent_run_logs(thread_id, created_at desc);
+alter table public.ai_creation_messages
+add column if not exists request_id uuid;
+
+alter table public.ai_creation_messages
+add column if not exists edited_at timestamptz;
+
+alter table public.ai_scene_summaries
+add column if not exists request_id uuid;
+
+alter table public.ai_scene_summaries
+add column if not exists appended_to_journal boolean not null default false;
+
+alter table public.ai_scene_summaries
+add column if not exists journal_entry_id uuid;
+
 create unique index if not exists ai_messages_thread_request_uidx
 on public.ai_creation_messages(thread_id, request_id)
 where request_id is not null;
 create unique index if not exists ai_summaries_thread_request_uidx
 on public.ai_scene_summaries(thread_id, request_id)
 where request_id is not null;
-
-alter table public.ai_creation_messages
-add column if not exists edited_at timestamptz;
 
 alter table public.ai_creation_threads
 drop constraint if exists ai_creation_threads_status_check;
@@ -435,6 +447,8 @@ begin
     return membership;
 end;
 $$;
+
+drop function if exists public.consume_ai_rate_limit(integer, integer);
 
 create or replace function public.consume_ai_rate_limit(target_user_id uuid, max_requests integer, window_seconds integer)
 returns table (allowed boolean, remaining integer, reset_at timestamptz)

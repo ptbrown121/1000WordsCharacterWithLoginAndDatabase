@@ -53,7 +53,7 @@ For a lighter table-operations overview, see the [GM Guide](docs/gm-guide.md).
 Cloud saves are optional. Without environment variables, the app remains a browser-local character manager.
 
 1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the Supabase SQL editor.
+2. Run `supabase/schema.sql` in the Supabase SQL editor (or link the CLI and run `supabase db push` — both apply the complete schema, RLS policies, RPC functions, private storage buckets, and Realtime publication).
 3. In Supabase Auth, enable email magic links and configure production SMTP before inviting real players. Optionally enable the Google provider (Auth → Providers, with a Google Cloud OAuth client whose redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`) for one-click sign-in without the email round-trip.
 4. Sign in once with the account that should be allowed to create campaigns, then grant that account campaign-creator access in the Supabase SQL editor:
 
@@ -75,10 +75,10 @@ Cloud saves are optional. Without environment variables, the app remains a brows
 
 As of June 2026, schema changes ship as versioned files in
 `supabase/migrations/` instead of manual SQL-editor runs.
-`supabase/schema.sql` stays as a readable snapshot of the full schema;
-`supabase/migrations/20260612000000_baseline.sql` is that same snapshot
-recorded as the migration baseline (every statement is idempotent, so
-applying it to the existing database changes nothing).
+`supabase/schema.sql` stays in sync as a single-file snapshot of the full
+schema (enforced by `test/schema-security.test.js`), and every migration in
+`supabase/migrations/` is idempotent so either setup path (`supabase/schema.sql`
+or `supabase db push`) produces the exact same database state.
 
 One-time setup on a new machine:
 
@@ -98,7 +98,7 @@ its own).
 
 The AI character creation MVP runs through Vercel API routes so model and service-role keys stay server-side.
 
-1. Re-run `supabase/schema.sql` after pulling this version. It adds private campaign AI tables, RLS policies, and a private `campaign-ai-documents` storage bucket.
+1. Ensure the latest database schema is applied (`supabase db push` or re-running `supabase/schema.sql`). It includes the private campaign AI tables, atomic turn/rewind/summary RPCs, RLS policies, and the private `campaign-ai-documents` storage bucket.
 2. Add these private environment variables in Vercel:
    - `OPENAI_API_KEY`
    - `SUPABASE_SECRET_KEY` — a new-style secret API key (`sb_secret_...`, Supabase Settings → API Keys). The legacy `SUPABASE_SERVICE_ROLE_KEY` is still read as a fallback but Supabase has deprecated it.
@@ -179,7 +179,7 @@ Two Vercel cron jobs (configured in `vercel.json`, the Hobby plan's limit of two
 - `/api/cron/keepalive` (daily) runs one trivial query so the Supabase free tier never pauses the project for inactivity between sessions.
 - `/api/cron/backup` (weekly, Mondays) dumps every application table to a gzipped JSON file in the private `backups` storage bucket and keeps the most recent 8. Uploaded campaign files aren't duplicated — storage itself is their backup; their metadata rows are included.
 
-Setup: apply the `backups` bucket migration (`supabase db push`), then add two more private Vercel env vars:
+Setup: ensure the `backups` bucket is created (`supabase db push` or `supabase/schema.sql`), then add two more private Vercel env vars:
 
 - `SUPABASE_SECRET_KEY` (shared with the AI routes, see above)
 - `CRON_SECRET` — any long random string; Vercel automatically sends it as a bearer token to cron invocations, and the routes reject calls without it.
@@ -199,7 +199,7 @@ The codebase is plain browser JavaScript bundled by Vite so Supabase can be impo
 - `index.html` - UI shell (header, mosaic, action dashboard, journal) and all modal markup (tile, spell wizard, vital, info).
 - `css/styles.css` - thin aggregator that `@import`s eight partials in `css/`: `_variables`, `_base`, `_layout`, `_cards`, `_dashboard`, `_modal`, `_journal`, `_responsive`.
 - `js/app.js` - bootstrap. Constructs `DataManager`, `PoolEngine`, `SpellBuilder`, optional Supabase client, then calls `init({ deps })` on each UI module.
-- `js/data.js` - persistence model. `DataManager` owns local/cloud character switching, legacy-save migration, JSON import/export, and `tile.tags` normalization. Also exports `STAT_COLORS`, `COLOR_HEX`, `VALID_DICE`, and the `getEffectiveMax(state, key, baseOverride)` vital helper.
+- `js/data.js` / `js/character-normalizer.js` - persistence model and pure character/tile normalization. `DataManager` owns local/cloud character switching, legacy-save migration, and JSON import/export; `character-normalizer.js` (re-exported by `data.js`) holds pure character, tile, vital, and status normalization plus `STAT_COLORS`, `COLOR_HEX`, `VALID_DICE`, and `getEffectiveMax(state, key, baseOverride)`.
 - `js/supabaseClient.js` / `js/supabaseStore.js` - optional Supabase Auth, campaign, and cloud character storage integration.
 - `api/ai/` - Vercel API routes for campaign AI documents, settings, guided player chat, scene finalization, and accepted-summary journal writes.
 - `api/_lib/aiWorkflow.js` / `api/_lib/openaiWorkflow.js` - server-side prompt/context builders, structured-output schemas, OpenAI Responses calls, and local fallbacks for development.
