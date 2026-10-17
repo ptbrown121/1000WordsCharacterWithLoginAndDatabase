@@ -4,6 +4,7 @@ import { normalizeImportedState } from '../data.js';
 import { isRecord, parseAiBundle, parseAiDocuments, parseAiSettings } from '../ai-ui-payloads.js';
 import { showConfirm, showPrompt } from './dialogService.js';
 import { renderJournal } from './journal.js';
+import { beginCampaignAction, getManagedCampaign } from './campaignContext.js';
 
 /**
  * @typedef {import('../ai-ui-payloads.js').AiThread} AiThread
@@ -32,6 +33,7 @@ import { renderJournal } from './journal.js';
 let dataManager;
 /** @type {import('@supabase/supabase-js').SupabaseClient<any>|null} */
 let supabaseClient = null;
+let docsLoadVersion = 0;
 
 /** @type {AiUiState} */
 const aiState = {
@@ -61,7 +63,7 @@ function activeCampaignEntry() {
 }
 
 function selectedGmCampaignId() {
-    return els.campaignManageSelect && !els.campaignManageSelect.disabled ? els.campaignManageSelect.value : '';
+    return getManagedCampaign(dataManager)?.id || '';
 }
 
 /** @param {string} path @param {RequestInit} [options] @returns {Promise<Record<string, unknown>>} */
@@ -328,26 +330,40 @@ async function editMessage(message) {
     }
 }
 
+function fillCampaignGuidance() {
+    els.campaignAiScenarioSeed.value = aiState.settings?.scenario_seed || '';
+    els.campaignAiGmInstructions.value = aiState.settings?.gm_instructions || '';
+}
+
 /** @param {string} campaignId */
 async function loadCampaignAiDocs(campaignId) {
-    if (!campaignId || aiState.loadingDocs) return;
+    if (!campaignId) return;
+    const version = ++docsLoadVersion;
+    const finish = beginCampaignAction(dataManager);
     aiState.loadingDocs = true;
+    setDocsStatus(`Loading AI guidance for ${getManagedCampaign(dataManager)?.name || 'campaign'}...`);
     renderCampaignAiDocs();
     try {
         const [docsPayload, settingsPayload] = await Promise.all([
             apiFetch(`/api/ai/campaign-documents?campaignId=${encodeURIComponent(campaignId)}`),
             apiFetch(`/api/ai/campaign-settings?campaignId=${encodeURIComponent(campaignId)}`)
         ]);
+        if (version !== docsLoadVersion || selectedGmCampaignId() !== campaignId) return;
         aiState.documents = parseAiDocuments(docsPayload.documents);
         aiState.settings = parseAiSettings(settingsPayload.settings);
+        fillCampaignGuidance();
         setDocsStatus('AI guidance loaded.');
     } catch (error) {
+        if (version !== docsLoadVersion || selectedGmCampaignId() !== campaignId) return;
         aiState.documents = [];
         aiState.settings = null;
         setDocsStatus(error instanceof Error ? error.message : 'Could not load AI guidance.');
     } finally {
-        aiState.loadingDocs = false;
-        renderCampaignAiDocs();
+        finish();
+        if (version === docsLoadVersion) {
+            aiState.loadingDocs = false;
+            renderCampaignAiDocs();
+        }
     }
 }
 
@@ -355,42 +371,58 @@ function maybeLoadCampaignAiDocs() {
     const campaignId = selectedGmCampaignId();
     if (campaignId === aiState.docsCampaignId) return;
     aiState.docsCampaignId = campaignId || null;
+    docsLoadVersion += 1;
+    aiState.loadingDocs = false;
     aiState.documents = [];
     aiState.settings = null;
     aiState.docsStatus = '';
+    els.campaignAiScenarioSeed.value = '';
+    els.campaignAiGmInstructions.value = '';
     if (campaignId && dataManager?.isSignedIn) loadCampaignAiDocs(campaignId);
 }
 
 async function saveCampaignAiSettings() {
-    const campaignId = selectedGmCampaignId();
+    const campaign = getManagedCampaign(dataManager);
+    const campaignId = campaign?.id;
     if (!campaignId || aiState.loadingDocs) return;
+    const scenarioSeed = els.campaignAiScenarioSeed.value;
+    const gmInstructions = els.campaignAiGmInstructions.value;
+    const finish = beginCampaignAction(dataManager);
     aiState.loadingDocs = true;
-    setDocsStatus('Saving AI guidance...');
+    setDocsStatus(`Saving AI guidance to ${campaign.name}...`);
     renderCampaignAiDocs();
     try {
         const payload = await apiFetch('/api/ai/campaign-settings', {
             method: 'POST',
             body: JSON.stringify({
                 campaignId,
-                scenarioSeed: els.campaignAiScenarioSeed.value,
-                gmInstructions: els.campaignAiGmInstructions.value
+                scenarioSeed,
+                gmInstructions
             })
         });
+        if (selectedGmCampaignId() !== campaignId) return;
         aiState.settings = parseAiSettings(payload.settings);
-        setDocsStatus('AI guidance saved.');
+        fillCampaignGuidance();
+        setDocsStatus(`AI guidance saved to ${campaign.name}.`);
     } catch (error) {
+        if (selectedGmCampaignId() !== campaignId) return;
         setDocsStatus(error instanceof Error ? error.message : 'Could not save AI guidance.');
     } finally {
-        aiState.loadingDocs = false;
-        renderCampaignAiDocs();
+        finish();
+        if (selectedGmCampaignId() === campaignId) {
+            aiState.loadingDocs = false;
+            renderCampaignAiDocs();
+        }
     }
 }
 
 async function uploadCampaignAiDoc() {
-    const campaignId = selectedGmCampaignId();
+    const campaign = getManagedCampaign(dataManager);
+    const campaignId = campaign?.id;
     if (!campaignId || aiState.loadingDocs) return;
+    const finish = beginCampaignAction(dataManager);
     aiState.loadingDocs = true;
-    setDocsStatus('Saving campaign note...');
+    setDocsStatus(`Saving campaign note to ${campaign.name}...`);
     renderCampaignAiDocs();
     try {
         const file = els.campaignAiDocFile.files?.[0] || null;
@@ -407,16 +439,21 @@ async function uploadCampaignAiDoc() {
                 source: file ? 'text-file' : 'pasted-text'
             })
         });
+        if (selectedGmCampaignId() !== campaignId) return;
         aiState.documents = [...parseAiDocuments([payload.document]), ...aiState.documents];
         els.campaignAiDocTitle.value = '';
         els.campaignAiDocText.value = '';
         els.campaignAiDocFile.value = '';
-        setDocsStatus('Campaign note saved.');
+        setDocsStatus(`Campaign note saved to ${campaign.name}.`);
     } catch (error) {
+        if (selectedGmCampaignId() !== campaignId) return;
         setDocsStatus(error instanceof Error ? error.message : 'Could not save this campaign note.');
     } finally {
-        aiState.loadingDocs = false;
-        renderCampaignAiDocs();
+        finish();
+        if (selectedGmCampaignId() === campaignId) {
+            aiState.loadingDocs = false;
+            renderCampaignAiDocs();
+        }
     }
 }
 
@@ -542,14 +579,10 @@ export function renderCampaignAiDocs() {
     if (!campaignId) return;
 
     if (els.campaignAiDocsStatus) {
-        els.campaignAiDocsStatus.textContent = aiState.loadingDocs ? 'Working...' : (aiState.docsStatus || 'Add notes the AI can use for this campaign.');
+        els.campaignAiDocsStatus.textContent = aiState.docsStatus || 'Add notes the AI can use for this campaign.';
     }
-    if (els.campaignAiScenarioSeed && document.activeElement !== els.campaignAiScenarioSeed) {
-        els.campaignAiScenarioSeed.value = aiState.settings?.scenario_seed || '';
-    }
-    if (els.campaignAiGmInstructions && document.activeElement !== els.campaignAiGmInstructions) {
-        els.campaignAiGmInstructions.value = aiState.settings?.gm_instructions || '';
-    }
+    els.campaignAiScenarioSeed.disabled = aiState.loadingDocs;
+    els.campaignAiGmInstructions.disabled = aiState.loadingDocs;
     if (els.btnCampaignAiSettingsSave) els.btnCampaignAiSettingsSave.disabled = aiState.loadingDocs;
     if (els.btnCampaignAiDocUpload) els.btnCampaignAiDocUpload.disabled = aiState.loadingDocs;
 

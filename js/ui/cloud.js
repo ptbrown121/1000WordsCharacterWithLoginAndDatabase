@@ -2,6 +2,7 @@
 import { els } from '../els.js';
 import { SupabaseCharacterStore } from '../supabaseStore.js';
 import { showConfirm } from './dialogService.js';
+import { beginCampaignAction, getManagedCampaign, isCampaignActionPending } from './campaignContext.js';
 
 /** @type {import('../data.js').DataManager} */
 let dataManager;
@@ -59,6 +60,7 @@ function statusText() {
 
 function renderCampaignOptions() {
     if (!els.characterCampaignSelect || !els.campaignManageSelect) return;
+    const managedCampaignId = els.campaignManageSelect.value;
 
     const activeEntry = dataManager.activeRosterEntry;
     const canAssign = dataManager.isSignedIn && activeEntry?.source === 'cloud' && activeEntry.isMine;
@@ -90,7 +92,28 @@ function renderCampaignOptions() {
         opt.textContent = `${campaign.name} (${campaign.inviteCode})`;
         els.campaignManageSelect.appendChild(opt);
     });
-    els.campaignManageSelect.disabled = false;
+    if (gmCampaigns.some(campaign => campaign.id === managedCampaignId)) {
+        els.campaignManageSelect.value = managedCampaignId;
+    }
+    els.campaignManageSelect.disabled = isCampaignActionPending();
+}
+
+function renderCampaignContext() {
+    const campaign = getManagedCampaign(dataManager);
+    els.managedCampaignName.textContent = campaign?.name || 'No campaign to manage';
+    els.managedCampaignDescription.textContent = campaign
+        ? 'Members, roll history, files, AI guidance and notes below use this campaign.'
+        : 'You do not currently have a campaign with GM access.';
+    const character = dataManager.activeRosterEntry;
+    els.characterCampaignDescription.textContent = `${character?.name || dataManager.state.name || 'This character'} belongs to ${character?.campaignName || 'no campaign'}. Character membership is separate from the campaign you manage above. NPCs use their own storage selection.`;
+    els.campaignMembersCard.hidden = !campaign;
+    const name = campaign?.name || 'campaign';
+    els.campaignMembersDestination.textContent = `Members and rolls for ${name}.`;
+    els.campaignFilesDestination.textContent = `Files uploaded here are saved to ${name}.`;
+    els.campaignAiDestination.textContent = `AI guidance and notes saved here belong to ${name}.`;
+    els.btnCampaignFileUpload.textContent = `Upload to ${name}`;
+    els.btnCampaignAiSettingsSave.textContent = `Save guidance to ${name}`;
+    els.btnCampaignAiDocUpload.textContent = `Save note to ${name}`;
 }
 
 function renderCampaignMembers() {
@@ -256,6 +279,7 @@ export function renderCloudControls() {
     if (els.btnCreateCampaign) els.btnCreateCampaign.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;
 
     renderCampaignOptions();
+    renderCampaignContext();
     renderCampaignMembers();
     renderRollLogs();
     applyReadOnlyMode();
@@ -268,8 +292,16 @@ async function loadSelectedCampaignMembers() {
         renderCloudControls();
         return;
     }
-    await dataManager.loadCampaignMembers(campaignId);
-    renderCloudControls();
+    const finish = beginCampaignAction(dataManager);
+    try {
+        await dataManager.loadCampaignMembers(campaignId);
+        renderCloudControls();
+    } catch (error) {
+        dataManager.setCloudStatus('error', error instanceof Error ? error.message : 'Could not load campaign members.');
+        renderCloudControls();
+    } finally {
+        finish();
+    }
 }
 
 /** @param {import('@supabase/supabase-js').Session|null} session */
@@ -430,7 +462,14 @@ export async function init(deps) {
         renderAll();
     });
 
-    els.campaignManageSelect?.addEventListener('change', loadSelectedCampaignMembers);
+    els.campaignManageSelect?.addEventListener('change', () => {
+        dataManager.campaignMembers = [];
+        dataManager.rollLogs = [];
+        renderCampaignContext();
+        renderCampaignMembers();
+        renderRollLogs();
+        loadSelectedCampaignMembers();
+    });
 
     window.addEventListener('cloud-status-change', renderCloudControls);
     window.addEventListener('readonly-character-change', renderCloudControls);

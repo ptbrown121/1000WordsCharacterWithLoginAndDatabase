@@ -1,10 +1,11 @@
 // @ts-check
 // Campaign files panel (GM-side): PowerPoint battle maps and slide decks
 // stored in the private campaign-files bucket so a GM can fetch them from
-// any computer. Scoped to the campaign picked in the "Manage members"
+// any computer. Scoped to the campaign picked in the "Campaign to manage"
 // selector, same as the member list.
 import { els } from '../els.js';
 import { showConfirm } from './dialogService.js';
+import { beginCampaignAction, getManagedCampaign } from './campaignContext.js';
 
 const POWERPOINT_EXTENSIONS = ['ppt', 'pptx', 'ppsx'];
 
@@ -20,8 +21,7 @@ const state = {
 };
 
 function selectedGmCampaignId() {
-    // campaign-manage-select only ever lists campaigns the user GMs.
-    return els.campaignManageSelect?.value || null;
+    return getManagedCampaign(dataManager)?.id || null;
 }
 
 /** @param {string} text */
@@ -104,18 +104,25 @@ export function renderCampaignFiles() {
 
 /** @param {string} campaignId */
 async function loadFiles(campaignId) {
+    const finish = beginCampaignAction(dataManager);
     state.busy = true;
     state.files = [];
     setStatus('Loading files...');
     renderCampaignFiles();
     try {
-        state.files = await dataManager.cloudStore.listCampaignFiles(campaignId);
+        const files = await dataManager.cloudStore.listCampaignFiles(campaignId);
+        if (selectedGmCampaignId() !== campaignId) return;
+        state.files = files;
         setStatus(state.files.length === 0 ? '' : `${state.files.length} file${state.files.length === 1 ? '' : 's'}`);
     } catch (error) {
+        if (selectedGmCampaignId() !== campaignId) return;
         setStatus(error instanceof Error ? error.message : 'Could not load campaign files.');
     } finally {
-        state.busy = false;
-        renderCampaignFiles();
+        finish();
+        if (state.campaignId === campaignId) {
+            state.busy = false;
+            renderCampaignFiles();
+        }
     }
 }
 
@@ -138,7 +145,8 @@ function maybeLoadFiles() {
 }
 
 async function uploadFile() {
-    const campaignId = selectedGmCampaignId();
+    const campaign = getManagedCampaign(dataManager);
+    const campaignId = campaign?.id;
     const file = els.campaignFileInput?.files?.[0];
     if (!campaignId || state.busy) return;
     if (!file) {
@@ -155,17 +163,20 @@ async function uploadFile() {
     }
 
     state.busy = true;
-    setStatus(`Uploading ${file.name}...`);
+    const finish = beginCampaignAction(dataManager);
+    setStatus(`Uploading ${file.name} to ${campaign.name}...`);
     renderCampaignFiles();
     try {
         const saved = await dataManager.cloudStore.uploadCampaignFile(campaignId, file, els.campaignFileTitle?.value);
+        if (selectedGmCampaignId() !== campaignId) return;
         state.files = [saved, ...state.files];
         if (els.campaignFileInput) els.campaignFileInput.value = '';
         if (els.campaignFileTitle) els.campaignFileTitle.value = '';
-        setStatus(`${saved.title} uploaded.`);
+        setStatus(`${saved.title} uploaded to ${campaign.name}.`);
     } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Upload failed.');
+        if (selectedGmCampaignId() === campaignId) setStatus(error instanceof Error ? error.message : `Upload to ${campaign.name} failed.`);
     } finally {
+        finish();
         state.busy = false;
         renderCampaignFiles();
     }
@@ -189,7 +200,11 @@ async function downloadFile(file) {
 /** @param {import('../types.js').CampaignFile} file */
 async function deleteFile(file) {
     if (state.busy) return;
-    if (!await showConfirm(`Delete ${file.title} from the campaign?`, { title: 'Delete campaign file?', confirmLabel: 'Delete file', danger: true })) return;
+    const campaign = getManagedCampaign(dataManager);
+    if (!campaign) return;
+    if (!await showConfirm(`Delete ${file.title} from ${campaign.name}?`, { title: 'Delete campaign file?', confirmLabel: 'Delete file', danger: true })) return;
+    if (selectedGmCampaignId() !== campaign.id) return;
+    const finish = beginCampaignAction(dataManager);
     state.busy = true;
     setStatus(`Deleting ${file.title}...`);
     renderCampaignFiles();
@@ -200,6 +215,7 @@ async function deleteFile(file) {
     } catch (error) {
         setStatus(error instanceof Error ? error.message : `Could not delete ${file.title}.`);
     } finally {
+        finish();
         state.busy = false;
         renderCampaignFiles();
     }

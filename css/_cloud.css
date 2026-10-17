@@ -338,3 +338,96 @@ body.readonly-character header {
 #campaign-section input[type="file"]::file-selector-button:hover {
     background: rgba(255,255,255,0.1);
 }
+
+.campaign-context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(139, 92, 246, 0.12);
+}
+
+.campaign-context-heading {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+.campaign-context-label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 0.3rem;
+}
+
+#managed-campaign-name {
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    margin: 0 0 0.4rem;
+    overflow-wrap: anywhere;
+}
+
+#managed-campaign-description,
+.campaign-destination {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.campaign-panel label.campaign-manager-picker {
+    align-items: stretch;
+    flex: 0 1 20rem;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 0.85rem;
+}
+
+.campaign-character-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.campaign-membership-card > h3,
+.campaign-membership-card > .campaign-destination {
+    width: 100%;
+    margin: 0;
+}
+
+.campaign-files-header,
+.campaign-ai-docs-header {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+}
+
+#campaign-section input,
+#campaign-section select,
+#campaign-section button {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#campaign-section button {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+    .campaign-panel label.campaign-manager-picker {
+        flex-basis: 100%;
+    }
+
+    .campaign-files-controls > *,
+    .campaign-ai-upload-grid > *,
+    #btn-campaign-ai-settings-save,
+    #btn-campaign-ai-doc-upload {
+        width: 100%;
+    }
+
+    #campaign-section button {
+        min-height: 44px;
+    }
+}
