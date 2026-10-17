@@ -33,6 +33,67 @@
     font-size: 0.9rem;
 }
 
+/* Character status stays visible even when the sign-in form is collapsed. */
+.character-save-status {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.character-status-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    border-left: 4px solid #efbd50;
+    background: rgba(255, 193, 7, 0.08);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    min-width: 0;
+}
+
+.character-status-item[data-state="saved"] {
+    border-color: rgba(88, 196, 140, 0.35);
+    border-left-color: #58c48c;
+    background: rgba(88, 196, 140, 0.06);
+}
+
+.character-status-item[data-state="error"] {
+    border-color: rgba(255, 110, 110, 0.5);
+    border-left-color: #ff6e6e;
+    background: rgba(255, 110, 110, 0.1);
+}
+
+.character-status-copy {
+    flex: 1 1 20rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.character-status-copy strong {
+    font-size: 0.9rem;
+}
+
+.character-status-copy p {
+    margin: 0.2rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.character-status-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.character-status-item .btn {
+    min-height: 44px;
+    max-width: 100%;
+    white-space: normal;
+    font-size: 0.8rem;
+}
+
 .auth-form,
 .campaign-panel label {
     display: flex;

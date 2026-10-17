@@ -33,6 +33,25 @@
             <button id="btn-auth-sign-out" class="btn btn-outline" type="button" hidden>Sign out</button>
             <button type="button" id="btn-cloud-toggle" class="btn btn-outline" aria-expanded="true" aria-controls="cloud-panel-body">Hide</button>
         </div>
+        <div class="character-save-status" aria-label="Current character save and campaign status">
+            <div id="character-backup-status" class="character-status-item" data-state="warning">
+                <div class="character-status-copy" role="status">
+                    <strong id="character-backup-title">Only saved in this browser — no cloud backup</strong>
+                    <p id="character-backup-detail">Export a backup to protect this character if browser data is lost.</p>
+                </div>
+                <div class="character-status-actions">
+                    <button id="btn-character-backup" class="btn btn-outline" type="button" hidden>Back up to account</button>
+                    <button id="btn-character-backup-export" class="btn btn-outline" type="button">Export backup</button>
+                </div>
+            </div>
+            <div id="character-campaign-status" class="character-status-item" data-state="warning">
+                <div class="character-status-copy" role="status">
+                    <strong id="character-campaign-title">No campaign assigned</strong>
+                    <p id="character-campaign-detail">Your GM cannot see this character or its rolls until it is uploaded and assigned to a campaign.</p>
+                </div>
+                <button id="btn-character-campaign" class="btn btn-outline" type="button" hidden>Assign campaign</button>
+            </div>
+        </div>
         <div id="cloud-panel-body" class="cloud-panel-body">
             <form id="auth-form" class="auth-form">
                 <button id="btn-auth-google" class="btn btn-outline" type="button">Sign in with Google</button>

@@ -58,6 +58,66 @@ function statusText() {
     return dataManager.cloudMessage || 'Cloud save is ready.';
 }
 
+function renderCharacterSaveStatus() {
+    const entry = dataManager.activeRosterEntry;
+    const isCloud = entry?.source === 'cloud';
+    const pending = isCloud && (dataManager.cloudStatus === 'saving' || dataManager.hasCloudDraft?.());
+    const error = isCloud && dataManager.cloudStatus === 'error';
+    els.characterBackupStatus.dataset.state = error ? 'error' : (isCloud && !pending ? 'saved' : 'warning');
+    els.btnCharacterBackup.hidden = isCloud || !supabaseClient;
+    els.btnCharacterBackup.textContent = dataManager.isSignedIn ? 'Upload local characters' : 'Sign in to back up';
+    els.btnCharacterBackup.disabled = dataManager.uploadingLocalCharacters;
+    els.btnCharacterBackupExport.hidden = isCloud && !pending && !error;
+
+    if (!isCloud) {
+        els.characterBackupTitle.textContent = 'Only saved in this browser — no cloud backup';
+        els.characterBackupDetail.textContent = dataManager.isSignedIn
+            ? 'Signing in does not upload local characters. Upload them to your account to protect against lost browser data.'
+            : (supabaseClient
+                ? 'Sign in, then upload this character. Clearing browser data or losing this device can erase the only copy.'
+                : 'Export a backup to protect this character if browser data or this device is lost.');
+    } else if (error) {
+        els.characterBackupTitle.textContent = 'Cloud save needs attention';
+        els.characterBackupDetail.textContent = `${dataManager.cloudMessage || 'Cloud save could not be confirmed.'} Export a backup to protect your latest changes.`;
+    } else if (pending) {
+        els.characterBackupTitle.textContent = 'Latest changes are waiting for cloud save';
+        els.characterBackupDetail.textContent = 'Keep this page open until the save completes. You can export a backup now.';
+    } else {
+        const isOwner = entry?.isMine !== false && !entry?.readOnly;
+        els.characterBackupTitle.textContent = isOwner ? 'Saved to your account' : 'Saved to player’s account';
+        els.characterBackupDetail.textContent = isOwner
+            ? 'This character has a cloud copy available across devices.'
+            : 'Viewing a cloud character. Only its owner can edit this sheet.';
+    }
+
+    const campaignId = isCloud ? entry.campaignId : null;
+    const campaignName = entry?.campaignName || dataManager.campaigns.find(campaign => campaign.id === campaignId)?.name;
+    els.characterCampaignStatus.dataset.state = campaignId ? 'saved' : 'warning';
+    els.characterCampaignTitle.textContent = campaignId ? `Campaign: ${campaignName || 'Assigned'}` : 'No campaign assigned';
+    els.characterCampaignDetail.textContent = campaignId
+        ? 'This character and its campaign rolls are visible to the campaign’s GM.'
+        : (isCloud
+            ? 'Your GM cannot see this character or its rolls. Joining a campaign does not assign your character to it.'
+            : 'Upload this character, then assign it to a campaign so your GM can see it and its rolls.');
+    els.btnCharacterCampaign.hidden = !isCloud || !dataManager.isSignedIn || !entry?.isMine || Boolean(campaignId);
+    els.btnCharacterCampaign.textContent = dataManager.campaigns.length ? 'Assign campaign' : 'Join a campaign';
+}
+
+async function uploadLocalCharacters() {
+    setBusy(els.btnUploadLocal, true, 'Upload local characters');
+    setBusy(els.btnCharacterBackup, true, 'Upload local characters');
+    try {
+        await dataManager.uploadLocalCharacters();
+        renderAll();
+    } catch (err) {
+        dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+        setBusy(els.btnUploadLocal, false, 'Upload local characters to account');
+        setBusy(els.btnCharacterBackup, false, 'Upload local characters');
+        renderCloudControls();
+    }
+}
+
 function renderCampaignOptions() {
     if (!els.characterCampaignSelect || !els.campaignManageSelect) return;
     const managedCampaignId = els.campaignManageSelect.value;
@@ -278,6 +338,7 @@ export function renderCloudControls() {
     if (els.campaignNameInput) els.campaignNameInput.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;
     if (els.btnCreateCampaign) els.btnCreateCampaign.hidden = !dataManager.isSignedIn || !dataManager.canCreateCampaign;
 
+    renderCharacterSaveStatus();
     renderCampaignOptions();
     renderCampaignContext();
     renderCampaignMembers();
@@ -333,6 +394,22 @@ export async function init(deps) {
     renderAll = deps.renderAll;
 
     initPanelToggle();
+
+    els.btnCharacterBackupExport.addEventListener('click', () => dataManager.exportState());
+    els.btnCharacterBackup.addEventListener('click', () => {
+        if (dataManager.isSignedIn) {
+            void uploadLocalCharacters();
+        } else {
+            if (els.cloudPanelBody.hidden) els.btnCloudToggle.click();
+            els.btnAuthGoogle.focus();
+        }
+    });
+    els.btnCharacterCampaign.addEventListener('click', () => {
+        els.tabCampaign.click();
+        const target = dataManager.campaigns.length ? els.characterCampaignSelect : els.campaignCodeInput;
+        target.focus();
+        target.scrollIntoView({ block: 'center' });
+    });
 
     if (!client) {
         dataManager.setCloudStatus('local-only', 'Cloud save is not configured.');
@@ -411,18 +488,7 @@ export async function init(deps) {
         await client.auth.signOut();
     });
 
-    els.btnUploadLocal?.addEventListener('click', async () => {
-        setBusy(els.btnUploadLocal, true, 'Upload local characters');
-        try {
-            await dataManager.uploadLocalCharacters();
-            renderAll();
-        } catch (err) {
-            dataManager.setCloudStatus('error', err instanceof Error ? err.message : 'Upload failed.');
-        } finally {
-            setBusy(els.btnUploadLocal, false, 'Upload local characters');
-            renderCloudControls();
-        }
-    });
+    els.btnUploadLocal?.addEventListener('click', uploadLocalCharacters);
 
     els.btnCreateCampaign?.addEventListener('click', async () => {
         const name = els.campaignNameInput.value.trim();
