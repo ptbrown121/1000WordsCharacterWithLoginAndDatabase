@@ -1,84 +1,110 @@
 import { ApiError, handleApiError, readJson, requireMethod, sendJson } from '../_lib/http.js';
-import { fetchCampaignContext, fetchThreadBundle, insertAgentLog } from '../_lib/aiData.js';
+import { fetchCampaignContext, fetchThreadBundle, hasCommittedTurnRequest, insertAgentLog } from '../_lib/aiData.js';
 import { cleanText, truncateText } from '../_lib/aiWorkflow.js';
 import { runSceneAgent } from '../_lib/openaiWorkflow.js';
 import { assertNoSupabaseError, loadVisibleCharacter, requireUser } from '../_lib/supabase.js';
 import { enforceAiRateLimit } from '../_lib/aiRateLimit.js';
+import { agentUsageFields, requestId as normalizeRequestId } from '../_lib/idempotency.js';
 
-export default async function handler(req, res) {
-    try {
-        requireMethod(req, ['POST']);
-        const { client, user } = await requireUser(req);
-        const body = await readJson(req);
-        const messageId = body.messageId;
-        const content = truncateText(cleanText(body.content || ''), 4000);
-        if (!messageId) throw new ApiError(400, 'Message id is required.');
-        if (!content) throw new ApiError(400, 'Edited message text is required.');
+export function sliceMessagesBeforeEdit(messages = [], targetMessage) {
+    if (!Array.isArray(messages) || !targetMessage) return [];
+    const targetIndex = messages.findIndex(item => item.id === targetMessage.id);
+    if (targetIndex >= 0) {
+        return messages.slice(0, targetIndex);
+    }
+    if (targetMessage.created_at) {
+        return messages.filter(item => item.created_at < targetMessage.created_at);
+    }
+    return messages;
+}
 
-        const message = assertNoSupabaseError(await client
-            .from('ai_creation_messages')
-            .select('id, thread_id, role')
-            .eq('id', messageId)
-            .single(), 'Could not load player message.');
+export function createEditMessageHandler(deps = {}) {
+    const {
+        requireUserFn = requireUser,
+        enforceAiRateLimitFn = enforceAiRateLimit,
+        fetchThreadBundleFn = fetchThreadBundle,
+        hasCommittedTurnRequestFn = hasCommittedTurnRequest,
+        loadVisibleCharacterFn = loadVisibleCharacter,
+        fetchCampaignContextFn = fetchCampaignContext,
+        runSceneAgentFn = runSceneAgent,
+        insertAgentLogFn = insertAgentLog
+    } = deps;
 
-        if (message.role !== 'user') {
-            throw new ApiError(400, 'Only player responses can be edited.');
-        }
+    return async function handler(req, res) {
+        try {
+            requireMethod(req, ['POST']);
+            const { client, user } = await requireUserFn(req);
+            const body = await readJson(req);
+            const messageId = body.messageId;
+            const requestId = normalizeRequestId(body.requestId);
+            const content = truncateText(cleanText(body.content || ''), 4000);
+            if (!messageId) throw new ApiError(400, 'Message id is required.');
+            if (!content) throw new ApiError(400, 'Edited message text is required.');
 
-        const bundle = await fetchThreadBundle(client, message.thread_id);
-        if (bundle.thread.owner_id !== user.id) {
-            throw new ApiError(403, 'Only the character owner can edit this response.');
-        }
-        if (['completed', 'cancelled'].includes(bundle.thread.status)) {
-            throw new ApiError(400, 'This scene is already closed. Start a new scene for new changes.');
-        }
+            const message = assertNoSupabaseError(await client
+                .from('ai_creation_messages')
+                .select('id, thread_id, role, created_at')
+                .eq('id', messageId)
+                .single(), 'Could not load player message.');
 
-        await enforceAiRateLimit(user.id);
+            if (message.role !== 'user') {
+                throw new ApiError(400, 'Only player responses can be edited.');
+            }
 
-        // One transactional RPC applies the edit, deletes later replies,
-        // supersedes pending summaries, and reopens the thread; a failure
-        // rolls the whole rewind back instead of leaving it half-applied.
-        assertNoSupabaseError(await client
-            .rpc('rewind_ai_thread_from_message', {
-                target_message_id: messageId,
-                new_content: content
-            }), 'Could not rewind the scene from your edited response.');
+            const bundle = await fetchThreadBundleFn(client, message.thread_id);
+            if (bundle.thread.owner_id !== user.id) {
+                throw new ApiError(403, 'Only the character owner can edit this response.');
+            }
+            if (await hasCommittedTurnRequestFn(client, message.thread_id, requestId)) {
+                sendJson(res, 200, { bundle });
+                return;
+            }
+            if (['completed', 'cancelled'].includes(bundle.thread.status)) {
+                throw new ApiError(400, 'This scene is already closed. Start a new scene for new changes.');
+            }
 
-        const latestBundle = await fetchThreadBundle(client, message.thread_id);
-        const character = await loadVisibleCharacter(client, latestBundle.thread.character_id);
-        const context = await fetchCampaignContext(client, latestBundle.thread.campaign_id);
-        const agent = await runSceneAgent({
-            character,
-            thread: latestBundle.thread,
-            messages: latestBundle.messages,
-            playerMessage: content,
-            documents: context.documents,
-            settings: context.settings
-        });
+            await enforceAiRateLimitFn(user.id);
 
-        if (agent.failed) {
-            await insertAgentLog(client, {
-                threadId: message.thread_id,
-                campaignId: latestBundle.thread.campaign_id,
-                characterId: latestBundle.thread.character_id,
-                agentName: 'scene_chat_edit',
-                model: agent.model,
-                status: 'failed',
-                errorMessage: agent.errorMessage,
-                usage: agent.usage,
-                metadata: { editedMessageId: messageId }
+            const character = await loadVisibleCharacterFn(client, bundle.thread.character_id);
+            const context = await fetchCampaignContextFn(client, bundle.thread.campaign_id);
+            const priorMessages = sliceMessagesBeforeEdit(bundle.messages, message);
+
+            // Run the AI agent against the rewound transcript slice in memory
+            // before mutating the database. If the model call fails, existing
+            // replies and pending summaries remain intact.
+            const agent = await runSceneAgentFn({
+                character,
+                thread: bundle.thread,
+                messages: priorMessages,
+                playerMessage: content,
+                documents: context.documents,
+                settings: context.settings
             });
-            // The rewind is already committed; only the regenerated reply failed.
-            throw new ApiError(502, 'Your edit was saved and later replies were rewound, but the AI reply failed. Send a message to continue the scene.');
-        }
 
-        assertNoSupabaseError(await client
-            .from('ai_creation_messages')
-            .insert({
-                thread_id: message.thread_id,
-                role: 'assistant',
-                content: agent.result.reply,
-                metadata: {
+            if (agent.failed) {
+                await insertAgentLogFn(client, {
+                    threadId: message.thread_id,
+                    campaignId: bundle.thread.campaign_id,
+                    characterId: bundle.thread.character_id,
+                    agentName: 'scene_chat_edit',
+                    model: agent.model,
+                    status: 'failed',
+                    errorMessage: agent.errorMessage,
+                    usage: agent.usage,
+                    metadata: { editedMessageId: messageId }
+                });
+                throw new ApiError(502, 'The AI storyteller is unavailable right now. Your edit was not saved and the scene was not rewound; please try again.');
+            }
+
+            const nextStatus = agent.result.scene_status === 'ready_for_summary' ? 'ready_for_summary' : 'active';
+            const usage = agentUsageFields(agent);
+            assertNoSupabaseError(await client.rpc('rewind_and_commit_ai_scene_turn', {
+                target_message_id: messageId,
+                operation_id: requestId,
+                expected_thread_updated_at: bundle.thread.updated_at,
+                player_content: content,
+                assistant_content: agent.result.reply,
+                assistant_metadata: {
                     sceneStatus: agent.result.scene_status,
                     facts: agent.result.facts,
                     tileSuggestions: agent.result.tile_suggestions,
@@ -86,32 +112,26 @@ export default async function handler(req, res) {
                     model: agent.model,
                     usedFallback: agent.usedFallback,
                     source: 'edited-message-reply'
+                },
+                next_thread_status: nextStatus,
+                next_scene_title: agent.result.scene_title || bundle.thread.current_scene_title,
+                next_orchestrator_notes: agent.result.handoff_note || bundle.thread.orchestrator_notes,
+                agent_model: agent.model,
+                agent_input_tokens: usage.inputTokens,
+                agent_output_tokens: usage.outputTokens,
+                agent_metadata: {
+                    usedFallback: agent.usedFallback,
+                    sceneStatus: agent.result.scene_status,
+                    editedMessageId: messageId
                 }
-            }), 'Could not save revised assistant response.');
+            }), 'Could not atomically rewind and save the revised AI scene turn.');
 
-        const nextStatus = agent.result.scene_status === 'ready_for_summary' ? 'ready_for_summary' : 'active';
-        assertNoSupabaseError(await client
-            .from('ai_creation_threads')
-            .update({
-                status: nextStatus,
-                current_scene_title: agent.result.scene_title || latestBundle.thread.current_scene_title,
-                orchestrator_notes: agent.result.handoff_note || latestBundle.thread.orchestrator_notes,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', message.thread_id), 'Could not update AI thread after revision.');
-
-        await insertAgentLog(client, {
-            threadId: message.thread_id,
-            campaignId: latestBundle.thread.campaign_id,
-            characterId: latestBundle.thread.character_id,
-            agentName: 'scene_chat_edit',
-            model: agent.model,
-            usage: agent.usage,
-            metadata: { usedFallback: agent.usedFallback, editedMessageId: messageId }
-        });
-
-        sendJson(res, 200, { bundle: await fetchThreadBundle(client, message.thread_id) });
-    } catch (error) {
-        handleApiError(res, error);
-    }
+            sendJson(res, 200, { bundle: await fetchThreadBundleFn(client, message.thread_id) });
+        } catch (error) {
+            handleApiError(res, error);
+        }
+    };
 }
+
+export default createEditMessageHandler();
+

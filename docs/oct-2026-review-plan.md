@@ -74,14 +74,14 @@ Status: in progress (executing one step at a time). Follows the phased-step conv
 
 ## Step 5 — Atomic Rewind & Turn Commit for `api/ai/edit-message.js`
 
-**Status: planned.**
+**Status: done 2026-10-16.**
 
 **Why:** `api/ai/edit-message.js` called `rewind_ai_thread_from_message` before calling OpenAI (`runSceneAgent`), then performed three separate writes. If OpenAI failed, later messages and summaries were already deleted/reverted.
 
 **Code changes:**
-- `supabase/migrations/` & `supabase/schema.sql`: add an atomic RPC (`rewind_and_append_ai_scene_turn`) or run the rewind + turn append inside a single transaction after `runSceneAgent` succeeds, guarded by `expected_updated_at`.
-- `api/ai/edit-message.js`: compute the rewound history slice in memory for `runSceneAgent`, then commit atomically once the AI response is ready.
-- `test/ai-persistence.test.js`: test that an OpenAI error during `edit-message` leaves existing messages and summaries intact.
+- `supabase/migrations/20261016010000_atomic_rewind_and_commit_ai_turn.sql` & `supabase/schema.sql`: added `public.rewind_and_commit_ai_scene_turn`, which locks the thread (`for update`), checks `operation_id` idempotency and `expected_thread_updated_at`, rewinds later messages/summaries, inserts the revised assistant reply, updates the thread, and records the agent log in one transaction.
+- `api/ai/edit-message.js` & `js/ui/aiCreation.js`: slice the prior transcript in memory for `runSceneAgent`, pass retry-safe `requestId`, and commit via `rewind_and_commit_ai_scene_turn` only after `runSceneAgent` succeeds.
+- `test/ai-persistence.test.js`: tests for `rewind_and_commit_ai_scene_turn` schema guarantees, `sliceMessagesBeforeEdit`, and `createEditMessageHandler` failure/success paths.
 
 ---
 

@@ -11,7 +11,7 @@ import { renderJournal } from './journal.js';
  * @typedef {import('../ai-ui-payloads.js').AiBundle} AiBundle
  * @typedef {import('../ai-ui-payloads.js').AiSettings} AiSettings
  * @typedef {import('../ai-ui-payloads.js').AiDocument} AiDocument
- * @typedef {{threadId: string, requestId: string, message?: string}} PendingAiRequest
+ * @typedef {{threadId: string, requestId: string, message?: string, messageId?: string}} PendingAiRequest
  * @typedef {Object} AiUiState
  * @property {string|null} activeCharacterId
  * @property {AiBundle|null} activeBundle
@@ -24,6 +24,7 @@ import { renderJournal } from './journal.js';
  * @property {boolean} loadingDocs
  * @property {string} docsStatus
  * @property {PendingAiRequest|null} pendingMessageRequest
+ * @property {PendingAiRequest|null} pendingEditRequest
  * @property {PendingAiRequest|null} pendingFinalizeRequest
  */
 
@@ -45,6 +46,7 @@ const aiState = {
     loadingDocs: false,
     docsStatus: '',
     pendingMessageRequest: null,
+    pendingEditRequest: null,
     pendingFinalizeRequest: null
 };
 
@@ -150,6 +152,7 @@ function maybeLoadActiveThread() {
     aiState.activeBundle = null;
     aiState.threadStatus = '';
     aiState.pendingMessageRequest = null;
+    aiState.pendingEditRequest = null;
     aiState.pendingFinalizeRequest = null;
     if (characterId) loadActiveThread(characterId);
 }
@@ -293,7 +296,8 @@ async function acceptSummary(summaryId) {
 
 /** @param {AiMessage} message */
 async function editMessage(message) {
-    if (aiState.busyThread || !message?.id || isClosedThread()) return;
+    const activeBundle = aiState.activeBundle;
+    if (aiState.busyThread || !message?.id || !activeBundle || isClosedThread(activeBundle.thread)) return;
     const edited = await showPrompt('Edit your response:', { title: 'Edit response', defaultValue: message.content || '' });
     if (edited === null) return;
     const content = edited.trim();
@@ -302,24 +306,21 @@ async function editMessage(message) {
     aiState.busyThread = true;
     setThreadStatus('Rewinding the scene from your edited response...');
     renderAiCreation();
+    const threadId = activeBundle.thread.id;
+    const pending = aiState.pendingEditRequest;
+    const requestId = pending?.threadId === threadId && pending.messageId === message.id && pending.message === content
+        ? pending.requestId
+        : operationId();
+    aiState.pendingEditRequest = { threadId, messageId: message.id, message: content, requestId };
     try {
         const payload = await apiFetch('/api/ai/edit-message', {
             method: 'POST',
-            body: JSON.stringify({ messageId: message.id, content })
+            body: JSON.stringify({ messageId: message.id, content, requestId })
         });
+        aiState.pendingEditRequest = null;
         applyBundle(parseAiBundle(payload.bundle));
         setThreadStatus('Response edited and scene chat regenerated.');
     } catch (error) {
-        // The rewind may have committed even though the AI reply failed, so
-        // refresh the thread instead of leaving deleted replies on screen.
-        try {
-            if (aiState.activeCharacterId) {
-                const refreshed = await apiFetch(`/api/ai/threads?characterId=${encodeURIComponent(aiState.activeCharacterId)}`);
-                applyBundle(parseAiBundle(refreshed.bundle));
-            }
-        } catch {
-            // Keep the existing view if the refresh also fails.
-        }
         setThreadStatus(error instanceof Error ? error.message : 'Could not edit this response.');
     } finally {
         aiState.busyThread = false;
