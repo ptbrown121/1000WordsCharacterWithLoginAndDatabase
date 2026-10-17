@@ -114,6 +114,11 @@ export const els = {
     optionalCallOptions: /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.optional-call-option')),
     autoFilterCall: requiredElement('auto-filter-call', HTMLInputElement),
     poolDiceDisplay: requiredElement('pool-dice-display', HTMLElement),
+    poolCompactSummary: requiredElement('pool-compact-summary', HTMLElement),
+    poolCompactSelection: requiredElement('pool-compact-selection', HTMLElement),
+    poolBuilder: requiredElement('pool-builder', HTMLElement),
+    rollOptions: requiredElement('roll-options', HTMLDetailsElement),
+    rollOptionsSummary: requiredElement('roll-options-summary', HTMLElement),
     poolAddsDisplay: requiredElement('pool-adds-display', HTMLElement),
     chainPanel: requiredElement('chain-panel', HTMLElement),
     chainOptions: requiredElement('chain-options', HTMLElement),
@@ -214,6 +219,7 @@ export const els = {
     resultDetails: requiredElement('result-details', HTMLElement),
 
     btnExport: requiredElement('btn-export', HTMLButtonElement),
+    btnImport: requiredElement('btn-import', HTMLButtonElement),
     fileImport: requiredElement('file-import', HTMLInputElement),
 
     // Vital Modal

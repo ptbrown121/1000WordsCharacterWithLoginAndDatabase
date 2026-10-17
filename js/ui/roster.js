@@ -61,6 +61,7 @@ export function init(deps) {
 
     // Export/Import
     els.btnExport.addEventListener('click', () => dataManager.exportState());
+    els.btnImport.addEventListener('click', () => els.fileImport.click());
     els.fileImport.addEventListener('change', (e) => {
         const fileInput = /** @type {HTMLInputElement} */ (e.currentTarget);
         const file = fileInput.files?.[0];

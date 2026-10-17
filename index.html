@@ -30,6 +30,7 @@
                 <strong id="cloud-mode-label">Browser saves</strong>
                 <span id="cloud-status-text">Set up Supabase to enable login and campaign sync.</span>
             </div>
+            <button id="btn-auth-sign-out" class="btn btn-outline" type="button" hidden>Sign out</button>
             <button type="button" id="btn-cloud-toggle" class="btn btn-outline" aria-expanded="true" aria-controls="cloud-panel-body">Hide</button>
         </div>
         <div id="cloud-panel-body" class="cloud-panel-body">
@@ -37,7 +38,6 @@
                 <button id="btn-auth-google" class="btn btn-outline" type="button">Sign in with Google</button>
                 <input id="auth-email" type="email" autocomplete="email" placeholder="player@example.com" aria-label="Email address">
                 <button id="btn-auth-send-link" class="btn btn-outline" type="submit">Send magic link</button>
-                <button id="btn-auth-sign-out" class="btn btn-outline" type="button" hidden>Sign out</button>
             </form>
             <form id="auth-code-form" class="auth-form" hidden>
                 <input id="auth-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from email" aria-label="Sign-in code from the email">
@@ -51,29 +51,30 @@
 
     <header class="glass-panel">
         <div class="header-top">
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; width: 100%; justify-content: space-between;">
-                <div style="display: flex; flex-direction: column; gap: 0.4rem; flex: 1 1 200px;">
-                    <input type="text" id="char-name" value="Hero Name" style="font-size: 1.5rem; background: transparent; border: none; color: white; width: 100%; min-width: 120px;">
-                    <div id="char-roster-list" class="char-roster-list" role="group" aria-label="Switch character"></div>
-                </div>
-                <div class="header-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                    <button id="btn-rest" class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size: 0.9rem;">🏕️ Rest</button>
-                    <button id="btn-new-char" class="btn btn-outline" title="Start a Blank Character">📄 New</button>
-                    <button id="btn-del-char" class="btn btn-outline" title="Delete Current Character" style="color: #ff4444; border-color: rgba(255,68,68,0.3);">🗑️ Del</button>
-                    <button id="btn-export" class="btn btn-outline" title="Export Character">⬇️ Export</button>
-                    <label for="file-import" class="btn btn-outline" title="Import Character">⬆️ Import</label>
-                    <!-- Broad accept list: older Android/Samsung pickers ignore the ".json"
-     extension syntax and filter by MIME type, and Android downloads often
-     store JSON as text/plain or application/octet-stream. Real validation
-     happens in DataManager.importState, not here. -->
-                    <input type="file" id="file-import" accept=".json,.txt,application/json,text/plain,application/octet-stream" style="display: none;">
-                    <button id="btn-info" class="btn btn-outline" title="How to Use">ℹ️ Info</button>
-                </div>
+            <div class="character-identity">
+                <input type="text" id="char-name" value="Hero Name" aria-label="Character name">
+                <div id="char-roster-list" class="char-roster-list" role="group" aria-label="Switch character"></div>
+            </div>
+            <div class="header-actions">
+                <button id="btn-rest" class="btn btn-outline">🏕️ Rest</button>
+                <button id="btn-info" class="btn btn-outline" title="How to Use">ℹ️ Info</button>
+                <details class="character-tools">
+                    <summary class="btn btn-outline">Character ▾</summary>
+                    <div class="character-tools-menu">
+                        <button id="btn-new-char" class="btn btn-outline" title="Start a Blank Character">📄 New character</button>
+                        <button id="btn-export" class="btn btn-outline" title="Export Character">⬇️ Export</button>
+                        <button id="btn-import" class="btn btn-outline" type="button" title="Import Character">⬆️ Import</button>
+                        <!-- Android pickers need MIME types as well as extensions. -->
+                        <input type="file" id="file-import" accept=".json,.txt,application/json,text/plain,application/octet-stream" hidden>
+                        <button id="btn-del-char" class="btn btn-danger" title="Delete Current Character">🗑️ Delete character</button>
+                    </div>
+                </details>
             </div>
         </div>
         <div class="resource-pools">
             <div class="pool" style="--pool-color: var(--color-hp)">
-                <label>Health (HP)</label>
+                <label for="val-hp">Health (HP)</label>
+                <button class="btn-edit-vital" data-vital="hp" title="Edit HP Bonuses">⚙️</button>
                 <div class="pool-inner">
                     <div class="vital-current-control" aria-label="Current Health">
                         <button type="button" class="btn-vital-step" data-vital="hp" data-step="-1" aria-label="Decrease Health">-</button>
@@ -82,12 +83,12 @@
                     </div>
                     <span>/</span>
                     <span id="val-hp-max" class="pool-max">0</span>
-                    <button class="btn-edit-vital" data-vital="hp" title="Edit HP Bonuses">⚙️</button>
                 </div>
                 <span id="hp-temp-badge" class="temp-badge" style="display: none;"></span>
             </div>
             <div class="pool" style="--pool-color: var(--color-en)">
-                <label>Energy (EN)</label>
+                <label for="val-en">Energy (EN)</label>
+                <button class="btn-edit-vital" data-vital="en" title="Edit EN Bonuses">⚙️</button>
                 <div class="pool-inner">
                     <div class="vital-current-control" aria-label="Current Energy">
                         <button type="button" class="btn-vital-step" data-vital="en" data-step="-1" aria-label="Decrease Energy">-</button>
@@ -96,12 +97,12 @@
                     </div>
                     <span>/</span>
                     <span id="val-en-max" class="pool-max">0</span>
-                    <button class="btn-edit-vital" data-vital="en" title="Edit EN Bonuses">⚙️</button>
                 </div>
                 <span id="en-temp-badge" class="temp-badge" style="display: none;"></span>
             </div>
             <div class="pool" style="--pool-color: var(--color-rx)">
-                <label>Reflex (RX)</label>
+                <label for="val-rx">Reflex (RX)</label>
+                <button class="btn-edit-vital" data-vital="rx" title="Edit RX Bonuses">⚙️</button>
                 <div class="pool-inner">
                     <div class="vital-current-control" aria-label="Current Reflex">
                         <button type="button" class="btn-vital-step" data-vital="rx" data-step="-1" aria-label="Decrease Reflex">-</button>
@@ -110,12 +111,12 @@
                     </div>
                     <span>/</span>
                     <span id="val-rx-max" class="pool-max">0</span>
-                    <button class="btn-edit-vital" data-vital="rx" title="Edit RX Bonuses">⚙️</button>
                 </div>
                 <span id="rx-temp-badge" class="temp-badge" style="display: none;"></span>
             </div>
             <div class="pool" id="shadow-pool" style="--pool-color: #888">
-                <label>Shadow (SH)</label>
+                <label for="val-sh">Shadow (SH)</label>
+                <button class="btn-edit-vital" data-vital="sh" title="Edit SH Bonuses">⚙️</button>
                 <div class="pool-inner">
                     <div class="vital-current-control" aria-label="Current Shadow">
                         <button type="button" class="btn-vital-step" data-vital="sh" data-step="-1" aria-label="Decrease Shadow">-</button>
@@ -124,49 +125,55 @@
                     </div>
                     <span>/</span>
                     <span id="val-sh-max" class="pool-max">0</span>
-                    <button class="btn-edit-vital" data-vital="sh" title="Edit SH Bonuses">⚙️</button>
                 </div>
                 <span id="sh-temp-badge" class="temp-badge" style="display: none;"></span>
             </div>
-            <div class="pool" style="--pool-color: #c7d2fe">
+        </div>
+        <div class="header-secondary">
+            <div class="pool armor-pool" style="--pool-color: #c7d2fe">
                 <label>Armor Soak</label>
                 <div class="pool-inner">
                     <span id="val-armor-soak" class="pool-readout">0</span>
                     <span id="armor-soak-detail" class="pool-detail">No active armor</span>
                 </div>
             </div>
-            <div class="pool counter-pool" style="--pool-color: #fff">
-                <label>XP</label>
-                <div class="pool-inner">
-                    <div class="counter-control" aria-label="XP spent">
-                        <button type="button" class="btn-counter-step" data-counter="xpSpent" data-step="-1" aria-label="Decrease XP spent">-</button>
-                        <span id="val-xp-spent" class="pool-readout">0</span>
-                        <button type="button" class="btn-counter-step" data-counter="xpSpent" data-step="1" aria-label="Increase XP spent">+</button>
+            <details class="header-advancement">
+                <summary>XP &amp; Story Points</summary>
+                <div class="resource-counters">
+                    <div class="pool counter-pool" style="--pool-color: #fff">
+                        <label>XP <small>spent / earned</small></label>
+                        <div class="pool-inner">
+                            <div class="counter-control" aria-label="XP spent">
+                                <button type="button" class="btn-counter-step" data-counter="xpSpent" data-step="-1" aria-label="Decrease XP spent">-</button>
+                                <span id="val-xp-spent" class="pool-readout">0</span>
+                                <button type="button" class="btn-counter-step" data-counter="xpSpent" data-step="1" aria-label="Increase XP spent">+</button>
+                            </div>
+                            <span>/</span>
+                            <div class="counter-control" aria-label="XP earned">
+                                <button type="button" class="btn-counter-step" data-counter="xpEarned" data-step="-1" aria-label="Decrease XP earned">-</button>
+                                <input type="number" id="val-xp-earned" value="75" inputmode="numeric">
+                                <button type="button" class="btn-counter-step" data-counter="xpEarned" data-step="1" aria-label="Increase XP earned">+</button>
+                            </div>
+                        </div>
                     </div>
-                    <span>/</span>
-                    <div class="counter-control" aria-label="XP earned">
-                        <button type="button" class="btn-counter-step" data-counter="xpEarned" data-step="-1" aria-label="Decrease XP earned">-</button>
-                        <input type="number" id="val-xp-earned" value="75" inputmode="numeric">
-                        <button type="button" class="btn-counter-step" data-counter="xpEarned" data-step="1" aria-label="Increase XP earned">+</button>
+                    <div class="pool counter-pool" style="--pool-color: #ffd166">
+                        <label>Story Points <small>spent / earned</small></label>
+                        <div class="pool-inner">
+                            <div class="counter-control" aria-label="Story Points spent">
+                                <button type="button" class="btn-counter-step" data-counter="storyPointsSpent" data-step="-1" aria-label="Decrease Story Points spent">-</button>
+                                <input type="number" id="val-story-points-spent" value="0" inputmode="numeric" aria-label="Story Points spent">
+                                <button type="button" class="btn-counter-step" data-counter="storyPointsSpent" data-step="1" aria-label="Increase Story Points spent">+</button>
+                            </div>
+                            <span>/</span>
+                            <div class="counter-control" aria-label="Story Points earned">
+                                <button type="button" class="btn-counter-step" data-counter="storyPointsEarned" data-step="-1" aria-label="Decrease Story Points earned">-</button>
+                                <input type="number" id="val-story-points-earned" value="0" inputmode="numeric" aria-label="Story Points earned">
+                                <button type="button" class="btn-counter-step" data-counter="storyPointsEarned" data-step="1" aria-label="Increase Story Points earned">+</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="pool counter-pool" style="--pool-color: #ffd166">
-                <label>Story Points</label>
-                <div class="pool-inner">
-                    <div class="counter-control" aria-label="Story Points spent">
-                        <button type="button" class="btn-counter-step" data-counter="storyPointsSpent" data-step="-1" aria-label="Decrease Story Points spent">-</button>
-                        <input type="number" id="val-story-points-spent" value="0" inputmode="numeric" aria-label="Story Points spent">
-                        <button type="button" class="btn-counter-step" data-counter="storyPointsSpent" data-step="1" aria-label="Increase Story Points spent">+</button>
-                    </div>
-                    <span>/</span>
-                    <div class="counter-control" aria-label="Story Points earned">
-                        <button type="button" class="btn-counter-step" data-counter="storyPointsEarned" data-step="-1" aria-label="Decrease Story Points earned">-</button>
-                        <input type="number" id="val-story-points-earned" value="0" inputmode="numeric" aria-label="Story Points earned">
-                        <button type="button" class="btn-counter-step" data-counter="storyPointsEarned" data-step="1" aria-label="Increase Story Points earned">+</button>
-                    </div>
-                </div>
-            </div>
+            </details>
         </div>
     </header>
 
@@ -352,167 +359,175 @@
             </section>
             <div class="main-columns">
                 <!-- Action Dashboard -->
-                <section id="action-dashboard" class="glass-panel">
-                    <div class="pool-header">
-                        <h2>The Call (Dice Pool)</h2>
-                        <button type="button" id="btn-clear-call" class="btn btn-outline pool-clear-btn" title="Clear Call colors and selected tiles">Clear</button>
-                    </div>
+                <section id="action-dashboard" aria-label="Call builder and roll controls">
+                    <div id="pool-builder" class="pool-builder glass-panel">
+                        <div class="pool-header">
+                            <h2>The Call (Dice Pool)</h2>
+                            <button type="button" id="btn-clear-call" class="btn btn-outline pool-clear-btn" title="Clear Call colors and selected tiles">Clear</button>
+                        </div>
                 
-                    <div class="call-colors">
-                        <label>GM Call Colors:</label>
-                        <div class="color-selectors">
-                            <select id="call-color-1" class="call-color-select" aria-label="First GM call color">
-                                <option value="">-- None --</option>
-                                <option value="Red">Red (BODY)</option>
-                                <option value="Orange">Orange (POWER)</option>
-                                <option value="Yellow">Yellow (SOUL)</option>
-                                <option value="Green">Green (FOCUS)</option>
-                                <option value="Blue">Blue (MIND)</option>
-                                <option value="Purple">Purple (SPEED)</option>
-                            </select>
-                            <select id="call-color-2" class="call-color-select" aria-label="Second GM call color">
-                                <option value="">-- None --</option>
-                                <option value="Red">Red (BODY)</option>
-                                <option value="Orange">Orange (POWER)</option>
-                                <option value="Yellow">Yellow (SOUL)</option>
-                                <option value="Green">Green (FOCUS)</option>
-                                <option value="Blue">Blue (MIND)</option>
-                                <option value="Purple">Purple (SPEED)</option>
-                            </select>
-                            <div class="call-color-slot" aria-label="GM call color choices">
-                                <div class="call-color-button-grid" aria-label="Choose GM call colors">
-                                    <button type="button" class="call-color-option call-color-red" data-value="Red">Red</button>
-                                    <button type="button" class="call-color-option call-color-orange" data-value="Orange">Orange</button>
-                                    <button type="button" class="call-color-option call-color-yellow" data-value="Yellow">Yellow</button>
-                                    <button type="button" class="call-color-option call-color-green" data-value="Green">Green</button>
-                                    <button type="button" class="call-color-option call-color-blue" data-value="Blue">Blue</button>
-                                    <button type="button" class="call-color-option call-color-purple" data-value="Purple">Purple</button>
+                        <div class="call-colors">
+                            <label>GM Call Colors:</label>
+                            <div class="color-selectors">
+                                <select id="call-color-1" class="call-color-select" aria-label="First GM call color">
+                                    <option value="">-- None --</option>
+                                    <option value="Red">Red (BODY)</option>
+                                    <option value="Orange">Orange (POWER)</option>
+                                    <option value="Yellow">Yellow (SOUL)</option>
+                                    <option value="Green">Green (FOCUS)</option>
+                                    <option value="Blue">Blue (MIND)</option>
+                                    <option value="Purple">Purple (SPEED)</option>
+                                </select>
+                                <select id="call-color-2" class="call-color-select" aria-label="Second GM call color">
+                                    <option value="">-- None --</option>
+                                    <option value="Red">Red (BODY)</option>
+                                    <option value="Orange">Orange (POWER)</option>
+                                    <option value="Yellow">Yellow (SOUL)</option>
+                                    <option value="Green">Green (FOCUS)</option>
+                                    <option value="Blue">Blue (MIND)</option>
+                                    <option value="Purple">Purple (SPEED)</option>
+                                </select>
+                                <div class="call-color-slot" aria-label="GM call color choices">
+                                    <div class="call-color-button-grid" aria-label="Choose GM call colors">
+                                        <button type="button" class="call-color-option call-color-red" data-value="Red">Red</button>
+                                        <button type="button" class="call-color-option call-color-orange" data-value="Orange">Orange</button>
+                                        <button type="button" class="call-color-option call-color-yellow" data-value="Yellow">Yellow</button>
+                                        <button type="button" class="call-color-option call-color-green" data-value="Green">Green</button>
+                                        <button type="button" class="call-color-option call-color-blue" data-value="Blue">Blue</button>
+                                        <button type="button" class="call-color-option call-color-purple" data-value="Purple">Purple</button>
+                                    </div>
+                                    <div id="call-color-warning" class="call-color-warning" hidden></div>
                                 </div>
-                                <div id="call-color-warning" class="call-color-warning" hidden></div>
+                            </div>
+                            <div style="margin-top: 0.5rem;">
+                                <label class="filter-toggle" title="When enabled, only tiles matching the selected Call colors are shown in the Mosaic">
+                                    <input type="checkbox" id="auto-filter-call" checked> Filter Mosaic to matching Call colors
+                                </label>
                             </div>
                         </div>
-                        <div style="margin-top: 0.5rem;">
-                            <label class="filter-toggle" title="When enabled, only tiles matching the selected Call colors are shown in the Mosaic">
-                                <input type="checkbox" id="auto-filter-call" checked> Filter Mosaic to matching Call colors
-                            </label>
-                        </div>
-                    </div>
 
-                    <section id="pool-assistant-panel" class="pool-assistant-panel" aria-labelledby="pool-assistant-title" hidden>
-                        <div class="pool-assistant-heading">
-                            <div>
-                                <h3 id="pool-assistant-title">AI Pool Assistant</h3>
-                                <p>Say the GM’s two colors and the action; the assistant will suggest matching tiles.</p>
+                        <section id="pool-assistant-panel" class="pool-assistant-panel" aria-labelledby="pool-assistant-title" hidden>
+                            <div class="pool-assistant-heading">
+                                <div>
+                                    <h3 id="pool-assistant-title">AI Pool Assistant</h3>
+                                    <p>Say the GM’s two colors and the action; the assistant will suggest matching tiles.</p>
+                                </div>
+                                <span class="pool-assistant-badge">Preview only</span>
                             </div>
-                            <span class="pool-assistant-badge">Preview only</span>
-                        </div>
-                        <form id="pool-assistant-form" class="pool-assistant-form">
-                            <label for="pool-assistant-command">What colors did the GM call, and what does your character do?</label>
-                            <div class="pool-assistant-controls">
-                                <input type="text" id="pool-assistant-command" maxlength="500" autocomplete="off" placeholder="e.g. Blue and Purple — I quietly pick the lock">
-                                <button type="submit" id="btn-pool-assistant-suggest" class="btn btn-action">Suggest</button>
+                            <form id="pool-assistant-form" class="pool-assistant-form">
+                                <label for="pool-assistant-command">What colors did the GM call, and what does your character do?</label>
+                                <div class="pool-assistant-controls">
+                                    <input type="text" id="pool-assistant-command" maxlength="500" autocomplete="off" placeholder="e.g. Blue and Purple — I quietly pick the lock">
+                                    <button type="submit" id="btn-pool-assistant-suggest" class="btn btn-action">Suggest</button>
+                                </div>
+                            </form>
+                            <p id="pool-assistant-status" class="pool-assistant-status" role="status" aria-live="polite"></p>
+                            <small>Spoken colors override preselected colors. The assistant never infers colors from the action. Burns require an explicit request.</small>
+                        </section>
+
+                        <div class="pool-tiles">
+                            <div class="tile-dropzone" id="call-tile-zone">
+                                <span>Select 1 Call Tile</span>
+                                <div id="call-tile-container"></div>
+                                <button type="button" id="btn-pick-call-tile" class="btn btn-outline pool-tile-picker-launch" hidden>Select Call Tile</button>
                             </div>
-                        </form>
-                        <p id="pool-assistant-status" class="pool-assistant-status" role="status" aria-live="polite"></p>
-                        <small>Spoken colors override preselected colors. The assistant never infers colors from the action. Burns require an explicit request.</small>
-                    </section>
-
-                    <div class="pool-tiles">
-                        <div class="tile-dropzone" id="call-tile-zone">
-                            <span>Select 1 Call Tile</span>
-                            <div id="call-tile-container"></div>
-                            <button type="button" id="btn-pick-call-tile" class="btn btn-outline pool-tile-picker-launch" hidden>Select Call Tile</button>
+                            <div class="tile-dropzone" id="burn-tile-zone">
+                                <span>Select Burn Tiles (Same Color)</span>
+                                <div id="burn-tiles-container"></div>
+                                <button type="button" id="btn-pick-burn-tiles" class="btn btn-outline pool-tile-picker-launch" hidden>Select Burn Tiles</button>
+                            </div>
+                            <p class="hint-text">Use the tile pickers above or click a card in your Mosaic to add/remove it from the pool.</p>
                         </div>
-                        <div class="tile-dropzone" id="burn-tile-zone">
-                            <span>Select Burn Tiles (Same Color)</span>
-                            <div id="burn-tiles-container"></div>
-                            <button type="button" id="btn-pick-burn-tiles" class="btn btn-outline pool-tile-picker-launch" hidden>Select Burn Tiles</button>
+
+                        <details class="pool-modifiers">
+                            <summary>Extra dice &amp; effects</summary>
+                            <div style="margin-top: 1rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
+                                <label style="font-size: 0.9rem; margin-bottom: 0.3rem; display: block;">Extra Dice (EN/SH spent, GM Bonus):</label>
+                                <input type="text" id="extra-dice-input" placeholder="e.g. d6, d4" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
+                                <div id="extra-dice-selected" class="dice-selected-list" aria-live="polite"></div>
+                                <div id="extra-dice-buttons" class="dice-button-grid" aria-label="Choose extra dice">
+                                    <button type="button" class="dice-add-btn" data-die="d3">+ d3</button>
+                                    <button type="button" class="dice-add-btn" data-die="d4">+ d4</button>
+                                    <button type="button" class="dice-add-btn" data-die="d6">+ d6</button>
+                                    <button type="button" class="dice-add-btn" data-die="d8">+ d8</button>
+                                    <button type="button" class="dice-add-btn" data-die="d10">+ d10</button>
+                                    <button type="button" class="dice-add-btn" data-die="d12">+ d12</button>
+                                    <button type="button" class="dice-add-btn" data-die="d14">+ d14</button>
+                                    <button type="button" class="dice-add-btn" data-die="d16">+ d16</button>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
+                                <label style="font-size: 0.9rem; margin-bottom: 0.3rem; display: block;">Freebie Die (once per test):</label>
+                                <!-- Hidden select stays the value holder; the buttons below set it. -->
+                                <select id="freebie-die-select" hidden>
+                                    <option value="">None</option>
+                                </select>
+                                <div id="freebie-die-buttons" class="dice-button-grid" aria-label="Choose freebie die"></div>
+                                <small class="panel-note">Duplicates a die already in the pool and costs Energy equal to its ▟ (d6 = 2 EN, d8 = 3 EN). A freebie can also be added after the roll from the results panel.</small>
+                            </div>
+
+                            <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
+                                <label style="font-size: 0.9rem; margin-bottom: 0.35rem; display: block;">Aberrant Blast Zone</label>
+                                <label class="filter-toggle" title="Risen Aberrant effect: dice above d6 are reduced 1 die step.">
+                                    <input type="checkbox" id="risen-aberrant-effect"> Under Risen Aberrant effect
+                                </label>
+                                <label class="filter-toggle" title="Fallen Aberrant effect: dice above d6 are increased 1 die step.">
+                                    <input type="checkbox" id="fallen-aberrant-effect"> Under Fallen Aberrant effect
+                                </label>
+                            </div>
+
+                        </details>
+
+                        <div class="pool-summary">
+                            <h3>Current Pool</h3>
+                            <div id="pool-dice-display">Select colors/tiles to build pool.</div>
+                            <div id="pool-adds-display">Adds (Keep): 2</div>
                         </div>
-                        <p class="hint-text">Use the tile pickers above or click a card in your Mosaic to add/remove it from the pool.</p>
-                    </div>
 
-                    <div style="margin-top: 1rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
-                        <label style="font-size: 0.9rem; margin-bottom: 0.3rem; display: block;">Extra Dice (EN/SH spent, GM Bonus):</label>
-                        <input type="text" id="extra-dice-input" placeholder="e.g. d6, d4" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 6px;">
-                        <div id="extra-dice-selected" class="dice-selected-list" aria-live="polite"></div>
-                        <div id="extra-dice-buttons" class="dice-button-grid" aria-label="Choose extra dice">
-                            <button type="button" class="dice-add-btn" data-die="d3">+ d3</button>
-                            <button type="button" class="dice-add-btn" data-die="d4">+ d4</button>
-                            <button type="button" class="dice-add-btn" data-die="d6">+ d6</button>
-                            <button type="button" class="dice-add-btn" data-die="d8">+ d8</button>
-                            <button type="button" class="dice-add-btn" data-die="d10">+ d10</button>
-                            <button type="button" class="dice-add-btn" data-die="d12">+ d12</button>
-                            <button type="button" class="dice-add-btn" data-die="d14">+ d14</button>
-                            <button type="button" class="dice-add-btn" data-die="d16">+ d16</button>
+                        <div id="chain-panel" class="chain-panel" hidden>
+                            <h3>Chain Calls</h3>
+                            <div id="chain-options" class="chain-options"></div>
+                        </div>
+
+                        <div id="tag-bonus-panel" class="tag-bonus-panel" hidden>
+                            <h3>Available Tag Bonuses</h3>
+                            <div id="tag-bonus-options" class="tag-bonus-options"></div>
+                        </div>
+
+                        <div id="roll-results" class="results-panel" style="display: none;">
+                            <h3>Result</h3>
+                            <div id="result-notices" class="result-notices"></div>
+                            <div class="result-total" id="result-total">--</div>
+                            <div id="resolution-controls" class="resolution-controls"></div>
+                            <div class="result-details" id="result-details"></div>
                         </div>
                     </div>
-
-                    <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
-                        <label style="font-size: 0.9rem; margin-bottom: 0.3rem; display: block;">Freebie Die (once per test):</label>
-                        <!-- Hidden select stays the value holder; the buttons below set it. -->
-                        <select id="freebie-die-select" hidden>
-                            <option value="">None</option>
-                        </select>
-                        <div id="freebie-die-buttons" class="dice-button-grid" aria-label="Choose freebie die"></div>
-                        <small class="panel-note">Duplicates a die already in the pool and costs Energy equal to its ▟ (d6 = 2 EN, d8 = 3 EN). A freebie can also be added after the roll from the results panel.</small>
-                    </div>
-
-                    <div style="margin-top: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px;">
-                        <label style="font-size: 0.9rem; margin-bottom: 0.35rem; display: block;">Aberrant Blast Zone</label>
-                        <label class="filter-toggle" title="Risen Aberrant effect: dice above d6 are reduced 1 die step.">
-                            <input type="checkbox" id="risen-aberrant-effect"> Under Risen Aberrant effect
-                        </label>
-                        <label class="filter-toggle" title="Fallen Aberrant effect: dice above d6 are increased 1 die step.">
-                            <input type="checkbox" id="fallen-aberrant-effect"> Under Fallen Aberrant effect
-                        </label>
-                    </div>
-
-                    <div class="pool-summary">
-                        <h3>Current Pool</h3>
-                        <div id="pool-dice-display">Select colors/tiles to build pool.</div>
-                        <div id="pool-adds-display">Adds (Keep): 2</div>
-                    </div>
-
-                    <div id="chain-panel" class="chain-panel" hidden>
-                        <h3>Chain Calls</h3>
-                        <div id="chain-options" class="chain-options"></div>
-                    </div>
-
-                    <div id="tag-bonus-panel" class="tag-bonus-panel" hidden>
-                        <h3>Available Tag Bonuses</h3>
-                        <div id="tag-bonus-options" class="tag-bonus-options"></div>
-                    </div>
-
-                    <div class="roll-modes">
-                        <div class="mode-toggle">
-                            <label><input type="radio" name="roll-mode" value="virtual" checked> Virtual Roll</label>
-                            <label><input type="radio" name="roll-mode" value="manual"> Manual Input</label>
+                    <div class="pool-dock" aria-label="Current pool and roll controls">
+                        <div class="pool-dock-summary" role="status" aria-live="polite" aria-atomic="true">
+                            <strong id="pool-compact-summary">Build your pool</strong>
+                            <span id="pool-compact-selection">Choose GM Call colors</span>
                         </div>
-                        <label class="filter-toggle" title="Practice/testing roll: behaves normally, but does not write a campaign roll log.">
-                            <input type="checkbox" id="test-roll-toggle"> Test roll
-                        </label>
-
-                        <!-- Virtual Mode -->
+                        <details id="roll-options" class="roll-options">
+                            <summary id="roll-options-summary">Options</summary>
+                            <div class="roll-options-body">
+                                <div class="mode-toggle">
+                                    <label><input type="radio" name="roll-mode" value="virtual" checked> Virtual Roll</label>
+                                    <label><input type="radio" name="roll-mode" value="manual"> Manual Input</label>
+                                </div>
+                                <label class="filter-toggle" title="Practice/testing roll: behaves normally, but does not write a campaign roll log.">
+                                    <input type="checkbox" id="test-roll-toggle"> Test roll
+                                </label>
+                                <div id="manual-roll-section" style="display: none;">
+                                    <p class="hint-text">Enter rolled values for each die:</p>
+                                    <div id="manual-inputs-container"></div>
+                                </div>
+                            </div>
+                        </details>
                         <div id="virtual-roll-section">
                             <button id="btn-roll" class="btn btn-action">Roll Dice</button>
                         </div>
-
-                        <!-- Manual Mode -->
-                        <div id="manual-roll-section" style="display: none;">
-                            <p class="hint-text">Enter rolled values (comma separated) for each die size:</p>
-                            <div id="manual-inputs-container">
-                                <!-- Injected by JS -->
-                            </div>
-                            <button id="btn-calculate" class="btn btn-action">Calculate Optimal</button>
-                        </div>
-                    </div>
-
-                    <div id="roll-results" class="results-panel" style="display: none;">
-                        <h3>Result</h3>
-                        <div id="result-notices" class="result-notices"></div>
-                        <div class="result-total" id="result-total">--</div>
-                        <div id="resolution-controls" class="resolution-controls"></div>
-                        <div class="result-details" id="result-details"></div>
+                        <button id="btn-calculate" class="btn btn-action" hidden>Calculate Optimal</button>
                     </div>
                 </section>
 

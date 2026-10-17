@@ -7,6 +7,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('creates a character through the accessible prompt dialog', async ({ page }) => {
+    await page.locator('.character-tools > summary').click();
     await page.locator('#btn-new-char').click();
 
     const dialog = page.getByRole('dialog', { name: 'New character' });

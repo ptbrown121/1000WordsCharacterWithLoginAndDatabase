@@ -1317,6 +1317,7 @@ export function renderResolution() {
 
 /** @param {import('../types.js').RollResult} result */
 export function showResults(result) {
+    els.rollOptions.open = false;
     uiState.lastRollResult = result;
     uiState.currentResolutionMode = 'action';
     uiState.currentResolutionAssignments = getDefaultResolutionAssignments(result, uiState.currentResolutionMode);
@@ -1327,9 +1328,9 @@ export function showResults(result) {
     renderResolution();
     
     setTimeout(() => {
-        const dash = document.getElementById('action-dashboard');
+        const dash = els.poolBuilder;
         if (dash && window.getComputedStyle(dash).overflowY === 'auto') {
-            dash.scrollTo({ top: dash.scrollHeight, behavior: 'smooth' });
+            dash.scrollTo({ top: els.rollResults.offsetTop - 16, behavior: 'smooth' });
         } else {
             els.rollResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }

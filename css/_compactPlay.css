@@ -1,0 +1,192 @@
+/* Compact character header and persistent roll controls. */
+header.glass-panel {
+    gap: 0.75rem;
+    padding: 1rem;
+    position: relative;
+    z-index: 10;
+}
+
+.header-top { gap: 0.75rem; }
+.character-identity { flex: 1 1 14rem; min-width: 0; }
+#char-name {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px dashed transparent;
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 1.5rem;
+    min-width: 0;
+    width: 100%;
+}
+.char-roster-list { flex-direction: row; flex-wrap: wrap; max-height: 4.5rem; margin-top: 0.2rem; }
+.header-actions { align-items: center; flex-wrap: wrap; }
+.header-actions .btn { padding: 0.5rem 0.7rem; }
+.character-tools { position: relative; }
+.character-tools > summary { list-style: none; }
+.character-tools > summary::-webkit-details-marker { display: none; }
+.character-tools-menu {
+    background: #202227;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    box-shadow: var(--glass-shadow);
+    display: grid;
+    gap: 0.4rem;
+    min-width: 13rem;
+    padding: 0.6rem;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.4rem);
+    z-index: 96;
+}
+.character-tools-menu .btn { text-align: left; }
+.character-tools summary:focus-visible,
+.header-advancement summary:focus-visible,
+.pool-modifiers summary:focus-visible,
+.roll-options summary:focus-visible { outline: 2px solid #b28aff; outline-offset: 3px; }
+
+.resource-pools { gap: 0.5rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.resource-pools > .pool {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.5rem 0.65rem;
+    position: relative;
+}
+.resource-pools .pool label { margin-right: 1.5rem; font-size: 0.8rem; }
+.resource-pools .btn-edit-vital { position: absolute; right: 0.35rem; top: 0.25rem; min-width: 1.5rem; min-height: 1.5rem; }
+.resource-pools .pool-inner { gap: 0.25rem; }
+.resource-pools .vital-current-control { grid-template-columns: 2rem 2.25rem 2rem; }
+.resource-pools .btn-vital-step { min-width: 2rem; min-height: 2.25rem; }
+.resource-pools input { width: 2.25rem; min-height: 2.25rem; font-size: 1.1rem; }
+.resource-pools .pool-max { min-width: 1.5rem; font-size: 1.05rem; }
+.header-secondary { display: flex; align-items: start; flex-wrap: wrap; gap: 0.5rem; }
+.armor-pool { flex: 1 1 18rem; min-width: 0; padding: 0.35rem 0.65rem; }
+.armor-pool label { font-size: 0.8rem; }
+.armor-pool .pool-inner { flex: 1; min-width: 0; }
+.armor-pool .pool-detail { max-width: none; white-space: nowrap; }
+.header-advancement { flex: 1 1 15rem; min-width: 0; }
+.header-advancement > summary,
+.pool-modifiers > summary {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.65rem;
+}
+.resource-counters { display: grid; gap: 0.5rem; margin-top: 0.5rem; }
+.resource-counters .pool { align-items: start; flex-direction: column; }
+.resource-counters .pool-inner { flex: 0 1 auto; }
+.counter-pool small { color: var(--text-secondary); font-size: 0.75rem; font-weight: normal; }
+
+.cloud-panel.glass-panel { gap: 0.5rem; padding: 0.6rem 1rem; }
+.cloud-status { flex: 1 1 12rem; flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.8rem; min-width: 0; }
+.cloud-status strong { font-size: 0.85rem; overflow-wrap: anywhere; }
+.cloud-status span { font-size: 0.8rem; }
+.cloud-row { flex-wrap: nowrap; gap: 0.5rem; }
+.cloud-row .btn { flex-shrink: 0; font-size: 0.8rem; padding: 0.45rem 0.65rem; }
+.cloud-panel[data-signed-in="true"] .cloud-panel-body,
+.cloud-panel[data-cloud-available="false"] .cloud-panel-body { display: none; }
+
+/* Keep fixed descendants out of backdrop-filter containing blocks. Only the
+   scrollable builder has the glass treatment; the dock is its sibling. */
+#action-dashboard { min-width: 0; }
+.pool-builder { position: relative; }
+.pool-dock {
+    align-items: center;
+    background: #20252a;
+    border: 1px solid rgba(0,255,200,0.28);
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.75rem;
+    position: relative;
+    z-index: 91;
+}
+.pool-dock-summary { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.pool-dock-summary strong { color: #69e8bf; font-size: 0.95rem; }
+.pool-dock-summary span { color: var(--text-secondary); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pool-dock > #virtual-roll-section,
+.pool-dock > #btn-calculate { grid-column: 1 / -1; }
+.pool-dock .btn-action { margin: 0; min-height: 44px; padding: 0.6rem; font-size: 1rem; }
+.roll-options > summary { border: 1px solid var(--glass-border); border-radius: 7px; cursor: pointer; font-size: 0.8rem; padding: 0.6rem; }
+.roll-options-body {
+    background: #20252a;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    bottom: calc(100% + 0.4rem);
+    box-shadow: var(--glass-shadow);
+    left: 0;
+    max-height: min(55dvh, 28rem);
+    overflow-y: auto;
+    padding: 0.85rem;
+    position: absolute;
+    right: 0;
+}
+.roll-options-body .mode-toggle { flex-wrap: wrap; gap: 0.5rem 1rem; }
+.roll-options-body .filter-toggle { min-height: 36px; }
+#manual-roll-section { margin-top: 0.75rem; }
+.manual-die-input { gap: 0.5rem; }
+.manual-die-input input { flex: 0 0 4rem; width: 4rem; }
+#roll-results { scroll-margin: 1rem; }
+
+@media (min-width: 900px) {
+    #action-dashboard { display: flex; flex-direction: column; max-height: calc(100dvh - 3rem); overflow: visible; padding: 0; }
+    .pool-builder { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+    .pool-dock { flex-shrink: 0; margin-top: 0.5rem; }
+}
+
+@media (max-width: 899px) {
+    :root { --app-tabs-height: 3.5rem; --pool-dock-height: 7.75rem; }
+    .resource-pools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pool-dock {
+        bottom: calc(var(--app-tabs-height) + env(safe-area-inset-bottom));
+        left: 0.75rem;
+        right: 0.75rem;
+        position: fixed;
+    }
+    body:has(#tab-play[aria-selected="true"]) { padding-bottom: calc(var(--pool-dock-height) + var(--app-tabs-height) + 1.5rem + env(safe-area-inset-bottom)); }
+    body:has(#tab-play[aria-selected="true"]) .pool-assistant-floating-mic { bottom: calc(var(--pool-dock-height) + var(--app-tabs-height) + 0.75rem + env(safe-area-inset-bottom)); }
+    /* Fixed bars must leave focusable content scrollable into view. */
+    html { scroll-padding-bottom: calc(var(--pool-dock-height) + var(--app-tabs-height) + 1rem + env(safe-area-inset-bottom)); }
+}
+
+@media (min-width: 701px) and (max-width: 899px) {
+    :root { --app-tabs-height: 0rem; }
+}
+
+@media (max-width: 700px) {
+    header.glass-panel { padding: 0.75rem; }
+    .header-top { align-items: stretch; }
+    .character-identity { flex-basis: 100%; }
+    .header-actions { display: flex; width: 100%; gap: 0.4rem; }
+    .header-actions > .btn { flex: 1; }
+    .header-actions .btn,
+    .header-actions summary { min-height: 44px; }
+    .header-secondary { flex-direction: column; align-items: stretch; }
+    .armor-pool,
+    .header-advancement { flex: 0 1 auto; }
+    .resource-pools > .pool { padding: 0.45rem; }
+    .resource-pools .pool-inner { gap: 0.2rem; }
+    .resource-pools .vital-current-control { grid-template-columns: 2rem 2rem 2rem; }
+    .resource-pools input { width: 2rem; }
+    .resource-pools .pool-max { min-width: 1.2rem; }
+    .resource-pools .btn-edit-vital { right: 0.1rem; top: 0.15rem; }
+    .resource-counters .counter-control { grid-template-columns: 2rem 2.5rem 2rem; }
+    .resource-counters .counter-control input { width: 2.5rem; }
+    .resource-counters .btn-counter-step { min-width: 2rem; }
+    .resource-counters .pool-inner { gap: 0.2rem; }
+    .app-tabs { min-height: calc(var(--app-tabs-height) + env(safe-area-inset-bottom)); }
+    .cloud-panel.glass-panel { padding: 0.6rem 0.75rem; }
+}
+
+@media (max-width: 360px) {
+    .resource-pools { grid-template-columns: 1fr; }
+    .resource-pools > .pool { align-items: center; flex-direction: row; justify-content: space-between; }
+    .resource-pools .pool label { margin-right: 0; }
+    .resource-pools .pool-inner { margin-right: 1.5rem; }
+    .resource-pools .btn-edit-vital { top: calc(50% - 0.75rem); }
+}

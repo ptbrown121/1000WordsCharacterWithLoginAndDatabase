@@ -52,7 +52,7 @@ function setBusy(button, busy, label) {
 }
 
 function statusText() {
-    if (!supabaseClient) return 'Cloud save is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel and local .env.';
+    if (!supabaseClient) return 'Saved in this browser. Export a copy to back up your character.';
     if (!dataManager.isSignedIn) return dataManager.cloudMessage || 'Sign in to use cloud saves and campaigns.';
     return dataManager.cloudMessage || 'Cloud save is ready.';
 }
@@ -224,6 +224,9 @@ export function applyReadOnlyMode() {
 
 export function renderCloudControls() {
     if (!dataManager) return;
+    if (els.cloudPanel) els.cloudPanel.dataset.signedIn = String(dataManager.isSignedIn);
+    if (els.cloudPanel) els.cloudPanel.dataset.cloudAvailable = String(Boolean(supabaseClient));
+    if (els.btnCloudToggle) els.btnCloudToggle.hidden = dataManager.isSignedIn || !supabaseClient;
     if (els.cloudModeLabel) {
         els.cloudModeLabel.textContent = dataManager.isSignedIn
             ? `Signed in as ${dataManager.cloudUser?.email || 'player'}`

@@ -156,9 +156,11 @@ export function init(deps) {
             if (target.value === 'virtual') {
                 els.virtualSection.style.display = 'block';
                 els.manualSection.style.display = 'none';
+                els.btnCalculate.hidden = true;
             } else {
                 els.virtualSection.style.display = 'none';
                 els.manualSection.style.display = 'block';
+                els.btnCalculate.hidden = false;
                 renderManualInputs();
             }
         });
@@ -166,6 +168,9 @@ export function init(deps) {
 
     els.btnRoll.addEventListener('click', executeVirtualRoll);
     els.btnCalculate.addEventListener('click', executeManualCalculate);
+    els.testRollToggle.addEventListener('change', () => {
+        els.rollOptionsSummary.textContent = isTestRoll() ? 'Options · Test' : 'Options';
+    });
 }
 
 function handleCallColorChange() {
@@ -811,6 +816,7 @@ export function updatePoolPreview() {
     if (extraDice.error) {
         els.poolDiceDisplay.innerHTML = `<span style="color:#ff3333">${escapeHtml(extraDice.error)}</span>`;
         els.poolAddsDisplay.innerText = `Adds: --`;
+        renderCompactPool(null, extraDice.error);
         renderChainOptions([]);
         renderTagBonusOptions([]);
         if (selectedRollMode() === 'manual') {
@@ -842,7 +848,9 @@ export function updatePoolPreview() {
         els.poolAddsDisplay.innerText = `Adds: --`;
         renderChainOptions(res.chainOptions || []);
         renderTagBonusOptions([]);
+        renderCompactPool(null, res.error);
     } else {
+        renderCompactPool(res);
         if (res.dice.length === 0) {
             els.poolDiceDisplay.innerText = 'No dice in pool.';
         } else {
@@ -884,6 +892,22 @@ export function updatePoolPreview() {
     if (selectedRollMode() === 'manual') {
         renderManualInputs();
     }
+}
+
+/** @param {import('../types.js').CompiledPool|null} pool @param {string} [error] */
+function renderCompactPool(pool, error) {
+    const colors = getSelectedCallColors();
+    els.poolCompactSummary.textContent = pool?.dice.length
+        ? `${pool.dice.length} dice · Keep ${pool.adds}`
+        : 'Build your pool';
+    const tiles = [uiState.callTile, ...(uiState.hitchCallTiles || [])].filter(Boolean);
+    const selection = [
+        colors.join(' + '),
+        ...tiles.map(tile => tile?.name),
+        uiState.burnTiles.length ? `${uiState.burnTiles.length} burn${uiState.burnTiles.length === 1 ? '' : 's'}` : ''
+    ].filter(Boolean).join(' · ');
+    els.poolCompactSelection.textContent = error || selection || 'Choose GM Call colors';
+    els.poolCompactSelection.title = els.poolCompactSelection.textContent;
 }
 
 export function renderManualInputs() {
