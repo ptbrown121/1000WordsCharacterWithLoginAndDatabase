@@ -1426,6 +1426,40 @@ describe('Titan subsystem (v5.02 p.69)', () => {
         assert.equal(engine.compilePool(['Red'], stats, titanTile, [], [titanTile], []).titanActive, true);
         assert.equal(engine.compilePool(['Red'], stats, plainTile, [], [plainTile], []).titanActive, false);
     });
+
+    it('rerolls original and burned dice once when a post-roll burn first activates Titan', () => {
+        const original = [
+            { id: 'stat', source: 'Stat', die: 'd6', val: 1 },
+            { id: 'call', source: 'Call', die: 'd8', val: 3 }
+        ];
+        const added = [{ source: 'Burn', die: 'd8', baseDie: 'd6', val: 2 }];
+        const rerolledDice = [];
+        const result = engine.applyTitanRerollsAfterBurn(original, added, {
+            rollFn: die => { rerolledDice.push(die); return 1; }
+        });
+
+        assert.deepEqual(rerolledDice, ['d6', 'd8']);
+        assert.deepEqual(result.rolls, [original[0], original[1], { ...added[0], val: 1 }]);
+        assert.deepEqual(result.rerolls.map(r => r.source), ['Stat', 'Burn']);
+        // A reroll that is still low must be kept, and inputs/metadata survive.
+        assert.equal(result.rolls[0].id, 'stat');
+        assert.equal(result.rolls[2].baseDie, 'd6');
+        assert.equal(added[0].val, 2);
+    });
+
+    it('does not repeat Titan rerolls on original dice when burning later in the check', () => {
+        const original = [{ source: 'Call', die: 'd8', val: 1 }];
+        const added = [{ source: 'Burn', die: 'd6', val: 1 }];
+        const rerolledDice = [];
+        const result = engine.applyTitanRerollsAfterBurn(original, added, {
+            alreadyActive: true,
+            rollFn: die => { rerolledDice.push(die); return 6; }
+        });
+
+        assert.deepEqual(rerolledDice, ['d6']);
+        assert.deepEqual(result.rolls.map(r => r.val), [1, 6]);
+        assert.deepEqual(result.rerolls.map(r => r.source), ['Burn']);
+    });
 });
 
 describe('special identity tiles (Homeworld p.63, Titan Identity p.69)', () => {

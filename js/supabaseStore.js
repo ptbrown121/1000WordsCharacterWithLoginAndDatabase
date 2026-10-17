@@ -211,14 +211,20 @@ export class SupabaseCharacterStore {
             .eq('owner_id', this.user.id));
     }
 
-    /** @param {string} characterId @param {string|null} campaignId */
-    async assignCharacterToCampaign(characterId, campaignId) {
-        const rows = assertNoError(await this.client
+    /**
+     * @param {string} characterId
+     * @param {string|null} campaignId
+     * @param {{ ifUnmodifiedSince?: string|null }} [options]
+     */
+    async assignCharacterToCampaign(characterId, campaignId, { ifUnmodifiedSince = null } = {}) {
+        let query = this.client
             .from('characters')
             .update({ campaign_id: campaignId || null, updated_at: new Date().toISOString() })
             .eq('id', characterId)
-            .eq('owner_id', this.user.id)
-            .select('updated_at'));
+            .eq('owner_id', this.user.id);
+        if (ifUnmodifiedSince) query = query.eq('updated_at', ifUnmodifiedSince);
+        const rows = assertNoError(await query.select('updated_at'));
+        if (!rows || rows.length === 0) throw new CloudSaveConflictError();
         return rows?.[0]?.updated_at || null;
     }
 

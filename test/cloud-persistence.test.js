@@ -77,8 +77,11 @@ class FakeCloudStore {
         this.characters.find(candidate => candidate.id === id).archived = true;
     }
 
-    async assignCharacterToCampaign(id, campaignId) {
+    async assignCharacterToCampaign(id, campaignId, { ifUnmodifiedSince = null } = {}) {
         const character = this.characters.find(candidate => candidate.id === id);
+        if (ifUnmodifiedSince && character.updatedAt !== ifUnmodifiedSince) {
+            throw new CloudSaveConflictError();
+        }
         character.campaignId = campaignId || null;
         this.saveCount = (this.saveCount || 0) + 1;
         character.updatedAt = `t-${this.saveCount}`;
@@ -173,6 +176,28 @@ describe('SupabaseCharacterStore optimistic concurrency', () => {
             ['id', 'char-1'],
             ['owner_id', 'user-1']
         ]);
+    });
+
+    it('guards campaign assignment with the last known updated_at stamp', async () => {
+        const { client, calls } = makeUpdateClient([{ updated_at: 't-2' }]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        assert.equal(await store.assignCharacterToCampaign('char-1', 'camp-1', { ifUnmodifiedSince: 't-1' }), 't-2');
+        assert.deepEqual(calls.filters, [
+            ['id', 'char-1'],
+            ['owner_id', 'user-1'],
+            ['updated_at', 't-1']
+        ]);
+    });
+
+    it('rejects campaign assignment when the guarded update matches no rows', async () => {
+        const { client } = makeUpdateClient([]);
+        const store = new SupabaseCharacterStore(client, user);
+
+        await assert.rejects(
+            store.assignCharacterToCampaign('char-1', 'camp-1', { ifUnmodifiedSince: 't-1' }),
+            CloudSaveConflictError
+        );
     });
 });
 
@@ -685,6 +710,89 @@ describe('DataManager cloud behavior', () => {
 
         assert.equal(cloud.characters[0].state.name, 'Campaign Hero v3');
         assert.equal(manager.cloudStatus, 'saved');
+    });
+
+    it('does not assign or advance the save guard after a pending save conflicts', async () => {
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Hero'));
+        const manager = new DataManager({
+            localStore: new LocalCharacterStore(new MemoryStorage()), saveDebounceMs: 60_000
+        });
+        await manager.connectCloud(cloud);
+        const remoteJournal = [{ id: 'remote-entry', title: 'Other device', content: 'Keep this entry' }];
+        await cloud.saveCharacter('cloud-1', { ...cloud.characters[0].state, journal: remoteJournal });
+
+        manager.updateName('Local edit');
+        await manager.assignActiveCharacterToCampaign('camp-1');
+
+        assert.equal(cloud.characters[0].campaignId, undefined);
+        assert.equal(manager.cloudStatus, 'error');
+        assert.equal(manager.cloudUpdatedAt, 't-0');
+        assert.equal(manager.loadCloudDraft('cloud-1').baseUpdatedAt, 't-0');
+
+        manager.updateName('Next local edit');
+        await manager.flushCloudSave();
+        assert.equal(manager.cloudStatus, 'error');
+        assert.deepEqual(cloud.characters[0].state.journal, remoteJournal);
+    });
+
+    it('preserves remote changes made between the save flush and campaign assignment', async () => {
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Hero'));
+        const manager = new DataManager({
+            localStore: new LocalCharacterStore(new MemoryStorage()), saveDebounceMs: 60_000
+        });
+        await manager.connectCloud(cloud);
+        const assign = cloud.assignCharacterToCampaign.bind(cloud);
+        cloud.assignCharacterToCampaign = async (...args) => {
+            await cloud.saveCharacter('cloud-1', { ...cloud.characters[0].state, name: 'Remote edit' });
+            return assign(...args);
+        };
+
+        await manager.assignActiveCharacterToCampaign('camp-1');
+        assert.equal(manager.cloudStatus, 'error');
+        assert.equal(manager.cloudUpdatedAt, 't-0');
+        assert.equal(cloud.characters[0].campaignId, undefined);
+
+        manager.updateName('Next local edit');
+        await manager.flushCloudSave();
+        assert.equal(cloud.characters[0].state.name, 'Remote edit');
+        assert.equal(manager.cloudStatus, 'error');
+    });
+
+    it('serializes edits made during campaign assignment behind its new save guard', async () => {
+        const cloud = new FakeCloudStore();
+        cloud.characters.push(cloudCharacter('cloud-1', 'Hero'));
+        const manager = new DataManager({
+            localStore: new LocalCharacterStore(new MemoryStorage()), saveDebounceMs: 60_000
+        });
+        await manager.connectCloud(cloud);
+        let release;
+        let started;
+        const assignmentStarted = new Promise(resolve => { started = resolve; });
+        const assignmentGate = new Promise(resolve => { release = resolve; });
+        const assign = cloud.assignCharacterToCampaign.bind(cloud);
+        cloud.assignCharacterToCampaign = async (...args) => {
+            started();
+            await assignmentGate;
+            return assign(...args);
+        };
+        const assignment = manager.assignActiveCharacterToCampaign('camp-1');
+        await assignmentStarted;
+        manager.updateName('Edited during assignment');
+        const saving = manager.flushCloudSave();
+        // Let a mistakenly unqueued save run before releasing the assignment.
+        await new Promise(resolve => setImmediate(resolve));
+        const savesBeforeAssignmentFinished = cloud.saveCount || 0;
+        release();
+        await Promise.all([assignment, saving]);
+
+        assert.equal(savesBeforeAssignmentFinished, 0);
+        assert.equal(cloud.characters[0].campaignId, 'camp-1');
+        assert.equal(cloud.characters[0].state.name, 'Edited during assignment');
+        assert.equal(manager.cloudUpdatedAt, cloud.characters[0].updatedAt);
+        assert.equal(manager.cloudStatus, 'saved');
+        assert.equal(manager.hasCloudDraft('cloud-1'), false);
     });
 
     it('syncs the active character name in cloudRoster on auto-save without re-fetching listRoster', async () => {

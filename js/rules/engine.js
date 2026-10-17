@@ -1091,9 +1091,10 @@ export class PoolEngine {
      * die is rerolled once and the new value kept. `rollFn` is injectable
      * for tests. `shouldReroll` narrows which qualifying dice reroll (the
      * Zenith reroll uses it to reroll a single die).
-     * @param {Array<{source: string, die: string, val: number}>} rolledArray
+     * @template {{source: string, die: string, val: number}} T
+     * @param {T[]} rolledArray
      * @param {(die: string) => number} [rollFn]
-     * @param {(roll: {source: string, die: string, val: number}, index: number) => boolean} [shouldReroll]
+     * @param {(roll: T, index: number) => boolean} [shouldReroll]
      */
     applyTitanRerolls(rolledArray, rollFn = (die) => this.rollDie(die), shouldReroll = () => true) {
         const rerolls = [];
@@ -1105,6 +1106,21 @@ export class PoolEngine {
             return { ...roll, val: newVal };
         });
         return { rolls, rerolls };
+    }
+
+    /**
+     * A burn that first activates Titan rerolls qualifying dice in the whole
+     * check. If Titan already applied, only the new dice get their one reroll.
+     * @param {import('../types.js').Roll[]} originalRolls
+     * @param {import('../types.js').Roll[]} newRolls
+     * @param {{ alreadyActive?: boolean, rollFn?: (die: string) => number }} [options]
+     */
+    applyTitanRerollsAfterBurn(originalRolls, newRolls, { alreadyActive = false, rollFn } = {}) {
+        return this.applyTitanRerolls(
+            [...originalRolls, ...newRolls],
+            rollFn,
+            (_roll, index) => !alreadyActive || index >= originalRolls.length
+        );
     }
 
     /**

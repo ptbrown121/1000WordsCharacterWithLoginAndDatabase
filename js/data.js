@@ -950,23 +950,39 @@ export class DataManager {
             this.markReadOnlyAttempt();
             return;
         }
-        await this.flushCloudSave();
         const charId = this.activeCharId;
-        const previousUpdatedAt = this.cloudUpdatedAt;
-        this.cloudSaveInFlight = true;
-        try {
-            const newUpdatedAt = await this.cloudStore.assignCharacterToCampaign(charId, campaignId || null);
-            if (this.activeCharId === charId && newUpdatedAt) {
-                this.cloudUpdatedAt = newUpdatedAt;
-                if (previousUpdatedAt) {
+        const cloudStore = this.cloudStore;
+        await this.flushCloudSave();
+        // Save errors are reported by the queue instead of rejecting the flush.
+        // Never turn an unresolved draft/conflict into an acknowledged version.
+        if (this.cloudStatus === 'error' || this.hasCloudDraft(charId)) return;
+
+        const run = async () => {
+            if (this.cloudStore !== cloudStore || this.activeStorage !== 'cloud'
+                || this.activeCharId !== charId || !this.canEditActiveCharacter()
+                || this.cloudStatus === 'error') return;
+            const previousUpdatedAt = this.cloudUpdatedAt;
+            if (!previousUpdatedAt) throw new Error('Reload the cloud character before changing its campaign.');
+            this.cloudSaveInFlight = true;
+            try {
+                const newUpdatedAt = await cloudStore.assignCharacterToCampaign(charId, campaignId || null, {
+                    ifUnmodifiedSince: previousUpdatedAt
+                });
+                if (this.activeCharId === charId && newUpdatedAt) {
+                    this.cloudUpdatedAt = newUpdatedAt;
                     this.advanceCloudDraftBase(charId, previousUpdatedAt, newUpdatedAt);
                 }
+            } finally {
+                this.cloudSaveInFlight = false;
             }
-        } finally {
-            this.cloudSaveInFlight = false;
-        }
-        await this.refreshCloudRoster();
-        this.setCloudStatus('saved', campaignId ? 'Character assigned to campaign.' : 'Character removed from campaign.');
+            await this.refreshCloudRoster();
+            this.setCloudStatus('saved', campaignId ? 'Character assigned to campaign.' : 'Character removed from campaign.');
+        };
+        // Edits made while assignment is in flight must wait for its new guard.
+        this.cloudSaveChain = this.cloudSaveChain
+            .then(run)
+            .catch(e => this.handleCloudSaveError(e, charId, this.state));
+        await this.cloudSaveChain;
     }
 
     async loadCampaignMembers(campaignId) {

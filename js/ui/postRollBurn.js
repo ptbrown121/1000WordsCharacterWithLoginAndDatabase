@@ -172,18 +172,22 @@ async function burnAfterRoll() {
         rollId => (uiState.currentResolutionAssignments[rollId] || 'unused') !== previousDefaultAssignments[rollId]
     );
 
-    result.titanActive = Boolean(result.titanActive || compiled.titanActive);
+    const titanAlreadyActive = Boolean(result.titanActive);
+    result.titanActive = Boolean(titanAlreadyActive || compiled.titanActive);
     if (result.titanActive && result.rollMode === 'manual') {
         result.titanManualReminder = true;
     }
     result.haywireThreshold = Math.max(result.haywireThreshold || 1, compiled.haywireThreshold || 1);
 
-    // New dice roll like the post-roll Freebie does (virtually). Titan and
-    // an unused Zenith reroll still apply to them.
+    // New dice roll like the post-roll Freebie does (virtually). A newly
+    // activated Titan also applies to original dice; Zenith remains once/check.
+    let originalRolls = result.originalRolls || [];
     let newRolls = poolEngine.rollPool(/** @type {import('../types.js').PoolDie[]} */ (compiled.dice));
     if (result.titanActive && result.rollMode !== 'manual') {
-        const titanResult = poolEngine.applyTitanRerolls(newRolls);
-        newRolls = titanResult.rolls;
+        const titanResult = poolEngine.applyTitanRerollsAfterBurn(originalRolls, newRolls, { alreadyActive: titanAlreadyActive });
+        const originalCount = originalRolls.length;
+        originalRolls = titanResult.rolls.slice(0, originalCount);
+        newRolls = titanResult.rolls.slice(originalCount);
         result.titanRerolls = [...(result.titanRerolls || []), ...titanResult.rerolls];
     }
     if (result.zenithActive && result.rollMode !== 'manual' && (result.zenithRerolls || []).length === 0) {
@@ -193,7 +197,7 @@ async function burnAfterRoll() {
     }
 
     const adds = (result.adds ?? 2) + compiled.adds;
-    const recalculated = poolEngine.calculateOptimalTotal([...(result.originalRolls || []), ...newRolls], adds, {
+    const recalculated = poolEngine.calculateOptimalTotal([...originalRolls, ...newRolls], adds, {
         haywireThreshold: result.haywireThreshold || 1
     });
     Object.assign(result, recalculated);
