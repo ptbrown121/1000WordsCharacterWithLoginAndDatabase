@@ -112,7 +112,7 @@ export function init(deps) {
         chipsContainer: els.tileDiceSelected,
         buttonsContainer: els.tileDiceButtons
     });
-    initTagEditor({ poolEngine, syncDiceChips: () => tileDiceEditor.syncChips() });
+    initTagEditor({ dataManager, poolEngine, syncDiceChips: () => tileDiceEditor.syncChips() });
     populateWeaponTemplates();
     populateHinderTypes();
     populateReagentTemplates();
@@ -228,6 +228,7 @@ export function openModal(tile = null) {
     setFormBoxes([]);
     setFormTags([]);
     els.tagCustomInput.style.display = 'none';
+    els.tagChainTarget.style.display = 'none';
     // form.reset() above changed select values without firing 'change';
     // re-sync the searchable pickers' trigger labels.
     tagPicker?.sync();

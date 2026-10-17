@@ -14,6 +14,7 @@ import { editorElement } from '../editorDom.js';
 import { showPendingTagDialog } from '../modalWidgets.js';
 import { getFormSpecialIdentity } from './formFields.js';
 
+let dataManager;
 let poolEngine;
 let syncDiceChips = () => {};
 
@@ -37,6 +38,7 @@ export function addMissingTemplateTags(tags) {
 }
 
 export function initTagEditor(deps) {
+    dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     syncDiceChips = deps.syncDiceChips;
 
@@ -44,7 +46,15 @@ export function initTagEditor(deps) {
         const val = els.tagSelect.value;
         const motorizedStat = editorElement('tag-motorized-stat');
         const hitchValue = editorElement('tag-hitch-value');
-        if (val === 'Custom' || val === 'Chain' || val === 'World' || val === 'While') {
+        els.tagChainTarget.style.display = 'none';
+        if (val === 'Chain') {
+            populateChainTargets();
+            els.tagChainTarget.style.display = 'block';
+            els.tagChainTarget.focus();
+            els.tagCustomInput.style.display = 'none';
+            motorizedStat.style.display = 'none';
+            hitchValue.style.display = 'none';
+        } else if (val === 'Custom' || val === 'World' || val === 'While') {
             els.tagCustomInput.style.display = 'inline-block';
             els.tagCustomInput.placeholder = val === 'Custom' ? 'Custom Tag Name' : val === 'While' ? 'Form name (e.g. Werewolf)' : 'Tile Name to Link';
             els.tagCustomInput.focus();
@@ -66,6 +76,17 @@ export function initTagEditor(deps) {
     });
 
     els.btnAddTag.addEventListener('click', () => addPendingTileTag({ showAlert: true }));
+}
+
+function populateChainTargets() {
+    const currentTileId = editorElement('tile-id').value;
+    const names = [...new Set((dataManager.state.tiles || [])
+        .filter(tile => tile.id !== currentTileId && tile.name)
+        .map(tile => tile.name))].sort((a, b) => a.localeCompare(b));
+    const select = els.tagChainTarget;
+    select.replaceChildren(new Option(names.length ? '-- Select linked tile --' : 'No other tiles available', ''));
+    names.forEach(name => select.add(new Option(name, name)));
+    select.disabled = names.length === 0;
 }
 
 export function renderFormTags() {
@@ -163,6 +184,7 @@ function resetPendingTagControls() {
     els.tagSelect.dispatchEvent(new Event('change', { bubbles: true }));
     els.tagCustomInput.value = '';
     els.tagCustomInput.style.display = 'none';
+    els.tagChainTarget.value = '';
     const motorizedStat = editorElement('tag-motorized-stat');
     motorizedStat.style.display = 'none';
     motorizedStat.value = '';
@@ -183,11 +205,13 @@ function getPendingTileTag() {
         finalTag = els.tagCustomInput.value.trim();
         if (!finalTag) reason = 'Custom needs a tag name.';
     } else if (selVal === 'Chain' || selVal === 'World') {
-        const target = els.tagCustomInput.value.trim();
+        const target = selVal === 'Chain' ? els.tagChainTarget.value : els.tagCustomInput.value.trim();
         if (target) {
             finalTag = `${selVal} ${target}`;
         } else {
-            reason = `${selVal} needs a linked tile name.`;
+            reason = selVal === 'Chain'
+                ? 'Choose an existing tile to link. If none are available, save another tile first.'
+                : 'World needs a linked tile name.';
         }
     } else if (selVal === 'While') {
         const form = els.tagCustomInput.value.trim();

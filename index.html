@@ -1090,7 +1090,7 @@
                             <select id="tag-select" style="flex: 1; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; font-size: 1rem;">
                             <option value="">-- Select Tag --</option>
                             <optgroup label="Mechanics">
-                                <option value="Chain">Chain (Select to specify tile)</option>
+                                <option value="Chain">Chain (choose an existing tile)</option>
                                 <option value="World">World (chains Homeworld; specify tile) [+3]</option>
                             </optgroup>
                             <optgroup label="Shadow">
@@ -1183,6 +1183,9 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
                             <input type="text" id="tag-custom-input" placeholder="Value..." style="display: none; width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                            <select id="tag-chain-target" aria-label="Chain target tile" style="display: none; width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                                <option value="">-- Select linked tile --</option>
+                            </select>
                             <select id="tag-hitch-value" style="display: none; width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;" title="Hitch rebate value">
                                 <option value="1">Hitch 1 XP rebate</option>
                                 <option value="2">Hitch 2 XP rebate</option>
