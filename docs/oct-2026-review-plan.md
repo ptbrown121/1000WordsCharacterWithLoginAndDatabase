@@ -58,16 +58,17 @@ Status: in progress (executing one step at a time). Follows the phased-step conv
 
 ## Step 4 — Supabase RLS & Storage Policy Hardening
 
-**Status: planned.**
+**Status: done 2026-10-16.**
 
 **Why:**
 1. `characters_update_owner_only` only checked `with check (owner_id = auth.uid())`, allowing a character owner to set `campaign_id` to a campaign they have not joined (unlike `characters_insert_owner`, which checks `is_campaign_member(campaign_id)`).
 2. `ai_agent_logs_insert_thread_owner_or_gm` allowed `thread_id is null` or mismatched `campaign_id`/`character_id`.
-3. `campaign_files` storage policies cast `((storage.foldername(name))[1])::uuid` directly without guarding against non-UUID folder names.
+3. `ai_scene_summaries` had no trigger preventing `scope_type`, `scope_id`, or `campaign_id` changes on update.
+4. `campaign_files` storage policies cast `((storage.foldername(name))[1])::uuid` directly without guarding against non-UUID folder names.
 
 **Code changes:**
-- `supabase/migrations/` & `supabase/schema.sql`: tighten `characters_update_owner_only`, `ai_agent_logs_insert_thread_owner_or_gm`, and `campaign_files` storage folder UUID parsing.
-- `test/schema-security.test.js`: regression assertions verifying the hardened policies in `supabase/schema.sql`.
+- `supabase/migrations/20261016000000_rls_campaign_and_log_hardening.sql` & `supabase/schema.sql`: added `public.try_parse_uuid` and `public.guard_ai_summary_scope_change`, and tightened `characters_update_owner_only`, `ai_agent_logs_insert_thread_owner_or_gm`, and `campaign_files` storage policies.
+- `test/schema-security.test.js`: regression assertions verifying the hardened policies and trigger in `supabase/schema.sql`.
 
 ---
 
