@@ -113,7 +113,7 @@ export function bindOptionGrids(root = document) {
 // programmatic .value writes keep working. The option list is rebuilt from
 // the select on every open, so dynamically populated selects stay current.
 export function createSearchableSelect(select, { searchPlaceholder = 'Type to filter...' } = {}) {
-    if (!select) return { sync: () => {}, close: () => {} };
+    if (!select) return { sync: () => {}, close: () => {}, setVisible: () => {}, focus: () => {} };
 
     const wrapper = document.createElement('div');
     wrapper.className = 'searchable-select';
@@ -143,10 +143,14 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
     wrapper.append(trigger, panel);
     select.insertAdjacentElement('afterend', wrapper);
     select.classList.add('searchable-select-native');
+    wrapper.hidden = select.hidden || select.style.display === 'none';
 
     function sync() {
         const option = select.options[select.selectedIndex];
         trigger.textContent = option?.textContent || ' ';
+        trigger.disabled = select.disabled;
+        const label = select.getAttribute('aria-label');
+        if (label) trigger.setAttribute('aria-label', `${label}: ${trigger.textContent}`);
     }
 
     function appendOption(option, groupLabel, term) {
@@ -155,12 +159,14 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
         button.type = 'button';
         button.className = 'searchable-select-option';
         button.setAttribute('role', 'option');
+        button.disabled = option.disabled;
         if (option.value === select.value) button.classList.add('active');
         button.textContent = option.textContent;
         button.addEventListener('click', () => {
             select.value = option.value;
             select.dispatchEvent(new Event('change', { bubbles: true }));
             close();
+            trigger.focus();
         });
         list.appendChild(button);
     }
@@ -197,6 +203,7 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
     let historyEntryArmed = false;
 
     function open() {
+        if (select.disabled || wrapper.hidden) return;
         search.value = '';
         renderList();
         panel.hidden = false;
@@ -257,8 +264,14 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
     });
     select.addEventListener('change', sync);
 
+    function setVisible(visible) {
+        if (!visible) close();
+        wrapper.hidden = !visible;
+        sync();
+    }
+
     sync();
-    return { sync, close };
+    return { sync, close, setVisible, focus: () => trigger.focus() };
 }
 
 // Dice entry: a comma-separated text input mirrored as removable chips,

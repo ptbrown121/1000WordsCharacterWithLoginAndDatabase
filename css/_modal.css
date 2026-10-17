@@ -353,6 +353,11 @@
     right: 0.6rem;
 }
 
+.searchable-select-trigger:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
 .searchable-select-panel {
     background: #181828;
     border: 1px solid var(--glass-border);

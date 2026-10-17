@@ -67,6 +67,7 @@ let poolEngine;
 let tileDiceEditor;
 let tagPicker;
 let reagentPicker;
+let tileLinkPicker;
 
 function resetTileModalScroll() {
     const modalContent = els.modal.querySelector('.modal-content');
@@ -112,7 +113,8 @@ export function init(deps) {
         chipsContainer: els.tileDiceSelected,
         buttonsContainer: els.tileDiceButtons
     });
-    initTagEditor({ dataManager, poolEngine, syncDiceChips: () => tileDiceEditor.syncChips() });
+    tileLinkPicker = createSearchableSelect(els.tagChainTarget, { searchPlaceholder: 'Type to filter tiles...' });
+    initTagEditor({ dataManager, poolEngine, tileLinkPicker, syncDiceChips: () => tileDiceEditor.syncChips() });
     populateWeaponTemplates();
     populateHinderTypes();
     populateReagentTemplates();
@@ -228,7 +230,7 @@ export function openModal(tile = null) {
     setFormBoxes([]);
     setFormTags([]);
     els.tagCustomInput.style.display = 'none';
-    els.tagChainTarget.style.display = 'none';
+    tileLinkPicker.setVisible(false);
     // form.reset() above changed select values without firing 'change';
     // re-sync the searchable pickers' trigger labels.
     tagPicker?.sync();
@@ -326,6 +328,7 @@ export function openModal(tile = null) {
 }
 
 export function closeModal() {
+    tileLinkPicker.close();
     els.modal.classList.remove('active');
 }
 

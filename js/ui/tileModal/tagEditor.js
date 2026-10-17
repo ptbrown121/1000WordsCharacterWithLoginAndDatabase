@@ -16,6 +16,7 @@ import { getFormSpecialIdentity } from './formFields.js';
 
 let dataManager;
 let poolEngine;
+let tileLinkPicker;
 let syncDiceChips = () => {};
 
 // Modal-local: tags being edited in the tile modal.
@@ -40,18 +41,19 @@ export function addMissingTemplateTags(tags) {
 export function initTagEditor(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
+    tileLinkPicker = deps.tileLinkPicker;
     syncDiceChips = deps.syncDiceChips;
 
     els.tagSelect.addEventListener('change', () => {
         const val = els.tagSelect.value;
         const motorizedStat = editorElement('tag-motorized-stat');
         const hitchValue = editorElement('tag-hitch-value');
-        els.tagChainTarget.style.display = 'none';
+        tileLinkPicker.setVisible(false);
         if (val === 'Chain' || val === 'World') {
             populateTileLinkTargets(els.tagChainTarget, dataManager.state.tiles || [], editorElement('tile-id').value);
             els.tagChainTarget.setAttribute('aria-label', `${val} target tile`);
-            els.tagChainTarget.style.display = 'block';
-            els.tagChainTarget.focus();
+            tileLinkPicker.setVisible(true);
+            tileLinkPicker.focus();
             els.tagCustomInput.style.display = 'none';
             motorizedStat.style.display = 'none';
             hitchValue.style.display = 'none';

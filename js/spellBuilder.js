@@ -29,7 +29,7 @@ import {
 } from './ui/spellColors.js';
 import { SPELL_METRIC_IDS, applySpellStateToForm, readSpellStateFromForm } from './ui/spellForm.js';
 import { withTileResourceSync } from './ui/vitals.js';
-import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, populateTileLinkTargets, showPendingTagDialog } from './ui/modalWidgets.js';
+import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, createSearchableSelect, populateTileLinkTargets, showPendingTagDialog } from './ui/modalWidgets.js';
 import { showAlert as showAlertDialog, showConfirm } from './ui/dialogService.js';
 import { editorElement, editorElements } from './ui/editorDom.js';
 import { els } from './els.js';
@@ -72,6 +72,10 @@ export class SpellBuilder {
         this.tagSelect = editorElement('spell-tag-select');
         this.tagCustomInput = editorElement('spell-tag-custom-input');
         this.tagWorldTarget = els.spellWorldTarget;
+        this.worldTargetPicker = createSearchableSelect(this.tagWorldTarget, { searchPlaceholder: 'Type to filter tiles...' });
+        const chainTargetSelect = editorElement('spell-chain-target');
+        chainTargetSelect.setAttribute('aria-label', 'Chain target spellcast skill');
+        this.chainTargetPicker = createSearchableSelect(chainTargetSelect, { searchPlaceholder: 'Type to filter spellcast skills...' });
         this.tagCustomXp = editorElement('spell-tag-custom-xp');
         this.btnAddTag = editorElement('btn-spell-add-tag');
         this.tagsContainer = editorElement('spell-tags-container');
@@ -147,11 +151,11 @@ export class SpellBuilder {
 
         this.tagSelect.addEventListener('change', (e) => {
             const hitchValue = editorElement('spell-tag-hitch-value');
-            this.tagWorldTarget.style.display = 'none';
+            this.worldTargetPicker.setVisible(false);
             if (e.target.value === 'World') {
                 populateTileLinkTargets(this.tagWorldTarget, this.dataManager.state.tiles || [], this.editingTileId || '');
-                this.tagWorldTarget.style.display = 'block';
-                this.tagWorldTarget.focus();
+                this.worldTargetPicker.setVisible(true);
+                this.worldTargetPicker.focus();
                 this.tagCustomInput.style.display = 'none';
                 this.tagCustomXp.style.display = 'none';
                 if (hitchValue) hitchValue.style.display = 'none';
@@ -214,7 +218,7 @@ export class SpellBuilder {
         resetSpellColorControls();
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
-        this.tagWorldTarget.style.display = 'none';
+        this.worldTargetPicker.setVisible(false);
         SPELL_METRIC_IDS.forEach(id => {
             const div = editorElement(`${id}-custom`);
             if (div) div.style.display = 'none';
@@ -256,6 +260,7 @@ export class SpellBuilder {
             syncColorCustomizationControls();
         }
 
+        this.chainTargetPicker.close();
         this.renderTags();
         this.renderActions();
         this.updateWizardUI();
@@ -344,6 +349,8 @@ export class SpellBuilder {
     }
 
     closeWizard() {
+        this.worldTargetPicker.close();
+        this.chainTargetPicker.close();
         this.modal.classList.remove('active');
         this.editingTileId = null;
     }
@@ -515,7 +522,7 @@ export class SpellBuilder {
     resetPendingSpellTagControls() {
         this.tagSelect.value = '';
         this.tagWorldTarget.value = '';
-        this.tagWorldTarget.style.display = 'none';
+        this.worldTargetPicker.setVisible(false);
         this.tagCustomInput.value = '';
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
