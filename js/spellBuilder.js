@@ -8,9 +8,11 @@ import {
     validateShadowTags
 } from './pool.js';
 import {
+    buildSpellTags,
     calculateSpellTagXp,
     calculateSpellTotalXp,
     getSpellTagXpList,
+    isArcanaSkillTile,
     spellBoxesDifferFromDefault
 } from './spell-rules.js';
 import {
@@ -104,6 +106,7 @@ export class SpellBuilder {
 
         this.form.addEventListener('change', () => this.calculateXP());
         this.diceInput.addEventListener('input', () => this.calculateXP());
+        editorElement('spell-custom-tags')?.addEventListener('input', () => this.renderTagLimitStatus());
 
         this.form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -209,7 +212,7 @@ export class SpellBuilder {
         const chainTargetSelect = editorElement('spell-chain-target');
         if (chainTargetSelect) {
             chainTargetSelect.innerHTML = '<option value="">-- No Specific Spellcast Skill --</option>';
-            const skills = (this.dataManager.state.tiles || []).filter(t => t.type === 'Skill' && t.isSpellcastSkill);
+            const skills = (this.dataManager.state.tiles || []).filter(isArcanaSkillTile);
             skills.forEach(skill => {
                 const opt = document.createElement('option');
                 opt.value = skill.name;
@@ -366,6 +369,16 @@ export class SpellBuilder {
         };
     }
 
+    getCompiledSpellTags() {
+        return buildSpellTags({
+            formTags: this.currentFormTags,
+            customTagsText: editorElement('spell-custom-tags')?.value || '',
+            unchained: Boolean(editorElement('spell-unchained')?.checked),
+            chainTarget: editorElement('spell-chain-target')?.value || '',
+            school: editorElement('spell-school')?.value || ''
+        });
+    }
+
     renderTagLimitStatus() {
         if (!this.tagLimitStatus) return null;
 
@@ -379,7 +392,7 @@ export class SpellBuilder {
             return null;
         }
 
-        const tagLimit = this.poolEngine.calculateTagLimit(diceArray, this.currentFormTags);
+        const tagLimit = this.poolEngine.calculateTagLimit(diceArray, this.getCompiledSpellTags(), { isSpell: true });
         this.tagLimitStatus.textContent = formatTagLimitStatus(tagLimit);
         this.tagLimitStatus.classList.add(tagLimit.valid ? 'valid' : 'invalid');
         return tagLimit;
@@ -576,14 +589,14 @@ export class SpellBuilder {
             return;
         }
 
-        const tagLimit = this.poolEngine.calculateTagLimit(diceArray, this.currentFormTags);
+        const tagsArr = this.getCompiledSpellTags();
+        const tagLimit = this.poolEngine.calculateTagLimit(diceArray, tagsArr, { isSpell: true });
         this.renderTagLimitStatus();
         if (!tagLimit.valid) {
             showAlertDialog(buildTagLimitErrorMessage('This spell', tagLimit));
             return;
         }
 
-        const school = editorElement('spell-school').value;
         const spellBoxes = getSpellBoxSelection();
         if (spellBoxes.error) {
             showAlertDialog(spellBoxes.error);
@@ -591,32 +604,6 @@ export class SpellBuilder {
         }
         const boxes = spellBoxes.boxes;
         const colors = boxes.map(box => box.type === 'shadow' ? box.kind : box.color);
-
-        // Tags string
-        let tagsArr = ["Spell"];
-
-        if (!editorElement('spell-unchained').checked) {
-            const chainTarget = editorElement('spell-chain-target');
-            if (chainTarget && chainTarget.value) {
-                tagsArr.push(`Chain ${chainTarget.value}`);
-            } else if (school !== 'Divergent') {
-                tagsArr.push(`Chain ${school}`);
-            }
-        }
-
-        const customTags = editorElement('spell-custom-tags').value.trim();
-        if (customTags) {
-            customTags.split(',').forEach(t => {
-                if(t.trim()) tagsArr.push(t.trim());
-            });
-        }
-        // Picked tags keep their duplicate copies ("Duplicating a tag adds 2
-        // for each copy", p.57) - they were paid for. Only a pick that
-        // repeats an auto/custom tag above (Spell, Chain ...) is skipped.
-        const presetTags = new Set(tagsArr);
-        this.currentFormTags.forEach(tag => {
-            if (tag.name && !presetTags.has(tag.name)) tagsArr.push(tag.name);
-        });
 
         // Build the spell's textual description. The wizard auto-generates a
         // preview sentence ("Effect: ... Range: ... Duration: ...") and the

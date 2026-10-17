@@ -44,7 +44,7 @@ Status: in progress (executing one step at a time). Follows the phased-step conv
 
 ## Step 3 — Spell Builder Chain Target Filter & Pre-Save Custom Tag Limit Validation
 
-**Status: planned.**
+**Status: done 2026-10-16.**
 
 **Why:**
 1. `SpellBuilder.openWizard` populated `#spell-chain-target` using `t.type === 'Skill' && t.isSpellcastSkill`, missing Arcana skills identified via `t.exoticSkill?.system === 'Arcana'` or an `Arcana` tag (used by `isArcanaSkillTile` in `js/spell-rules.js` and `hasArcanaSkill` in `js/rules-review.js`).

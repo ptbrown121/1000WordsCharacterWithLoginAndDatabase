@@ -161,8 +161,61 @@ export function spellBoxesDifferFromDefault(school, tile) {
 }
 
 /** @param {import('./types.js').Tile} tile */
-function isArcanaSkillTile(tile) {
+export function isArcanaSkillTile(tile) {
     return tile?.type === 'Skill' && (tile.exoticSkill?.system === 'Arcana' || Boolean(tile.isSpellcastSkill));
+}
+
+/**
+ * Assemble the final `tile.tags` array for a SpellBuilder spell (pp.49, 55, 57):
+ * starts with the "Spell" marker and the granted Chain tag (when chained),
+ * appends comma-separated custom tags, and then appends Step 2 picked tags
+ * (preserving paid duplicate copies while skipping exact matches of preset
+ * marker/chain/custom tags).
+ * @param {{
+ *   formTags?: Array<{name: string, xp?: number}>,
+ *   customTagsText?: string,
+ *   unchained?: boolean,
+ *   chainTarget?: string,
+ *   school?: string
+ * }} [options]
+ * @returns {string[]}
+ */
+export function buildSpellTags({
+    formTags = [],
+    customTagsText = '',
+    unchained = false,
+    chainTarget = '',
+    school = ''
+} = {}) {
+    /** @type {string[]} */
+    const tagsArr = ['Spell'];
+
+    if (!unchained) {
+        const cleanTarget = String(chainTarget || '').trim();
+        const cleanSchool = String(school || '').trim();
+        if (cleanTarget) {
+            tagsArr.push(`Chain ${cleanTarget}`);
+        } else if (cleanSchool && cleanSchool !== 'Divergent') {
+            tagsArr.push(`Chain ${cleanSchool}`);
+        }
+    }
+
+    const customTags = String(customTagsText || '').trim();
+    if (customTags) {
+        customTags.split(',').forEach(t => {
+            if (t.trim()) tagsArr.push(t.trim());
+        });
+    }
+
+    // Picked tags keep their duplicate copies ("Duplicating a tag adds 2
+    // for each copy", p.57) - they were paid for. Only a pick that
+    // repeats an auto/custom tag above (Spell, Chain ...) is skipped.
+    const presetTags = new Set(tagsArr);
+    (formTags || []).forEach(tag => {
+        if (tag?.name && !presetTags.has(tag.name)) tagsArr.push(tag.name);
+    });
+
+    return tagsArr;
 }
 
 /** @param {import('./types.js').Tile} tile @returns {string[]} lowercased Chain targets */

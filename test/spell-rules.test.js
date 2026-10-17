@@ -1,7 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { PoolEngine } from '../js/pool.js';
 import {
     SPELL_DEFAULT_BOXES,
+    buildSpellTags,
     calculateSpellTagXp,
     calculateSpellTotalXp,
     getColorBuildFlags,
@@ -9,6 +11,7 @@ import {
     getSpellCastTests,
     getSpellTagXpList,
     getSpellTileCastTest,
+    isArcanaSkillTile,
     migrateSpellFormTags,
     spellBoxesDifferFromDefault
 } from '../js/spell-rules.js';
@@ -279,4 +282,44 @@ describe('spell-rules', () => {
             assert.equal(getSpellTileCastTest(forge, [forge]), null);
         });
     });
+
+    describe('isArcanaSkillTile & buildSpellTags', () => {
+        const engine = new PoolEngine();
+
+        it('matches both exoticSkill Arcana tiles and legacy isSpellcastSkill tiles', () => {
+            assert.equal(isArcanaSkillTile({ id: '1', name: 'Forge', type: 'Skill', dice: ['d6'], exoticSkill: { id: 'arcana-forge', system: 'Arcana' } }), true);
+            assert.equal(isArcanaSkillTile({ id: '2', name: 'Pyromancy', type: 'Skill', dice: ['d6'], isSpellcastSkill: true }), true);
+            assert.equal(isArcanaSkillTile({ id: '3', name: 'Brawl', type: 'Skill', dice: ['d6'] }), false);
+            assert.equal(isArcanaSkillTile({ id: '4', name: 'Claws', type: 'Skill', dice: ['d6'], exoticSkill: { id: 'stranger-bestial', system: 'Stranger' } }), false);
+        });
+
+        it('builds spell tags including custom tags while preserving duplicate picked tags and exempting the granted Chain tag', () => {
+            const tags = buildSpellTags({
+                formTags: [{ name: 'Keen', xp: 2 }, { name: 'Keen', xp: 2 }],
+                customTagsText: 'Sharp, Pierce',
+                unchained: false,
+                chainTarget: '',
+                school: 'Forge'
+            });
+            assert.deepEqual(tags, ['Spell', 'Chain Forge', 'Sharp', 'Pierce', 'Keen', 'Keen']);
+
+            // On a d4 spell (limit 1), the granted Chain Forge is exempt under { isSpell: true },
+            // while custom tags from #spell-custom-tags are counted against the tag limit.
+            const overLimit = engine.calculateTagLimit(['d4'], tags, { isSpell: true });
+            assert.equal(overLimit.valid, false);
+            assert.equal(overLimit.count, 4);
+
+            const legalD4 = buildSpellTags({
+                formTags: [{ name: 'HOLD', xp: 3 }],
+                customTagsText: '',
+                unchained: false,
+                chainTarget: 'Augur',
+                school: 'Augur'
+            });
+            const withinLimit = engine.calculateTagLimit(['d4'], legalD4, { isSpell: true });
+            assert.equal(withinLimit.valid, true);
+            assert.equal(withinLimit.count, 1);
+        });
+    });
 });
+
