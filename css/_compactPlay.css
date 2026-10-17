@@ -64,7 +64,7 @@ header.glass-panel {
 .armor-pool { flex: 1 1 18rem; min-width: 0; padding: 0.35rem 0.65rem; }
 .armor-pool label { font-size: 0.8rem; }
 .armor-pool .pool-inner { flex: 1; min-width: 0; }
-.armor-pool .pool-detail { max-width: none; white-space: nowrap; }
+.armor-pool .pool-detail { max-width: none; min-width: 0; white-space: nowrap; }
 .header-advancement { flex: 1 1 15rem; min-width: 0; }
 .header-advancement > summary,
 .pool-modifiers > summary {
@@ -166,9 +166,9 @@ header.glass-panel {
     .header-actions > .btn { flex: 1; }
     .header-actions .btn,
     .header-actions summary { min-height: 44px; }
-    .header-secondary { flex-direction: column; align-items: stretch; }
+    .header-secondary { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
     .armor-pool,
-    .header-advancement { flex: 0 1 auto; }
+    .header-advancement { flex: 0 1 auto; width: 100%; }
     .resource-pools > .pool { padding: 0.45rem; }
     .resource-pools .pool-inner { gap: 0.2rem; }
     .resource-pools .vital-current-control { grid-template-columns: 2rem 2rem 2rem; }

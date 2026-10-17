@@ -25,6 +25,32 @@ test('supports arrow, Home, and End keyboard navigation across tabs', async ({ p
     await expect(page.locator('#tab-panel-play')).toBeVisible();
 });
 
+test('keeps long armor descriptions inside the phone header', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'Exercises the stacked mobile header.');
+    await page.getByRole('button', { name: '+ Add Tile', exact: true }).click();
+    await page.locator('.tile-option-grid[data-target="tile-type"] [data-value="Gear"]').click();
+    await page.getByText('Armor', { exact: true }).click();
+    await page.locator('#tile-name').fill('Long Armor Description Verification');
+    await page.locator('.tile-box-button-grid[data-box-index="0"] [data-value="Orange"]').click();
+    await page.locator('.tile-box-button-grid[data-box-index="1"] [data-value="Yellow"]').click();
+    await page.locator('#tile-dice').fill('d8');
+    await page.getByText('Hard', { exact: true }).click();
+    await page.getByText('Closed +3', { exact: true }).click();
+    await page.getByRole('button', { name: 'Save Tile', exact: true }).click();
+    await expect(page.locator('#armor-soak-detail')).toContainText('Long Armor Description Verification');
+
+    const armor = await page.locator('.armor-pool').boundingBox();
+    const header = await page.locator('.header-secondary').boundingBox();
+    expect(armor).not.toBeNull();
+    expect(header).not.toBeNull();
+    expect(armor.x + armor.width).toBeLessThanOrEqual(header.x + header.width + 1);
+    const widths = await page.evaluate(() => ({
+        content: globalThis.document.documentElement.scrollWidth,
+        viewport: globalThis.innerWidth
+    }));
+    expect(widths.content).toBeLessThanOrEqual(widths.viewport);
+});
+
 test('surfaces storage failures, exports recovery JSON, and honors dismissal', async ({ page }) => {
     await page.evaluate(() => {
         globalThis.dispatchEvent(new CustomEvent('storage-error', {
