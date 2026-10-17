@@ -39,6 +39,49 @@ test('help modal exposes its name and keeps keyboard focus inside', async ({ pag
     await expect(opener).toBeFocused();
 });
 
+test('Back closes help without navigating away or losing sheet edits', async ({ page }) => {
+    const url = page.url();
+    const name = page.locator('#char-name');
+    await name.fill('Android Back Hero');
+    await page.locator('#btn-info').click();
+    const dialog = page.locator('#info-modal');
+    await expect(dialog).toBeVisible();
+
+    await page.goBack();
+
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(url);
+    await expect(name).toHaveValue('Android Back Hero');
+    await expect(page.locator('#btn-info')).toBeFocused();
+});
+
+for (const dismissal of ['close button', 'Escape', 'backdrop']) {
+    test(`closing help with ${dismissal} leaves no extra Back step`, async ({ page }) => {
+        const url = page.url();
+        // Seed a preceding same-document destination so an extra Back is visible.
+        await page.evaluate(() => {
+            globalThis.history.replaceState({ previous: true }, '', '#previous');
+            globalThis.history.pushState({ sheet: true }, '', globalThis.location.pathname);
+        });
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            await page.locator('#btn-info').click();
+            await expect(page.locator('#info-modal')).toBeVisible();
+            if (dismissal === 'close button') {
+                await page.locator('#btn-info-close').click();
+            } else if (dismissal === 'Escape') {
+                await page.keyboard.press('Escape');
+            } else {
+                await page.locator('#info-modal').click({ position: { x: 5, y: 5 } });
+            }
+            await expect(page.locator('#info-modal')).toBeHidden();
+            await expect.poll(() => page.evaluate(() => globalThis.history.state)).toEqual({ sheet: true });
+        }
+
+        await page.goBack();
+        await expect(page).toHaveURL(`${url}#previous`);
+    });
+}
+
 test('every static modal has accessible dialog metadata', async ({ page }) => {
     const modals = page.locator('.modal');
     await expect(modals).toHaveCount(8);

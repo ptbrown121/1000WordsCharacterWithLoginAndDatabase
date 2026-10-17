@@ -124,10 +124,36 @@ export function init(deps) {
     reagentPicker = createSearchableSelect(editorElement('ammo-reagent-template'), { searchPlaceholder: 'Type to filter templates...' });
 
     // Info Modal
-    els.btnInfo.addEventListener('click', () => els.infoModal.classList.add('active'));
-    els.btnInfoClose.addEventListener('click', () => els.infoModal.classList.remove('active'));
+    let infoHistoryEntryArmed = false;
+    let infoHistoryClosePending = false;
+    function openInfoModal() {
+        els.infoModal.classList.add('active');
+        if (infoHistoryEntryArmed) return;
+        history.pushState({ ...history.state, infoModal: true }, '');
+        infoHistoryEntryArmed = true;
+    }
+    function closeInfoModal() {
+        els.infoModal.classList.remove('active');
+        if (!infoHistoryEntryArmed || infoHistoryClosePending) return;
+        infoHistoryClosePending = true;
+        history.back();
+    }
+    window.addEventListener('popstate', () => {
+        if (!infoHistoryEntryArmed) return;
+        // Back already consumed our entry; never navigate back a second time.
+        infoHistoryEntryArmed = false;
+        if (infoHistoryClosePending) {
+            infoHistoryClosePending = false;
+            // A quick reopen can happen before the asynchronous back completes.
+            if (els.infoModal.classList.contains('active')) openInfoModal();
+        } else {
+            els.infoModal.classList.remove('active');
+        }
+    });
+    els.btnInfo.addEventListener('click', openInfoModal);
+    els.btnInfoClose.addEventListener('click', closeInfoModal);
     els.infoModal.addEventListener('click', (e) => {
-        if (e.target === els.infoModal) els.infoModal.classList.remove('active');
+        if (e.target === els.infoModal) closeInfoModal();
     });
 
     // Modal
