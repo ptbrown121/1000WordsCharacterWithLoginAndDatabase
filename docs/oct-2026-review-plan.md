@@ -1,6 +1,6 @@
 # October 2026 Codebase & Security Review Plan
 
-Status: in progress (executing one step at a time). Follows the phased-step convention from `docs/platform-update-plan.md` and `docs/v5.02-rules-update-plan.md`.
+Status: completed 2026-10-16. Follows the phased-step convention from `docs/platform-update-plan.md` and `docs/v5.02-rules-update-plan.md`.
 
 ## Execution Order
 
@@ -113,10 +113,11 @@ Status: in progress (executing one step at a time). Follows the phased-step conv
 
 ## Step 8 — Module Decomposition, Agent Docs Sync & Branch Hygiene
 
-**Status: planned.**
+**Status: done 2026-10-16.**
 
-**Why:** Keep large modules (`js/data.js`, `js/ui/resolution.js`, `js/ui/pool.js`) maintainable, synchronize `AGENTS.md` with `CLAUDE.md`, and clean up stale local branches.
+**Why:** Keep large modules (`js/data.js`) maintainable, synchronize `AGENTS.md` with `CLAUDE.md`, and clean up stale local branches.
 
 **Code changes:**
-- Extract pure character/tile normalization helpers from `js/data.js` (`js/character-normalizer.js` with `js/data.js` re-exports) and focused UI helpers from `js/ui/resolution.js` / `js/ui/pool.js`.
-- Update `AGENTS.md` to match `CLAUDE.md` (`js/sheet-rules.js`, `vercel.json` CSP notes, and `docs/oct-2026-review-plan.md`).
+- Extracted pure character/tile normalization helpers (~360 lines) from `js/data.js` into `js/character-normalizer.js` with full re-exports from `js/data.js`.
+- Synchronized `AGENTS.md` and `CLAUDE.md` (`js/sheet-rules.js`, `js/character-normalizer.js`, `vercel.json` CSP notes, and `docs/oct-2026-review-plan.md`).
+- Cleaned up 10 stale/merged local branches (`worktree-agent-*`, `fix/*`, `hotfix/*`), leaving only `main`.
