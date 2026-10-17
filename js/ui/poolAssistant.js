@@ -192,6 +192,9 @@ async function finishRecording() {
 
 async function startRecording() {
     if (busy) return;
+    // Voice can be started from the floating button while the form is closed.
+    // Reveal listening feedback and errors only after that deliberate action.
+    els.poolAssistantPanel.open = true;
     if (mediaRecorder?.state === 'recording') {
         mediaRecorder.stop();
         return;

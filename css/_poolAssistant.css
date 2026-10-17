@@ -7,23 +7,34 @@
 }
 
 .pool-assistant-heading {
-    align-items: flex-start;
+    align-items: center;
+    cursor: pointer;
     display: flex;
-    gap: 0.75rem;
-    justify-content: space-between;
+    gap: 0.5rem;
+    list-style: none;
+    min-height: 44px;
 }
 
-.pool-assistant-heading h3,
-.pool-assistant-heading p {
+.pool-assistant-heading::-webkit-details-marker { display: none; }
+.pool-assistant-heading::before { content: '▸'; }
+.pool-assistant-panel[open] > .pool-assistant-heading::before { content: '▾'; }
+.pool-assistant-heading:focus-visible { outline: 2px solid #b28aff; outline-offset: 4px; border-radius: 4px; }
+
+.pool-assistant-heading h3 {
+    flex: 1;
+    font-size: 1rem;
     margin: 0;
+    min-width: 0;
 }
 
-.pool-assistant-heading p,
+.pool-assistant-intro,
 .pool-assistant-panel small {
     color: var(--text-secondary);
     font-size: 0.8rem;
     line-height: 1.4;
 }
+
+.pool-assistant-intro { margin-top: 0.6rem; }
 
 .pool-assistant-badge {
     background: rgba(122, 148, 255, 0.2);

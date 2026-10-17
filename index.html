@@ -406,14 +406,12 @@
                             </div>
                         </div>
 
-                        <section id="pool-assistant-panel" class="pool-assistant-panel" aria-labelledby="pool-assistant-title" hidden>
-                            <div class="pool-assistant-heading">
-                                <div>
-                                    <h3 id="pool-assistant-title">AI Pool Assistant</h3>
-                                    <p>Say the GM’s two colors and the action; the assistant will suggest matching tiles.</p>
-                                </div>
+                        <details id="pool-assistant-panel" class="pool-assistant-panel" aria-labelledby="pool-assistant-title" hidden>
+                            <summary class="pool-assistant-heading">
+                                <h3 id="pool-assistant-title">AI Pool Assistant</h3>
                                 <span class="pool-assistant-badge">Preview only</span>
-                            </div>
+                            </summary>
+                            <p class="pool-assistant-intro">Say the GM’s two colors and the action; the assistant will suggest matching tiles.</p>
                             <form id="pool-assistant-form" class="pool-assistant-form">
                                 <label for="pool-assistant-command">What colors did the GM call, and what does your character do?</label>
                                 <div class="pool-assistant-controls">
@@ -423,7 +421,7 @@
                             </form>
                             <p id="pool-assistant-status" class="pool-assistant-status" role="status" aria-live="polite"></p>
                             <small>Spoken colors override preselected colors. The assistant never infers colors from the action. Burns require an explicit request.</small>
-                        </section>
+                        </details>
 
                         <div class="pool-tiles">
                             <div class="tile-dropzone" id="call-tile-zone">

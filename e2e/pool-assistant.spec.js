@@ -33,7 +33,13 @@ test('shows the enabled assistant but rejects signed-out requests before POSTing
     await expect(page.locator('#pool-assistant-panel')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dictate Call' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dictate Call' })).toHaveCSS('position', 'fixed');
+    await expect(page.locator('#pool-assistant-form')).toBeHidden();
+    await page.locator('#pool-assistant-panel > summary').click();
     await page.locator('#pool-assistant-command').fill('Sneak past the guard');
+    await page.locator('#pool-assistant-panel > summary').click();
+    await expect(page.locator('#pool-assistant-form')).toBeHidden();
+    await page.locator('#pool-assistant-panel > summary').click();
+    await expect(page.locator('#pool-assistant-command')).toHaveValue('Sneak past the guard');
     await page.locator('#btn-pool-assistant-suggest').click();
     await expect(page.locator('#pool-assistant-status')).toContainText('Sign in is required');
 });
@@ -95,6 +101,7 @@ test('previews without mutation, applies on confirm, and preserves state on canc
         contentType: 'application/json',
         body: JSON.stringify({ error: 'Provider temporarily unavailable.' })
     }));
+    await page.locator('#pool-assistant-panel > summary').click();
     await page.locator('#pool-assistant-command').fill('Try something else');
     await page.locator('#btn-pool-assistant-suggest').click();
     await expect(page.locator('#pool-assistant-status')).toContainText('Provider temporarily unavailable');

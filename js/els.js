@@ -137,7 +137,7 @@ export const els = {
     poolTilePickerEmpty: requiredElement('pool-tile-picker-empty', HTMLElement),
     btnPoolTilePickerClose: requiredElement('btn-pool-tile-picker-close', HTMLButtonElement),
 
-    poolAssistantPanel: requiredElement('pool-assistant-panel', HTMLElement),
+    poolAssistantPanel: requiredElement('pool-assistant-panel', HTMLDetailsElement),
     poolAssistantForm: requiredElement('pool-assistant-form', HTMLFormElement),
     poolAssistantCommand: requiredElement('pool-assistant-command', HTMLInputElement),
     btnPoolAssistantMic: requiredElement('btn-pool-assistant-mic', HTMLButtonElement),
