@@ -883,3 +883,55 @@
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
+
+#npc-panel > .shadow-panel-header > :first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.npc-storage-destination {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 0.35rem 0;
+    overflow-wrap: anywhere;
+}
+
+.npc-storage-campaign {
+    color: #c4b5fd;
+}
+
+#npc-storage-note {
+    display: block;
+    line-height: 1.5;
+    margin-top: 0.3rem;
+    overflow-wrap: anywhere;
+}
+
+#npc-summary {
+    overflow-wrap: anywhere;
+}
+
+#npc-storage-select {
+    flex: 1 1 14rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#btn-npc-copy-local,
+#btn-npc-add {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+@media (max-width: 640px) {
+    #npc-storage-row > * {
+        width: 100%;
+    }
+
+    #npc-storage-row button,
+    #btn-npc-add {
+        min-height: 44px;
+    }
+}

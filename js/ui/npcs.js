@@ -32,6 +32,8 @@ let storageId = LOCAL_STORAGE_ID;
 let loading = false;
 let storageError = '';
 let storageOptionsSnapshot = '';
+let storageLoadVersion = 0;
+let copying = false;
 
 const toInt = (value) => {
     const parsed = parseInt(value, 10);
@@ -104,8 +106,10 @@ function removeNpc(npcId) {
 }
 
 async function switchStorage(nextId) {
+    const version = ++storageLoadVersion;
     storageId = nextId;
     storageError = '';
+    loading = false;
     if (!isCampaignStorage()) {
         npcs = readLocalNpcs();
         renderNpcs();
@@ -116,36 +120,46 @@ async function switchStorage(nextId) {
     loading = true;
     renderNpcs();
     try {
-        npcs = normalizeNpcList(await dataManager.cloudStore.listCampaignNpcs(storageId));
+        const loaded = await dataManager.cloudStore.listCampaignNpcs(nextId);
+        if (version !== storageLoadVersion) return;
+        npcs = normalizeNpcList(loaded);
     } catch (error) {
+        if (version !== storageLoadVersion) return;
         storageId = LOCAL_STORAGE_ID;
         npcs = readLocalNpcs();
-        storageError = getErrorMessage(error, 'Could not load campaign NPCs; showing this browser instead.');
+        storageError = `Showing this browser instead. ${getErrorMessage(error, 'Could not load campaign NPCs.')}`;
+    } finally {
+        if (version === storageLoadVersion) {
+            loading = false;
+            renderNpcs();
+        }
     }
-    loading = false;
-    renderNpcs();
 }
 
 async function copyLocalNpcsToCampaign() {
-    if (!isCampaignStorage()) return;
+    const campaign = getGmCampaigns().find(entry => entry.id === storageId);
+    if (!campaign || loading || copying) return;
     const locals = readLocalNpcs();
     if (locals.length === 0) return;
-    if (!await showConfirm(`Copy ${locals.length} browser NPC${locals.length === 1 ? '' : 's'} into this campaign? The browser copies stay.`, { title: 'Copy browser NPCs?' })) return;
+    if (!await showConfirm(`Copy ${locals.length} browser NPC${locals.length === 1 ? '' : 's'} into ${campaign.name}? The browser copies stay.`, { title: 'Copy browser NPCs?' })) return;
+    if (storageId !== campaign.id) return;
 
     storageError = '';
-    for (const local of locals) {
-        // Fresh ids: the same browser NPC may be copied into several
-        // campaigns, and reusing the id would move it instead.
-        const copy = normalizeNpc({ ...local, id: crypto.randomUUID() });
-        try {
-            await dataManager.cloudStore.saveCampaignNpc(storageId, copy);
-            npcs.push(copy);
-        } catch (error) {
-            storageError = getErrorMessage(error, `Could not copy ${copy.name} to the campaign.`);
-            break;
+    copying = true;
+    renderStorageControls();
+    try {
+        for (const local of locals) {
+            // Fresh ids let the browser NPC be copied into several campaigns.
+            const copy = normalizeNpc({ ...local, id: crypto.randomUUID() });
+            await dataManager.cloudStore.saveCampaignNpc(campaign.id, copy);
+            if (storageId === campaign.id) npcs.push(copy);
         }
+    } catch (error) {
+        storageError = `Could not copy NPCs to ${campaign.name}. ${getErrorMessage(error, 'Please try again.')}`;
+    } finally {
+        copying = false;
+        renderNpcs();
     }
-    renderNpcs();
 }
 
 function rollDie(die) {
@@ -199,6 +213,7 @@ function applyRankExample() {
 }
 
 function addNpcFromForm() {
+    if (loading || copying) return;
     const name = npcInput('npc-name').value.trim();
     if (!name) {
         showAlert('Give the NPC a name.');
@@ -346,16 +361,14 @@ function renderNpcCard(npc) {
 function renderStorageControls() {
     const row = npcElement('npc-storage-row');
     const select = npcSelect('npc-storage-select');
-
     const gmCampaigns = getGmCampaigns();
-    if (!dataManager?.cloudStore || gmCampaigns.length === 0) {
-        row.hidden = true;
-        if (isCampaignStorage()) switchStorage(LOCAL_STORAGE_ID);
-        storageOptionsSnapshot = '';
+    const canUseCampaigns = Boolean(dataManager?.cloudStore && gmCampaigns.length);
+    row.hidden = !canUseCampaigns;
+    if (isCampaignStorage() && (!canUseCampaigns || !gmCampaigns.some(campaign => campaign.id === storageId))) {
+        switchStorage(LOCAL_STORAGE_ID);
         return;
     }
 
-    row.hidden = false;
     const snapshot = JSON.stringify(gmCampaigns.map(campaign => [campaign.id, campaign.name]));
     if (snapshot !== storageOptionsSnapshot && document.activeElement !== select) {
         storageOptionsSnapshot = snapshot;
@@ -363,27 +376,30 @@ function renderStorageControls() {
             `<option value="${escapeHtml(campaign.id)}">${escapeHtml(campaign.name)} (campaign)</option>`
         ).join('');
     }
-    if (isCampaignStorage() && !gmCampaigns.some(campaign => campaign.id === storageId)) {
-        switchStorage(LOCAL_STORAGE_ID);
-        return;
-    }
     select.value = storageId;
+    select.disabled = loading || copying;
 
+    const campaign = gmCampaigns.find(entry => entry.id === storageId);
+    const destination = campaign?.name || 'This browser';
+    els.npcStorageDestination.textContent = `NPC storage: ${destination}`;
+    els.npcStorageDestination.classList.toggle('npc-storage-campaign', Boolean(campaign));
+    const addButton = npcButton('btn-npc-add');
+    addButton.textContent = `Add NPC to ${destination}`;
+    addButton.disabled = loading || copying;
     const copyButton = npcButton('btn-npc-copy-local');
-    copyButton.hidden = !isCampaignStorage() || readLocalNpcs().length === 0;
+    copyButton.hidden = !campaign || readLocalNpcs().length === 0;
+    copyButton.textContent = `Copy browser NPCs to ${destination}`;
+    copyButton.disabled = loading || copying;
 
-    const note = npcElement('npc-storage-note');
-    {
-        if (storageError) {
-            note.textContent = storageError;
-        } else if (loading) {
-            note.textContent = 'Loading campaign NPCs...';
-        } else {
-            note.textContent = isCampaignStorage()
-                ? 'Campaign NPCs are shared with every GM of this campaign.'
-                : 'Browser NPCs stay on this device.';
-        }
-    }
+    els.npcStorageNote.textContent = storageError || (loading
+        ? `Loading NPCs from ${destination}...`
+        : copying
+            ? `Copying browser NPCs to ${destination}...`
+            : campaign
+                ? `Shared with all GMs of ${destination}. NPC storage is separate from Campaign to manage.`
+                : canUseCampaigns
+                    ? 'Only on this device. NPC storage is separate from Campaign to manage.'
+                    : 'Only on this device. Sign in as a campaign GM to store NPCs with a campaign.');
 }
 
 export function renderNpcs() {

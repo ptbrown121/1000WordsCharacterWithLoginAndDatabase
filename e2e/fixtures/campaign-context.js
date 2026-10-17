@@ -2,6 +2,8 @@
 import { init as initCloud, renderCloudControls } from '../../js/ui/cloud.js';
 import { init as initFiles, renderCampaignFiles } from '../../js/ui/campaignFiles.js';
 import { init as initAi, renderAiCreation } from '../../js/ui/aiCreation.js';
+import { initModalAccessibility } from '../../js/ui/modalAccessibility.js';
+import { init as initNpcs } from '../../js/ui/npcs.js';
 import { init as initTabs } from '../../js/ui/tabs.js';
 
 const session = { user: { id: 'preview-gm', email: 'gm@example.test' }, access_token: 'preview-only' };
@@ -30,6 +32,18 @@ const manager = {
     },
     cloudStore: {
         listCampaignFiles: async () => [],
+        async listCampaignNpcs(campaignId) {
+            const response = await fetch(`/api/preview/npcs?campaignId=${encodeURIComponent(campaignId)}`);
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error);
+            return payload.npcs;
+        },
+        async saveCampaignNpc(campaignId, npc) {
+            const response = await fetch('/api/preview/npcs', {
+                method: 'POST', body: JSON.stringify({ campaignId, npc })
+            });
+            if (!response.ok) throw new Error('Preview NPC save failed.');
+        },
         async uploadCampaignFile(campaignId, file, title) {
             const response = await fetch('/api/preview/files', {
                 method: 'POST',
@@ -45,8 +59,10 @@ const renderAll = () => {
     renderAiCreation();
     renderCampaignFiles();
 };
-const deps = { dataManager: manager, supabaseClient: client, renderAll };
+const deps = { dataManager: manager, supabaseClient: client, renderAll, poolEngine: { rollDie: () => 1 } };
 initTabs();
+initModalAccessibility();
+initNpcs(deps);
 initAi(deps);
 await initCloud(deps);
 initFiles(deps);

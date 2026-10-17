@@ -203,6 +203,8 @@ export const els = {
 
     btnNpcToggle: requiredElement('btn-npc-toggle', HTMLButtonElement),
     npcPanelBody: requiredElement('npc-panel-body', HTMLElement),
+    npcStorageDestination: requiredElement('npc-storage-destination', HTMLElement),
+    npcStorageNote: requiredElement('npc-storage-note', HTMLElement),
     npcList: requiredElement('npc-list', HTMLElement),
 
     statusConditionsDisplay: requiredElement('status-conditions-display', HTMLElement),
