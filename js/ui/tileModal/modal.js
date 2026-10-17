@@ -230,6 +230,7 @@ export function openModal(tile = null) {
     setFormBoxes([]);
     setFormTags([]);
     els.tagCustomInput.style.display = 'none';
+    els.tagWhileForm.style.display = 'none';
     tileLinkPicker.setVisible(false);
     // form.reset() above changed select values without firing 'change';
     // re-sync the searchable pickers' trigger labels.

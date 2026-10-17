@@ -96,6 +96,7 @@ export const els = {
     tagSelect: requiredElement('tag-select', HTMLSelectElement),
     tagCustomInput: requiredElement('tag-custom-input', HTMLInputElement),
     tagChainTarget: requiredElement('tag-chain-target', HTMLSelectElement),
+    tagWhileForm: requiredElement('tag-while-form', HTMLSelectElement),
     spellWorldTarget: requiredElement('spell-world-target', HTMLSelectElement),
     btnAddTag: requiredElement('btn-add-tag', HTMLButtonElement),
     tagsContainer: requiredElement('selected-tags-container', HTMLElement),
@@ -206,6 +207,11 @@ export const els = {
     npcStorageDestination: requiredElement('npc-storage-destination', HTMLElement),
     npcStorageNote: requiredElement('npc-storage-note', HTMLElement),
     npcList: requiredElement('npc-list', HTMLElement),
+    npcDiceFields: ['might', 'charm', 'skill'].map(stat => ({
+        input: requiredElement(`npc-${stat}`, HTMLInputElement),
+        chipsContainer: requiredElement(`npc-${stat}-selected`, HTMLElement),
+        buttonsContainer: requiredElement(`npc-${stat}-buttons`, HTMLElement)
+    })),
 
     statusConditionsDisplay: requiredElement('status-conditions-display', HTMLElement),
     btnConditionToggle: requiredElement('btn-condition-toggle', HTMLButtonElement),

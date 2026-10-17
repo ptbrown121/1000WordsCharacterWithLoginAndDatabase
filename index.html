@@ -704,18 +704,51 @@
                                 </select>
                             </label>
                             <button type="button" id="btn-npc-example" class="btn btn-outline" title="Fill the printed example stat block for this Rank">Use Rank example</button>
-                            <label title="Stands in for BODY/POWER; rolled when the NPC deals injury">
-                                Might (injury)
+                            <div class="npc-dice-field" role="group" aria-label="Might dice">
+                                <label for="npc-might" title="Stands in for BODY/POWER; rolled when the NPC deals injury">Might (injury)</label>
                                 <input type="text" id="npc-might" placeholder="e.g. d8">
-                            </label>
-                            <label title="Stands in for SOUL/FOCUS; rolled for Defense (plus Rank)">
-                                Charm (defense)
+                                <div id="npc-might-selected" class="dice-selected-list" aria-live="polite"></div>
+                                <div id="npc-might-buttons" class="dice-button-grid">
+                                    <button type="button" class="dice-add-btn" data-die="d3">+ d3</button>
+                                    <button type="button" class="dice-add-btn" data-die="d4">+ d4</button>
+                                    <button type="button" class="dice-add-btn" data-die="d6">+ d6</button>
+                                    <button type="button" class="dice-add-btn" data-die="d8">+ d8</button>
+                                    <button type="button" class="dice-add-btn" data-die="d10">+ d10</button>
+                                    <button type="button" class="dice-add-btn" data-die="d12">+ d12</button>
+                                    <button type="button" class="dice-add-btn" data-die="d14">+ d14</button>
+                                    <button type="button" class="dice-add-btn" data-die="d16">+ d16</button>
+                                </div>
+                            </div>
+                            <div class="npc-dice-field" role="group" aria-label="Charm dice">
+                                <label for="npc-charm" title="Stands in for SOUL/FOCUS; rolled for Defense (plus Rank)">Charm (defense)</label>
                                 <input type="text" id="npc-charm" placeholder="e.g. d8">
-                            </label>
-                            <label title="Stands in for MIND/SPEED; rolled for Attack (plus Rank)">
-                                Skill (attack)
+                                <div id="npc-charm-selected" class="dice-selected-list" aria-live="polite"></div>
+                                <div id="npc-charm-buttons" class="dice-button-grid">
+                                    <button type="button" class="dice-add-btn" data-die="d3">+ d3</button>
+                                    <button type="button" class="dice-add-btn" data-die="d4">+ d4</button>
+                                    <button type="button" class="dice-add-btn" data-die="d6">+ d6</button>
+                                    <button type="button" class="dice-add-btn" data-die="d8">+ d8</button>
+                                    <button type="button" class="dice-add-btn" data-die="d10">+ d10</button>
+                                    <button type="button" class="dice-add-btn" data-die="d12">+ d12</button>
+                                    <button type="button" class="dice-add-btn" data-die="d14">+ d14</button>
+                                    <button type="button" class="dice-add-btn" data-die="d16">+ d16</button>
+                                </div>
+                            </div>
+                            <div class="npc-dice-field" role="group" aria-label="Skill dice">
+                                <label for="npc-skill" title="Stands in for MIND/SPEED; rolled for Attack (plus Rank)">Skill (attack)</label>
                                 <input type="text" id="npc-skill" placeholder="e.g. d8">
-                            </label>
+                                <div id="npc-skill-selected" class="dice-selected-list" aria-live="polite"></div>
+                                <div id="npc-skill-buttons" class="dice-button-grid">
+                                    <button type="button" class="dice-add-btn" data-die="d3">+ d3</button>
+                                    <button type="button" class="dice-add-btn" data-die="d4">+ d4</button>
+                                    <button type="button" class="dice-add-btn" data-die="d6">+ d6</button>
+                                    <button type="button" class="dice-add-btn" data-die="d8">+ d8</button>
+                                    <button type="button" class="dice-add-btn" data-die="d10">+ d10</button>
+                                    <button type="button" class="dice-add-btn" data-die="d12">+ d12</button>
+                                    <button type="button" class="dice-add-btn" data-die="d14">+ d14</button>
+                                    <button type="button" class="dice-add-btn" data-die="d16">+ d16</button>
+                                </div>
+                            </div>
                             <label title="Health pool maximum">
                                 Health (HP)
                                 <input type="number" id="npc-hp" placeholder="e.g. 10" min="0">
@@ -1197,6 +1230,9 @@
                         <button type="button" id="btn-add-tag" class="btn btn-outline" style="padding: 0.5rem 1rem;">Add</button>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+                            <select id="tag-while-form" aria-label="While form" style="display: none; width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                                <option value="">-- Select form --</option>
+                            </select>
                             <input type="text" id="tag-custom-input" placeholder="Value..." style="display: none; width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
                             <select id="tag-chain-target" aria-label="Chain target tile" style="display: none; width: 100%; padding: 0.5rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
                                 <option value="">-- Select linked tile --</option>

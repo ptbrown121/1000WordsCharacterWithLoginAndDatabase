@@ -7,6 +7,7 @@ import { els } from '../els.js';
 import { escapeHtml } from '../pool.js';
 import { showAlert, showConfirm } from './dialogService.js';
 import { requiredEditorElement } from './editorDom.js';
+import { createDiceTokenEditor } from './modalWidgets.js';
 import {
     NPC_RANK_EXAMPLES,
     getDescriptorDie,
@@ -34,6 +35,8 @@ let storageError = '';
 let storageOptionsSnapshot = '';
 let storageLoadVersion = 0;
 let copying = false;
+/** @type {Array<ReturnType<typeof createDiceTokenEditor>>} */
+let npcDiceEditors = [];
 
 const toInt = (value) => {
     const parsed = parseInt(value, 10);
@@ -206,6 +209,7 @@ function applyRankExample() {
     npcInput('npc-might').value = example.might;
     npcInput('npc-charm').value = example.charm;
     npcInput('npc-skill').value = example.skill;
+    npcDiceEditors.forEach(editor => editor.syncChips());
     npcInput('npc-hp').value = String(example.hp);
     npcInput('npc-en').value = String(example.en);
     npcInput('npc-rx').value = String(example.rx);
@@ -425,6 +429,12 @@ export function init(deps) {
     dataManager = deps.dataManager;
     poolEngine = deps.poolEngine;
     npcs = readLocalNpcs();
+    npcDiceEditors = els.npcDiceFields.map(fields => {
+        const editor = createDiceTokenEditor(fields);
+        fields.input.addEventListener('input', () => editor.syncChips());
+        editor.syncChips();
+        return editor;
+    });
 
     if (els.btnNpcToggle && els.npcPanelBody) {
         els.btnNpcToggle.addEventListener('click', () => {

@@ -7,6 +7,7 @@ import { resolveAmmoDie } from '../ammo-rules.js';
 import { uiState } from '../state.js';
 import { els } from '../els.js';
 import { showAlert, showConfirm } from './dialogService.js';
+import { handleCritPickerChange, handleCritPickerClick, renderCritPicker } from './critPicker.js';
 import { init as initPostRollBurn, getCallTimeNotices, renderPostRollBurnPanel } from './postRollBurn.js';
 import {
     RESOLUTION_MODES,
@@ -50,6 +51,7 @@ export function init(deps) {
         if (!uiState.lastRollResult) return;
         const target = e.target;
         if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
+        if (handleCritPickerChange(target)) return;
 
         if (target.id === 'resolution-mode' && ['action', 'attack', 'defense', 'healing'].includes(target.value)) {
             uiState.currentResolutionMode = /** @type {'action'|'attack'|'defense'|'healing'} */ (target.value);
@@ -107,6 +109,7 @@ export function init(deps) {
     els.resolutionControls.addEventListener('click', (e) => {
         const target = e.target;
         if (!(target instanceof HTMLElement)) return;
+        if (handleCritPickerClick(target)) return;
         if (target.classList.contains('btn-roll-freebie')) {
             rollPostRollFreebie(target.dataset.die || '');
             return;
@@ -283,10 +286,7 @@ export function renderResolutionExtraFields() {
                     <label for="target-grit">Target Grit</label>
                     <input id="target-grit" class="resolution-extra" type="text" inputmode="numeric" value="${escapeHtml(getResolutionExtraValue('target-grit'))}">
                 </div>
-                <div class="resolution-field">
-                    <label for="attack-crits">Crit Tags</label>
-                    <input id="attack-crits" class="resolution-extra" type="text" value="${escapeHtml(getResolutionExtraValue('attack-crits'))}" placeholder="e.g. JOLT, DOWN">
-                </div>
+                ${renderCritPicker('attack-crits', 'Crit Tags', getResolutionExtraValue('attack-crits'))}
             </div>
         `;
     }
@@ -306,10 +306,7 @@ export function renderResolutionExtraFields() {
                     <label for="defense-soak">Other Soak</label>
                     <input id="defense-soak" class="resolution-extra" type="text" inputmode="numeric" value="${escapeHtml(getResolutionExtraValue('defense-soak'))}">
                 </div>
-                <div class="resolution-field">
-                    <label for="incoming-crits">Incoming Crit Tags</label>
-                    <input id="incoming-crits" class="resolution-extra" type="text" value="${escapeHtml(getResolutionExtraValue('incoming-crits'))}" placeholder="e.g. BLEED, DOWN">
-                </div>
+                ${renderCritPicker('incoming-crits', 'Incoming Crit Tags', getResolutionExtraValue('incoming-crits'))}
             </div>
             ${renderDefenseShieldPanel()}
             <p class="hint-text">Resisting a Hinder: defend with Guile, Menace, Presence, Reason, or Wiles — but not the attacker's skill. Hinder impact drains Energy or Reflex, not Health.</p>

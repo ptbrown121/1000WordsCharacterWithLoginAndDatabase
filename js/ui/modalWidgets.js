@@ -165,8 +165,9 @@ export function createSearchableSelect(select, { searchPlaceholder = 'Type to fi
         button.addEventListener('click', () => {
             select.value = option.value;
             select.dispatchEvent(new Event('change', { bubbles: true }));
+            const restoreTriggerFocus = wrapper.contains(document.activeElement);
             close();
-            trigger.focus();
+            if (restoreTriggerFocus) trigger.focus();
         });
         list.appendChild(button);
     }

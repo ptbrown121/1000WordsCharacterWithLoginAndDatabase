@@ -5,6 +5,7 @@
 // dropping it.
 import {
     formatTagLimitStatus,
+    getCharacterForms,
     getDiceValidationMessage,
     parseDiceInput
 } from '../../pool.js';
@@ -49,6 +50,7 @@ export function initTagEditor(deps) {
         const motorizedStat = editorElement('tag-motorized-stat');
         const hitchValue = editorElement('tag-hitch-value');
         tileLinkPicker.setVisible(false);
+        els.tagWhileForm.style.display = 'none';
         if (val === 'Chain' || val === 'World') {
             populateTileLinkTargets(els.tagChainTarget, dataManager.state.tiles || [], editorElement('tile-id').value);
             els.tagChainTarget.setAttribute('aria-label', `${val} target tile`);
@@ -57,9 +59,22 @@ export function initTagEditor(deps) {
             els.tagCustomInput.style.display = 'none';
             motorizedStat.style.display = 'none';
             hitchValue.style.display = 'none';
-        } else if (val === 'Custom' || val === 'While') {
+        } else if (val === 'While') {
+            els.tagCustomInput.value = '';
+            const forms = getCharacterForms([...(dataManager.state.tiles || []), { tags: currentFormTags }])
+                .sort((a, b) => a.localeCompare(b));
+            els.tagWhileForm.replaceChildren(new Option('-- Select form --', ''));
+            forms.forEach(form => els.tagWhileForm.add(new Option(form, `form:${form}`)));
+            els.tagWhileForm.add(new Option('New form…', 'new'));
+            els.tagWhileForm.value = forms.length ? '' : 'new';
+            els.tagWhileForm.style.display = 'block';
+            motorizedStat.style.display = 'none';
+            hitchValue.style.display = 'none';
+            syncWhileFormInput();
+        } else if (val === 'Custom') {
             els.tagCustomInput.style.display = 'inline-block';
-            els.tagCustomInput.placeholder = val === 'Custom' ? 'Custom Tag Name' : 'Form name (e.g. Werewolf)';
+            els.tagCustomInput.placeholder = 'Custom Tag Name';
+            els.tagCustomInput.setAttribute('aria-label', 'Custom tag name');
             els.tagCustomInput.focus();
             motorizedStat.style.display = 'none';
             hitchValue.style.display = 'none';
@@ -78,7 +93,18 @@ export function initTagEditor(deps) {
         }
     });
 
+    els.tagWhileForm.addEventListener('change', syncWhileFormInput);
     els.btnAddTag.addEventListener('click', () => addPendingTileTag({ showAlert: true }));
+}
+
+function syncWhileFormInput() {
+    const isNewForm = els.tagWhileForm.value === 'new';
+    els.tagCustomInput.style.display = isNewForm ? 'inline-block' : 'none';
+    if (isNewForm) {
+        els.tagCustomInput.placeholder = 'New form name (e.g. Werewolf)';
+        els.tagCustomInput.setAttribute('aria-label', 'New form name');
+        els.tagCustomInput.focus();
+    }
 }
 
 export function renderFormTags() {
@@ -177,6 +203,7 @@ function resetPendingTagControls() {
     els.tagCustomInput.value = '';
     els.tagCustomInput.style.display = 'none';
     els.tagChainTarget.value = '';
+    els.tagWhileForm.value = '';
     const motorizedStat = editorElement('tag-motorized-stat');
     motorizedStat.style.display = 'none';
     motorizedStat.value = '';
@@ -204,7 +231,8 @@ function getPendingTileTag() {
             reason = 'Choose an existing tile to link. If none are available, save another tile first.';
         }
     } else if (selVal === 'While') {
-        const form = els.tagCustomInput.value.trim();
+        const selection = els.tagWhileForm.value;
+        const form = selection === 'new' ? els.tagCustomInput.value.trim() : selection.slice(5);
         if (form) {
             finalTag = `While ${form}`;
         } else {
