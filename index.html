@@ -1091,7 +1091,7 @@
                             <option value="">-- Select Tag --</option>
                             <optgroup label="Mechanics">
                                 <option value="Chain">Chain (choose an existing tile)</option>
-                                <option value="World">World (chains Homeworld; specify tile) [+3]</option>
+                                <option value="World">World (chains Homeworld; choose an existing tile) [+3]</option>
                             </optgroup>
                             <optgroup label="Shadow">
                                 <option value="Day">Day (Qi; hourly Rising)</option>
@@ -1385,7 +1385,7 @@
                                 <option value="" data-xp="0">-- Select --</option>
                                 <option value="Custom" data-xp="0">Custom...</option>
                                 <optgroup label="Spell Crits & Tags">
-                                    <option value="World" data-xp="3">World (chains Homeworld; specify tile)</option>
+                                    <option value="World" data-xp="3">World (chains Homeworld; choose an existing tile)</option>
                                     <option value="2 XP Crit/Tag" data-xp="2">2 XP Crit/Tag (+2🗱)</option>
                                     <option value="3 XP Crit" data-xp="3">3 XP Crit (+3🗱)</option>
                                     <option value="4 XP Crit/Tag" data-xp="4">4 XP Crit/Tag (+4🗱)</option>
@@ -1459,6 +1459,9 @@
                                 </optgroup>
                             </select>
                             <input type="text" id="spell-tag-custom-input" placeholder="Custom Tag..." style="display: none; flex: 1; padding: 0.8rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                            <select id="spell-world-target" aria-label="World target tile" style="display: none; flex: 1; min-width: 150px; padding: 0.8rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                                <option value="">-- Select linked tile --</option>
+                            </select>
                             <input type="number" id="spell-tag-custom-xp" value="2" style="display: none; width: 60px; padding: 0.8rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;" title="XP Cost">
                             <select id="spell-tag-hitch-value" style="display: none; flex: 1; min-width: 150px; padding: 0.8rem; font-size: 1rem; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 8px;" title="Hitch rebate value">
                                 <option value="1">Hitch 1 XP rebate</option>

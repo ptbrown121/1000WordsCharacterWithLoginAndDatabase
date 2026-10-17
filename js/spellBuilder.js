@@ -29,9 +29,10 @@ import {
 } from './ui/spellColors.js';
 import { SPELL_METRIC_IDS, applySpellStateToForm, readSpellStateFromForm } from './ui/spellForm.js';
 import { withTileResourceSync } from './ui/vitals.js';
-import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, showPendingTagDialog } from './ui/modalWidgets.js';
+import { bindOptionGrids, bindStableTouchButton, createDiceTokenEditor, populateTileLinkTargets, showPendingTagDialog } from './ui/modalWidgets.js';
 import { showAlert as showAlertDialog, showConfirm } from './ui/dialogService.js';
 import { editorElement, editorElements } from './ui/editorDom.js';
+import { els } from './els.js';
 
 export class SpellBuilder {
     /**
@@ -70,6 +71,7 @@ export class SpellBuilder {
         // Tag Elements
         this.tagSelect = editorElement('spell-tag-select');
         this.tagCustomInput = editorElement('spell-tag-custom-input');
+        this.tagWorldTarget = els.spellWorldTarget;
         this.tagCustomXp = editorElement('spell-tag-custom-xp');
         this.btnAddTag = editorElement('btn-spell-add-tag');
         this.tagsContainer = editorElement('spell-tags-container');
@@ -145,10 +147,18 @@ export class SpellBuilder {
 
         this.tagSelect.addEventListener('change', (e) => {
             const hitchValue = editorElement('spell-tag-hitch-value');
-            if (e.target.value === 'Custom' || e.target.value === 'World') {
+            this.tagWorldTarget.style.display = 'none';
+            if (e.target.value === 'World') {
+                populateTileLinkTargets(this.tagWorldTarget, this.dataManager.state.tiles || [], this.editingTileId || '');
+                this.tagWorldTarget.style.display = 'block';
+                this.tagWorldTarget.focus();
+                this.tagCustomInput.style.display = 'none';
+                this.tagCustomXp.style.display = 'none';
+                if (hitchValue) hitchValue.style.display = 'none';
+            } else if (e.target.value === 'Custom') {
                 this.tagCustomInput.style.display = 'block';
-                this.tagCustomInput.placeholder = e.target.value === 'World' ? 'Tile Name to Link' : 'Custom Tag...';
-                this.tagCustomXp.style.display = e.target.value === 'World' ? 'none' : 'block';
+                this.tagCustomInput.placeholder = 'Custom Tag...';
+                this.tagCustomXp.style.display = 'block';
                 if (hitchValue) hitchValue.style.display = 'none';
             } else if (e.target.value === 'Hitch') {
                 this.tagCustomInput.style.display = 'none';
@@ -204,6 +214,7 @@ export class SpellBuilder {
         resetSpellColorControls();
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
+        this.tagWorldTarget.style.display = 'none';
         SPELL_METRIC_IDS.forEach(id => {
             const div = editorElement(`${id}-custom`);
             if (div) div.style.display = 'none';
@@ -503,6 +514,8 @@ export class SpellBuilder {
 
     resetPendingSpellTagControls() {
         this.tagSelect.value = '';
+        this.tagWorldTarget.value = '';
+        this.tagWorldTarget.style.display = 'none';
         this.tagCustomInput.value = '';
         this.tagCustomInput.style.display = 'none';
         this.tagCustomXp.style.display = 'none';
@@ -527,12 +540,12 @@ export class SpellBuilder {
             xp = parseInt(this.tagCustomXp.value || 0, 10);
             if (!val) reason = 'Custom needs a tag name.';
         } else if (val === 'World') {
-            const target = this.tagCustomInput.value.trim();
+            const target = this.tagWorldTarget.value;
             if (target) {
                 val = `World ${target}`;
                 xp = 0;
             } else {
-                reason = 'World needs a linked tile name.';
+                reason = 'Choose an existing tile to link. If none are available, save another tile first.';
             }
         } else if (val === 'Hitch') {
             const rebate = Math.min(6, Math.max(1, parseInt(editorElement('spell-tag-hitch-value').value, 10) || 3));

@@ -96,6 +96,7 @@ export const els = {
     tagSelect: requiredElement('tag-select', HTMLSelectElement),
     tagCustomInput: requiredElement('tag-custom-input', HTMLInputElement),
     tagChainTarget: requiredElement('tag-chain-target', HTMLSelectElement),
+    spellWorldTarget: requiredElement('spell-world-target', HTMLSelectElement),
     btnAddTag: requiredElement('btn-add-tag', HTMLButtonElement),
     tagsContainer: requiredElement('selected-tags-container', HTMLElement),
     tileDice: requiredElement('tile-dice', HTMLInputElement),

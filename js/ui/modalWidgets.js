@@ -5,6 +5,20 @@ import { escapeHtml } from '../pool.js';
 import { editorElement, editorElements, optionalEditorElement } from './editorDom.js';
 
 /**
+ * @param {HTMLSelectElement} select
+ * @param {import('../types.js').Tile[]} tiles
+ * @param {string} [currentTileId]
+ */
+export function populateTileLinkTargets(select, tiles, currentTileId = '') {
+    const names = [...new Set(tiles
+        .filter(tile => tile.id !== currentTileId && tile.name)
+        .map(tile => tile.name))].sort((a, b) => a.localeCompare(b));
+    select.replaceChildren(new Option(names.length ? '-- Select linked tile --' : 'No other tiles available', ''));
+    names.forEach(name => select.add(new Option(name, name)));
+    select.disabled = names.length === 0;
+}
+
+/**
  * @param {Element|null} element
  * @returns {element is HTMLInputElement|HTMLTextAreaElement}
  */
