@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { requireCronSecret } from '../api/_lib/cron.js';
+import { BACKUP_TABLES, dumpTable } from '../api/cron/backup.js';
 import { assertNoSupabaseError, publicSupabaseMessage } from '../api/_lib/supabase.js';
 
 function withCronSecret(value, fn) {
@@ -30,6 +31,60 @@ describe('cron secret check', () => {
                 );
             }
         });
+    });
+});
+
+describe('backup cron bounded log exports', () => {
+    it('marks append-only log tables (roll_logs, ai_agent_run_logs) as bounded newest-first exports', () => {
+        const rollLogs = BACKUP_TABLES.find(table => table.name === 'roll_logs');
+        const agentLogs = BACKUP_TABLES.find(table => table.name === 'ai_agent_run_logs');
+        assert.equal(rollLogs?.boundedLog, true);
+        assert.equal(rollLogs?.ascending, false);
+        assert.equal(agentLogs?.boundedLog, true);
+        assert.equal(agentLogs?.ascending, false);
+    });
+
+    it('applies a retention cutoff and row cap to bounded log tables while leaving normal tables unbounded', async () => {
+        const queries = [];
+        const mockClient = {
+            from(tableName) {
+                const state = { tableName, gte: null, range: null, orders: [] };
+                const builder = {
+                    select() { return builder; },
+                    gte(col, val) { state.gte = [col, val]; return builder; },
+                    range(from, to) { state.range = [from, to]; return builder; },
+                    order(col, opts) { state.orders.push([col, opts]); return builder; },
+                    then(resolve) {
+                        queries.push({ ...state });
+                        const count = state.range[1] - state.range[0] + 1;
+                        return Promise.resolve({
+                            data: Array.from({ length: count }, (_, idx) => ({ id: `${tableName}-${state.range[0] + idx}` })),
+                            error: null
+                        }).then(resolve);
+                    }
+                };
+                return builder;
+            }
+        };
+
+        const nowMs = Date.parse('2026-10-16T12:00:00.000Z');
+        const rollLogsTable = BACKUP_TABLES.find(table => table.name === 'roll_logs');
+        const rows = await dumpTable(mockClient, rollLogsTable, {
+            nowMs,
+            retentionDays: 30,
+            maxLogRows: 5,
+            pageSize: 3
+        });
+
+        assert.equal(rows.length, 5);
+        assert.equal(queries.length, 2);
+        assert.deepEqual(queries[0].gte, ['created_at', '2026-09-16T12:00:00.000Z']);
+        assert.deepEqual(queries[0].range, [0, 2]);
+        assert.deepEqual(queries[1].range, [3, 4]);
+        assert.deepEqual(queries[0].orders, [
+            ['created_at', { ascending: false }],
+            ['id', { ascending: false }]
+        ]);
     });
 });
 
@@ -70,3 +125,4 @@ describe('Supabase error messages sent to clients', () => {
         assert.equal(thrown.details, null);
     });
 });
+

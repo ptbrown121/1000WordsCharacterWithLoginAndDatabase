@@ -21,6 +21,11 @@ describe('vercel.json cron schedule', () => {
             assert.match(hour, /^\d+$/, `${cron.path} must run at a fixed hour`);
         }
     });
+
+    it('configures a 60s maxDuration for both AI and cron function routes', () => {
+        assert.equal(config.functions?.['api/ai/*.js']?.maxDuration, 60);
+        assert.equal(config.functions?.['api/cron/*.js']?.maxDuration, 60);
+    });
 });
 
 describe('vercel.json security headers', () => {

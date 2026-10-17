@@ -100,13 +100,13 @@ Status: in progress (executing one step at a time). Follows the phased-step conv
 
 ## Step 7 — Backup Cron Timeout & Bounded Log Table Export
 
-**Status: planned.**
+**Status: done 2026-10-16.**
 
 **Why:** `vercel.json` did not configure `maxDuration` for `api/cron/*.js`, and `api/cron/backup.js` dumped unbounded append-only log tables (`roll_logs`, `ai_agent_run_logs`).
 
 **Code changes:**
-- `vercel.json`: add `"api/cron/*.js": { "maxDuration": 60 }`.
-- `api/cron/backup.js`: bound `roll_logs` and `ai_agent_run_logs` exports to a recent window (e.g. 90 days) or configurable row cap.
+- `vercel.json`: added `"api/cron/*.js": { "maxDuration": 60 }`.
+- `api/cron/backup.js`: bounded `roll_logs` and `ai_agent_run_logs` exports to a recent window (default 90 days via `BACKUP_LOG_RETENTION_DAYS`) and row cap (default 5000 rows via `BACKUP_LOG_MAX_ROWS`), ordered newest-first.
 - `test/vercel-config.test.js` & `test/api-hardening.test.js`: tests for cron `maxDuration` and bounded log backup queries.
 
 ---
